@@ -69,4 +69,19 @@ and evaluation.
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
-Phase 0 starting. Tools verified installed: Python 3.12.0, Git 2.49, Node 24.2, Docker 28.1.1, WSL2.
+Phase 0 done. Phase 1 (ingestion) in progress:
+- Sources identified in data/sources.md (AUI Academic Catalog 2024-2025 PDF + 2 scholarship pages).
+- load.py downloads raw files to data/raw/; clean.py extracts plain text to data/processed/
+  (PDF keeps per-page markers for citations; HTML strips script/style/nav/header/footer/noscript).
+- chunk.py splits into ~1000-char overlapping chunks (data/processed/chunks.jsonl, 1161 chunks),
+  tracking source/pages/language per chunk. Also reports token lengths against the embedding
+  model's max_seq_length after every run.
+- embeddings.py: multilingual embedding model, via app/config.py (EMBEDDING_MODEL_NAME =
+  intfloat/multilingual-e5-small, 384-dim, 512 token limit). embed_passages()/embed_query()
+  apply e5's required "passage: "/"query: " prefixes internally. (Started with
+  paraphrase-multilingual-MiniLM-L12-v2 but switched: its 128-token limit was silently
+  truncating 99.8% of real chunks.)
+
+Next: the "store" step -- create the Postgres table (vector(384) + model_name + source/
+chunk_index/pages/language/text columns), embed all 1161 chunks with embed_passages(), and
+insert them. That closes out Phase 1.
