@@ -67,7 +67,7 @@ and evaluation.
 
 ## Phases
 - [done ] Phase 0: repo setup, Python venv, dependencies, Docker Compose with Postgres + pgvector
-- [ ] Phase 1: ingestion pipeline (load, chunk, embed, store)
+- [done ] Phase 1: ingestion pipeline (load, chunk, embed, store)
 - [ ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [ ] Phase 3: RAG answers with citations via FastAPI
 - [ ] Phase 4: LangGraph agent with tools (docs search + SQL)
@@ -76,19 +76,24 @@ and evaluation.
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
-Phase 0 done. Phase 1 (ingestion) in progress:
+Phase 0 and Phase 1 (ingestion) done.
 - Sources identified in data/sources.md (AUI Academic Catalog 2024-2025 PDF + 2 scholarship pages).
 - load.py downloads raw files to data/raw/; clean.py extracts plain text to data/processed/
   (PDF keeps per-page markers for citations; HTML strips script/style/nav/header/footer/noscript).
 - chunk.py splits into ~1000-char overlapping chunks (data/processed/chunks.jsonl, 1161 chunks),
-  tracking source/pages/language per chunk. Also reports token lengths against the embedding
+  tracking source/pages/language per chunk, and reports token lengths against the embedding
   model's max_seq_length after every run.
 - embeddings.py: multilingual embedding model, via app/config.py (EMBEDDING_MODEL_NAME =
   intfloat/multilingual-e5-small, 384-dim, 512 token limit). embed_passages()/embed_query()
-  apply e5's required "passage: "/"query: " prefixes internally. (Started with
-  paraphrase-multilingual-MiniLM-L12-v2 but switched: its 128-token limit was silently
-  truncating 99.8% of real chunks.)
+  apply e5's required "passage: "/"query: " prefixes internally.
+- app/db/ (schema.sql + connection.py) + app/ingestion/store.py: embeds all chunks and
+  upserts them into Postgres table document_chunks (vector(384) + model_name + source/
+  chunk_index/pages/language/text, unique on source+chunk_index+model_name for idempotent
+  re-runs). Verified end-to-end: 1161 rows stored, a real query against the live table
+  correctly retrieves the right catalog passage with correct page metadata.
+- Postgres (Docker) runs on host port 55432, not 5432/5433 -- this machine has had native
+  Postgres installs collide with both. See Environment section above before assuming a
+  DB connection failure is a credentials bug.
 
-Next: the "store" step -- create the Postgres table (vector(384) + model_name + source/
-chunk_index/pages/language/text columns), embed all 1161 chunks with embed_passages(), and
-insert them. That closes out Phase 1.
+Next: Phase 2 -- retrieval (vector, keyword/BM25, hybrid merge) and an evaluation set to
+measure retrieval quality.
