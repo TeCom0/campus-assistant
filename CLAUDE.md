@@ -55,7 +55,7 @@ and evaluation.
 - Secrets in .env (gitignored). Provide .env.example.
 
 ## Phases
-- [ ] Phase 0: repo setup, Python venv, dependencies, Docker Compose with Postgres + pgvector
+- [done ] Phase 0: repo setup, Python venv, dependencies, Docker Compose with Postgres + pgvector
 - [ ] Phase 1: ingestion pipeline (load, chunk, embed, store)
 - [ ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [ ] Phase 3: RAG answers with citations via FastAPI
