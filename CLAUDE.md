@@ -29,6 +29,13 @@ and evaluation.
 - Project lives OUTSIDE OneDrive (long-path issues).
 - Give PowerShell commands, not bash, unless running inside a Docker container.
 - If the Docker daemon isn't reachable, run `docker desktop start`, wait for `docker desktop status` to report running, then continue. Don't ask Youness to start it manually.
+- Postgres (Docker) is mapped to host port 55432, not 5432. This machine has had native
+  Postgres installs bind to both 5432 and 5433 at different times, which caused connections
+  from the host to silently hit the wrong server (password authentication failures that had
+  nothing to do with the actual password). 55432 avoids the collision. If a similar port
+  conflict ever resurfaces, check `Get-NetTCPConnection -LocalPort <port> -State Listen` and
+  confirm the owning process is Docker's (`com.docker.backend`/`wslrelay`) before assuming the
+  app's credentials are wrong.
 
 ## Stack
 - Backend: Python 3.12, FastAPI
