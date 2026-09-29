@@ -24,6 +24,7 @@ and evaluation.
 - Windows, PowerShell. Python 3.12, Node 24, Git 2.49, Docker 28 (WSL2 backend), 16 GB RAM.
 - Project lives OUTSIDE OneDrive (long-path issues).
 - Give PowerShell commands, not bash, unless running inside a Docker container.
+- If the Docker daemon isn't reachable, run `docker desktop start`, wait for `docker desktop status` to report running, then continue. Don't ask Youness to start it manually.
 
 ## Stack
 - Backend: Python 3.12, FastAPI
