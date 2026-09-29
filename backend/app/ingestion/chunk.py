@@ -10,6 +10,8 @@ import re
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from app.embeddings import count_tokens, get_model
+
 PROCESSED_DIR = Path(__file__).resolve().parents[3] / "data" / "processed"
 CHUNKS_PATH = PROCESSED_DIR / "chunks.jsonl"
 
@@ -114,7 +116,26 @@ def save_chunks(chunks: list[Chunk]) -> None:
         f.writelines(json.dumps(asdict(c), ensure_ascii=False) + "\n" for c in chunks)
 
 
+def report_token_lengths(chunks: list[Chunk]) -> None:
+    """Report how chunk sizes compare to the embedding model's token limit.
+
+    Read dynamically from the model (not hardcoded) so this check can't
+    silently go stale if the embedding model is ever changed again -- that's
+    exactly how the previous model's 128-token limit went unnoticed against
+    ~1000-char chunks.
+    """
+    limit = get_model().max_seq_length
+    counts = count_tokens([c.text for c in chunks])
+    over_limit = sum(1 for t in counts if t > limit)
+    print(
+        f"\ntoken length check ({get_model().tokenizer.name_or_path}, limit={limit}):\n"
+        f"  min={min(counts)} max={max(counts)} mean={sum(counts) / len(counts):.1f}\n"
+        f"  over limit: {over_limit}/{len(counts)} ({100 * over_limit / len(counts):.1f}%)"
+    )
+
+
 if __name__ == "__main__":
     all_chunks = chunk_all()
     save_chunks(all_chunks)
     print(f"\ntotal chunks: {len(all_chunks)} -> saved to {CHUNKS_PATH}")
+    report_token_lengths(all_chunks)
