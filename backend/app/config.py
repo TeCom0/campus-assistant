@@ -27,3 +27,19 @@ DATABASE_URL = (
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
+
+# LLM provider, switchable through this one value ("groq" or "gemini") --
+# see app/llm.py. Keys use .get() with an empty-string default, not
+# os.environ[...], so importing this module doesn't fail before a key has
+# been added; app/llm.py raises a clear error only when a provider is
+# actually used without its key set.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "groq")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+# openai/gpt-oss-20b: Groq's recommended replacement for the now-deprecated
+# (2026-08-16) llama-3.1-8b-instant.
+GROQ_MODEL = "openai/gpt-oss-20b"
+# gemini-3.5-flash: stable GA release (2026-05-19). Not gemini-2.5-flash,
+# which is being retired 2026-10-20.
+GEMINI_MODEL = "gemini-3.5-flash"

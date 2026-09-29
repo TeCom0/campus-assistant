@@ -12,6 +12,8 @@ dependencies = [
     "psycopg[binary]",
     "pgvector",
     "python-dotenv",
+    "groq",
+    "google-genai",
 ]
 
 [project.optional-dependencies]
