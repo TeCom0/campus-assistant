@@ -6,6 +6,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from app.retrieval.hybrid_search import search_hybrid
 from app.retrieval.keyword_search import search_keyword
 from app.retrieval.vector_search import search_vector
 
@@ -64,6 +65,7 @@ if __name__ == "__main__":
     summaries = [
         run_eval(search_vector, "vector", all_questions),
         run_eval(search_keyword, "keyword", all_questions),
+        run_eval(search_hybrid, "hybrid", all_questions),
     ]
 
     print("\n=== summary ===")
