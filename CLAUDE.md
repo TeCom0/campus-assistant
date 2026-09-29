@@ -68,7 +68,7 @@ and evaluation.
 ## Phases
 - [done ] Phase 0: repo setup, Python venv, dependencies, Docker Compose with Postgres + pgvector
 - [done ] Phase 1: ingestion pipeline (load, chunk, embed, store)
-- [ ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
+- [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [ ] Phase 3: RAG answers with citations via FastAPI
 - [ ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [ ] Phase 5: React + TypeScript chat UI with streaming
@@ -76,7 +76,7 @@ and evaluation.
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
-Phase 0 and Phase 1 (ingestion) done.
+Phase 0, Phase 1 (ingestion), and Phase 2 (retrieval) done.
 - Sources identified in data/sources.md (AUI Academic Catalog 2024-2025 PDF + 2 scholarship pages).
 - load.py downloads raw files to data/raw/; clean.py extracts plain text to data/processed/
   (PDF keeps per-page markers for citations; HTML strips script/style/nav/header/footer/noscript).
@@ -89,11 +89,22 @@ Phase 0 and Phase 1 (ingestion) done.
 - app/db/ (schema.sql + connection.py) + app/ingestion/store.py: embeds all chunks and
   upserts them into Postgres table document_chunks (vector(384) + model_name + source/
   chunk_index/pages/language/text, unique on source+chunk_index+model_name for idempotent
-  re-runs). Verified end-to-end: 1161 rows stored, a real query against the live table
-  correctly retrieves the right catalog passage with correct page metadata.
+  re-runs). 1161 rows stored.
+- app/retrieval/: search_vector() (pgvector cosine distance), search_keyword() (Postgres
+  full-text search -- tsvector/GIN/ts_rank, not literal BM25), search_hybrid() (Reciprocal
+  Rank Fusion, k=60, merging the two). eval/retrieval_eval_set.json (12 hand-labeled
+  questions, incl. French phrasings to test cross-lingual retrieval against our English-only
+  docs) + app/evaluation/run_retrieval_eval.py (Hit Rate@k, MRR) measure all three:
+  vector Hit@3 58.3%/MRR 0.558, keyword 16.7%/0.167, hybrid 75.0%/MRR 0.646 (no regressions
+  vs vector). Known open gap: 2 of 4 French questions aren't retrieved by any method --
+  keyword can't help cross-lingual (no French text to match), so this needs a different
+  mitigation later (e.g. query translation), not more retrieval tuning.
 - Postgres (Docker) runs on host port 55432, not 5432/5433 -- this machine has had native
   Postgres installs collide with both. See Environment section above before assuming a
   DB connection failure is a credentials bug.
+
+Next: Phase 3 -- RAG answers with citations via FastAPI (answer only from retrieved chunks,
+cite sources, say "I don't know" when context is missing).
 
 Next: Phase 2 -- retrieval (vector, keyword/BM25, hybrid merge) and an evaluation set to
 measure retrieval quality.
