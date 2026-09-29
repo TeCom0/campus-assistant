@@ -76,49 +76,48 @@ and evaluation.
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
-Phase 0, Phase 1 (ingestion), Phase 2 (retrieval), and Phase 3 (generation + API) done.
-- Sources identified in data/sources.md (AUI Academic Catalog 2024-2025 PDF + 2 scholarship pages).
-- load.py downloads raw files to data/raw/; clean.py extracts plain text to data/processed/
-  (PDF keeps per-page markers for citations; HTML strips script/style/nav/header/footer/noscript).
-- chunk.py splits into ~1000-char overlapping chunks (data/processed/chunks.jsonl, 1161 chunks),
-  tracking source/pages/language per chunk, and reports token lengths against the embedding
-  model's max_seq_length after every run.
-- embeddings.py: multilingual embedding model, via app/config.py (EMBEDDING_MODEL_NAME =
-  intfloat/multilingual-e5-small, 384-dim, 512 token limit). embed_passages()/embed_query()
-  apply e5's required "passage: "/"query: " prefixes internally.
-- app/db/ (schema.sql + connection.py) + app/ingestion/store.py: embeds all chunks and
-  upserts them into Postgres table document_chunks (vector(384) + model_name + source/
-  chunk_index/pages/language/text, unique on source+chunk_index+model_name for idempotent
-  re-runs). 1161 rows stored.
-- app/retrieval/: search_vector() (pgvector cosine distance), search_keyword() (Postgres
-  full-text search -- tsvector/GIN/ts_rank, not literal BM25), search_hybrid() (Reciprocal
-  Rank Fusion, k=60, merging the two). eval/retrieval_eval_set.json (12 hand-labeled
-  questions, incl. French phrasings to test cross-lingual retrieval against our English-only
-  docs) + app/evaluation/run_retrieval_eval.py (Hit Rate@k, MRR) measure all three:
-  vector Hit@3 58.3%/MRR 0.558, keyword 16.7%/0.167, hybrid 75.0%/MRR 0.646 (no regressions
-  vs vector). Known open gap: 2 of 4 French questions aren't retrieved by any method --
-  keyword can't help cross-lingual (no French text to match), so this needs a different
-  mitigation later (e.g. query translation), not more retrieval tuning.
-- Postgres (Docker) runs on host port 55432, not 5432/5433 -- this machine has had native
-  Postgres installs collide with both. See Environment section above before assuming a
-  DB connection failure is a credentials bug.
-- app/llm.py: complete()/stream() dispatch to Groq (primary, model openai/gpt-oss-20b) or
-  Gemini (fallback, gemini-3.5-flash) via LLM_PROVIDER config. Both keys live/verified in
-  .env (gitignored).
-- app/generation.py: answer_question() (blocking) / stream_answer() (generator, for the API)
-  retrieve via search_hybrid(), number passages [1..k] in the prompt, and instruct the LLM via
-  a system prompt to answer ONLY from those passages, cite by passage number (ASCII brackets
-  only -- caught the model using full-width Unicode brackets, which would've broken
-  frontend citation parsing), and say "I don't know" when context is insufficient. Citation
-  source/pages come from our own retrieved-chunk metadata, never from the LLM.
-- app/main.py: POST /chat streams answer_question()'s events as Server-Sent Events; GET
-  /health. Verified end-to-end with curl -N showing real token-by-token SSE frames and a
-  correct final citations event. No ingestion-trigger endpoint yet (mentioned in the target
-  Architecture list above but not required by the Phase 3 checklist item) -- add if/when
-  actually needed, e.g. for a deployed pilot in Phase 7.
-- Known residual risk, not fully resolved: an LLM can occasionally answer in the wrong
+
+**Finished this session:** Phases 0-3, end to end -- repo/Docker setup, the full ingestion
+pipeline, all three retrieval methods with a measured evaluation baseline, and grounded/cited
+RAG generation behind a streaming FastAPI endpoint. Session ended cleanly; working tree is
+clean (nothing uncommitted).
+
+**In progress:** nothing -- this is a clean phase boundary. Phase 4 has not been started.
+
+**Exact next step:** Phase 4 -- LangGraph agent with tools (`search_documents` wrapping the
+existing `search_hybrid()`, `query_fellowships` via structured SQL -- note fellowship
+deadlines aren't ingested as structured data yet, so that tool needs its own small schema/
+ingestion first). Start by explaining LangGraph's state/graph concepts before writing code,
+per the working style above.
+
+**Open issues / decisions to remember:**
+- *Postgres port*: Docker maps to host port **55432**, not 5432/5433 -- this machine has had
+  native Postgres installs collide with both, causing misleading "password authentication
+  failed" errors that were actually a wrong-server problem, not a credentials problem. See
+  Environment section above; verify with `Get-NetTCPConnection` before assuming credentials
+  are wrong if this resurfaces.
+- *Embedding model switch*: started with paraphrase-multilingual-MiniLM-L12-v2, switched to
+  **intfloat/multilingual-e5-small** (384-dim, 512 token limit) after discovering the first
+  model's 128-token limit was silently truncating 99.8% of real chunks. embed_passages()/
+  embed_query() apply e5's required "passage: "/"query: " prefixes internally.
+- *Known cross-lingual retrieval gap*: 2 of 4 French eval questions aren't retrieved by any
+  method (vector, keyword, or hybrid) -- keyword search can't help here since there's no
+  French text to match against our English-only documents. Needs a different mitigation
+  later (e.g. query translation before retrieval), not more retrieval-side tuning.
+  Vector Hit@3 58.3%/MRR 0.558, keyword 16.7%/0.167, hybrid 75.0%/MRR 0.646 (hybrid: no
+  regressions vs. vector).
+- *LLM provider*: Groq (primary, model `openai/gpt-oss-20b`) / Gemini (fallback,
+  `gemini-3.5-flash`) via `LLM_PROVIDER` config in `.env`. Both API keys are set and verified
+  working.
+- *No ingestion-trigger endpoint yet* (mentioned in the target Architecture list, not required
+  by the Phase 3 checklist item) -- add if/when actually needed, e.g. for the Phase 7 pilot
+  deployment.
+- *Known residual risk, not fully resolved*: the LLM can occasionally answer in the wrong
   language despite the system prompt's "same language as the question" rule. Mitigated by
   strengthening the prompt wording; not guaranteed, since LLM instruction-following is
-  inherently stochastic.
-
-Next: Phase 4 -- LangGraph agent with tools (search_documents, query_fellowships via SQL).
+  inherently stochastic -- revisit if it shows up again during Phase 4/5 testing.
+- *Data pipeline recap*: data/sources.md lists 3 AUI documents (catalog PDF + 2 scholarship
+  pages) -> load.py/clean.py/chunk.py (data/raw/, data/processed/, 1161 chunks in
+  chunks.jsonl) -> app/ingestion/store.py embeds and upserts into Postgres table
+  document_chunks (vector(384) + model_name + source/chunk_index/pages/language/text,
+  idempotent via unique constraint + upsert).
