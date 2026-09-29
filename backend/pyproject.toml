@@ -5,6 +5,8 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi",
     "requests",
+    "pypdf",
+    "beautifulsoup4",
 ]
 
 [project.optional-dependencies]
