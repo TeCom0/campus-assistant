@@ -69,14 +69,14 @@ and evaluation.
 - [done ] Phase 0: repo setup, Python venv, dependencies, Docker Compose with Postgres + pgvector
 - [done ] Phase 1: ingestion pipeline (load, chunk, embed, store)
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
-- [ ] Phase 3: RAG answers with citations via FastAPI
+- [done ] Phase 3: RAG answers with citations via FastAPI
 - [ ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [ ] Phase 5: React + TypeScript chat UI with streaming
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
-Phase 0, Phase 1 (ingestion), and Phase 2 (retrieval) done.
+Phase 0, Phase 1 (ingestion), Phase 2 (retrieval), and Phase 3 (generation + API) done.
 - Sources identified in data/sources.md (AUI Academic Catalog 2024-2025 PDF + 2 scholarship pages).
 - load.py downloads raw files to data/raw/; clean.py extracts plain text to data/processed/
   (PDF keeps per-page markers for citations; HTML strips script/style/nav/header/footer/noscript).
@@ -102,9 +102,23 @@ Phase 0, Phase 1 (ingestion), and Phase 2 (retrieval) done.
 - Postgres (Docker) runs on host port 55432, not 5432/5433 -- this machine has had native
   Postgres installs collide with both. See Environment section above before assuming a
   DB connection failure is a credentials bug.
+- app/llm.py: complete()/stream() dispatch to Groq (primary, model openai/gpt-oss-20b) or
+  Gemini (fallback, gemini-3.5-flash) via LLM_PROVIDER config. Both keys live/verified in
+  .env (gitignored).
+- app/generation.py: answer_question() (blocking) / stream_answer() (generator, for the API)
+  retrieve via search_hybrid(), number passages [1..k] in the prompt, and instruct the LLM via
+  a system prompt to answer ONLY from those passages, cite by passage number (ASCII brackets
+  only -- caught the model using full-width Unicode brackets, which would've broken
+  frontend citation parsing), and say "I don't know" when context is insufficient. Citation
+  source/pages come from our own retrieved-chunk metadata, never from the LLM.
+- app/main.py: POST /chat streams answer_question()'s events as Server-Sent Events; GET
+  /health. Verified end-to-end with curl -N showing real token-by-token SSE frames and a
+  correct final citations event. No ingestion-trigger endpoint yet (mentioned in the target
+  Architecture list above but not required by the Phase 3 checklist item) -- add if/when
+  actually needed, e.g. for a deployed pilot in Phase 7.
+- Known residual risk, not fully resolved: an LLM can occasionally answer in the wrong
+  language despite the system prompt's "same language as the question" rule. Mitigated by
+  strengthening the prompt wording; not guaranteed, since LLM instruction-following is
+  inherently stochastic.
 
-Next: Phase 3 -- RAG answers with citations via FastAPI (answer only from retrieved chunks,
-cite sources, say "I don't know" when context is missing).
-
-Next: Phase 2 -- retrieval (vector, keyword/BM25, hybrid merge) and an evaluation set to
-measure retrieval quality.
+Next: Phase 4 -- LangGraph agent with tools (search_documents, query_fellowships via SQL).
