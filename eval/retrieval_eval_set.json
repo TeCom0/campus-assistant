@@ -1,0 +1,89 @@
+[
+  {
+    "id": "transfer_credits_en",
+    "question": "How many credits can I transfer to AUI from another university?",
+    "language": "en",
+    "topic": "transfer credits",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 51}]
+  },
+  {
+    "id": "transfer_credits_fr",
+    "question": "Combien de crédits puis-je transférer à l'AUI depuis une autre université ?",
+    "language": "fr",
+    "topic": "transfer credits",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 51}]
+  },
+  {
+    "id": "min_grade_transfer_en",
+    "question": "What is the minimum grade required for a course to be transferable to AUI?",
+    "language": "en",
+    "topic": "transfer credits",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 50}]
+  },
+  {
+    "id": "plagiarism_en",
+    "question": "What is considered plagiarism at AUI?",
+    "language": "en",
+    "topic": "academic integrity",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 245}]
+  },
+  {
+    "id": "plagiarism_fr",
+    "question": "Qu'est-ce que le plagiat selon le règlement de l'AUI ?",
+    "language": "fr",
+    "topic": "academic integrity",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 245}]
+  },
+  {
+    "id": "grading_determination_en",
+    "question": "Who determines a student's grade in a course?",
+    "language": "en",
+    "topic": "grading",
+    "expected": [
+      {"source": "academic_catalog_2024_2025", "chunk_index": 249},
+      {"source": "academic_catalog_2024_2025", "chunk_index": 250}
+    ]
+  },
+  {
+    "id": "add_drop_en",
+    "question": "How do I add or drop a course at AUI?",
+    "language": "en",
+    "topic": "registration",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 232}]
+  },
+  {
+    "id": "add_drop_fr",
+    "question": "Comment ajouter ou supprimer un cours à l'AUI ?",
+    "language": "fr",
+    "topic": "registration",
+    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 232}]
+  },
+  {
+    "id": "rhodes_scholarship_en",
+    "question": "Which AUI student received the Rhodes Scholarship?",
+    "language": "en",
+    "topic": "fellowships",
+    "expected": [{"source": "prestigious_scholarships", "chunk_index": 1}]
+  },
+  {
+    "id": "mccall_macbain_en",
+    "question": "Which AUI student received the McCall MacBain Scholarship?",
+    "language": "en",
+    "topic": "fellowships",
+    "expected": [{"source": "prestigious_scholarships", "chunk_index": 1}]
+  },
+  {
+    "id": "scholarship_conditions_en",
+    "question": "What are the conditions for keeping an Al Akhawayn scholarship?",
+    "language": "en",
+    "topic": "fellowships",
+    "expected": [{"source": "graduate_scholarships", "chunk_index": 0}]
+  },
+  {
+    "id": "scholarship_conditions_fr",
+    "question": "Quelles sont les conditions pour conserver une bourse Al Akhawayn ?",
+    "language": "fr",
+    "topic": "fellowships",
+    "expected": [{"source": "graduate_scholarships", "chunk_index": 0}]
+  }
+]
