@@ -44,6 +44,14 @@ GROQ_MODEL = "openai/gpt-oss-20b"
 # which is being retired 2026-10-20.
 GEMINI_MODEL = "gemini-3.5-flash"
 
+# Prior chat turns sent to the agent per request. Capped because free-tier
+# token limits are tight and history grows every turn.
+MAX_HISTORY_MESSAGES = 10
+
+# Hard cap on agent steps per request (each agent or tool-node run counts as one).
+# Stops the model from searching in circles and burning free-tier tokens.
+MAX_AGENT_STEPS = 10
+
 # Browser origins allowed to call the API (the Vite dev server). Browsers block
 # cross-origin requests unless the server opts in with CORS headers.
 CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]

@@ -6,6 +6,12 @@ export interface Citation {
   pages: number[] | null;
 }
 
+// One prior turn sent back to /chat as conversation history.
+export interface HistoryMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export type ChatEvent =
   | { type: "token"; text: string }
   | { type: "tool_call"; tool: string; args: Record<string, unknown>; label: string }

@@ -1,6 +1,7 @@
 """FastAPI application entrypoint."""
 
 import json
+from typing import Literal
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,8 +10,9 @@ from pydantic import BaseModel
 
 from app.agent.citations import reset_citation_counter
 from app.agent.graph import build_graph
+from app.agent.history import build_input_messages
 from app.agent.tool_labels import build_tool_call_label, detect_language
-from app.config import CORS_ORIGINS
+from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
 
 app = FastAPI(title="Campus AI Assistant")
 app.add_middleware(
@@ -39,12 +41,15 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+class HistoryMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+
+
 class ChatRequest(BaseModel):
     question: str
-    # No conversation history field yet (requests are single-turn/stateless) --
-    # deliberately a plain BaseModel so an optional `messages` field can be added
-    # later (e.g. `messages: list[dict] | None = None`) without breaking existing
-    # callers; Pydantic models support new optional fields as a non-breaking change.
+    # Prior turns, oldest first. Optional, so single-turn callers keep working.
+    messages: list[HistoryMessage] | None = None
 
 
 def _sse(event_type: str, data: dict) -> str:
@@ -59,8 +64,10 @@ async def chat(request: ChatRequest) -> StreamingResponse:
         citations: list[dict] = []
 
         try:
+            history = [m.model_dump() for m in request.messages or []]
             async for stream_mode, chunk in _compiled_graph.astream(
-                {"messages": [{"role": "user", "content": request.question}]},
+                {"messages": build_input_messages(request.question, history)},
+                config={"recursion_limit": MAX_AGENT_STEPS},
                 stream_mode=["messages", "updates"],
             ):
                 if stream_mode == "messages":

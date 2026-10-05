@@ -1,4 +1,4 @@
-import type { ChatEvent } from "./types";
+import type { ChatEvent, HistoryMessage } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
@@ -33,12 +33,13 @@ export function parseSse(buffer: string): { events: ChatEvent[]; rest: string } 
 // be used here: it only supports GET, and /chat needs a POST with a JSON body.
 export async function streamChat(
   question: string,
+  history: HistoryMessage[],
   onEvent: (event: ChatEvent) => void,
 ): Promise<void> {
   const response = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, messages: history }),
   });
   if (!response.ok || !response.body) {
     throw new Error(`Chat request failed with HTTP ${response.status}`);

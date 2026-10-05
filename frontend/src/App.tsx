@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import "./App.css";
 import { streamChat } from "./chatStream";
-import type { Citation } from "./types";
+import type { Citation, HistoryMessage } from "./types";
 
 interface UserMessage {
   role: "user";
@@ -62,6 +62,13 @@ export default function App() {
     const trimmed = question.trim();
     if (!trimmed || busy) return;
 
+    // Prior turns sent as history. Interrupted answers are left out: they are
+    // partial and would mislead the model about what was actually answered.
+    const history: HistoryMessage[] = messages.flatMap((m): HistoryMessage[] => {
+      if (m.role === "user") return [{ role: "user", content: m.text }];
+      return m.status === "done" && m.text ? [{ role: "assistant", content: m.text }] : [];
+    });
+
     setBusy(true);
     setQuestion("");
     setMessages((prev) => [
@@ -72,7 +79,7 @@ export default function App() {
 
     let finished = false;
     try {
-      await streamChat(trimmed, (ev) => {
+      await streamChat(trimmed, history, (ev) => {
         if (ev.type === "token") {
           updateLastAssistant((m) => ({ ...m, text: m.text + ev.text }));
         } else if (ev.type === "tool_call") {
