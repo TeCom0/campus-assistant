@@ -15,6 +15,9 @@ dependencies = [
     "groq",
     "google-genai",
     "uvicorn[standard]",
+    "langgraph",
+    "langchain-groq",
+    "langchain-google-genai",
 ]
 
 [project.optional-dependencies]
