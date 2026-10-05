@@ -3,14 +3,22 @@
 import json
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.agent.citations import reset_citation_counter
 from app.agent.graph import build_graph
 from app.agent.tool_labels import build_tool_call_label, detect_language
+from app.config import CORS_ORIGINS
 
 app = FastAPI(title="Campus AI Assistant")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 _compiled_graph = build_graph()
 
 # LLM output occasionally uses full-width Unicode brackets (e.g. "【4】")

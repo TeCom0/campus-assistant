@@ -43,3 +43,7 @@ GROQ_MODEL = "openai/gpt-oss-20b"
 # gemini-3.5-flash: stable GA release (2026-05-19). Not gemini-2.5-flash,
 # which is being retired 2026-10-20.
 GEMINI_MODEL = "gemini-3.5-flash"
+
+# Browser origins allowed to call the API (the Vite dev server). Browsers block
+# cross-origin requests unless the server opts in with CORS headers.
+CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
