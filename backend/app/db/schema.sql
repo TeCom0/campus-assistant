@@ -24,3 +24,31 @@ ALTER TABLE document_chunks
 
 CREATE INDEX IF NOT EXISTS document_chunks_text_search_idx
     ON document_chunks USING GIN (text_search);
+
+-- Structured course data (code, title, credits, prerequisites), for the
+-- query_courses agent tool. Deliberately doesn't store full course
+-- descriptions -- that free text is already in document_chunks (Phase 1)
+-- and searchable via search_documents; this table is for the structured
+-- facts that need real SQL, especially prerequisite chain-following.
+-- See app/ingestion/courses.py.
+CREATE TABLE IF NOT EXISTS courses (
+    code TEXT PRIMARY KEY,
+    department TEXT NOT NULL,
+    title TEXT NOT NULL,
+    credits INT NOT NULL,
+    prerequisites_text TEXT,
+    corequisites_text TEXT,
+    page INT,
+    source TEXT NOT NULL
+);
+
+-- Normalized prerequisite edges extracted from courses.prerequisites_text,
+-- for recursive chain-following. prerequisite_code is deliberately NOT a
+-- foreign key: a small number of referenced codes don't resolve to an
+-- extracted course row (format variations in the source catalog), and
+-- we'd rather keep the real reference than silently drop it.
+CREATE TABLE IF NOT EXISTS course_prerequisites (
+    course_code TEXT NOT NULL REFERENCES courses(code),
+    prerequisite_code TEXT NOT NULL,
+    PRIMARY KEY (course_code, prerequisite_code)
+);

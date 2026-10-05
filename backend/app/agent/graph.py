@@ -1,8 +1,8 @@
-"""The LangGraph agent: an LLM with tool-calling access to search_documents.
-
-(query_courses -- a structured lookup over real catalog course data, code/
-title/credits/prerequisites -- will be added next; see CLAUDE.md's Current
-status.)
+"""The LangGraph agent: an LLM with tool-calling access to search_documents
+(unstructured document search) and query_courses (structured course lookups)
+-- deliberately two different tools, since "what do I need before taking
+ACC 2302?" is a structured prerequisite-chain query that semantic search
+over narrative text can't reliably answer.
 """
 
 from datetime import UTC, datetime
@@ -11,25 +11,36 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.agent.model import get_agent_model
-from app.agent.tools import search_documents
+from app.agent.tools import query_courses, search_documents
 
 SYSTEM_PROMPT_TEMPLATE = """You are the Al Akhawayn University (AUI) assistant. Today's date is \
 {today}.
 
-You have access to a search_documents tool over AUI's official documents. Use it whenever a \
-question might be answered by those documents -- do not answer AUI-specific facts from your own \
-general knowledge. If the tool's results don't contain the answer, say plainly that you don't \
-know based on the available documents.
+You have access to two tools:
+- search_documents: search AUI's official documents (academic policies, course catalog \
+descriptions, scholarship information). Use this for general questions answerable from those \
+documents.
+- query_courses: look up a specific course by its code (e.g. "ACC 2302") in the structured \
+course catalog -- returns its title, credits, and prerequisites. Pass follow_prerequisites=True \
+to get the FULL prerequisite chain (not just the immediate prerequisite) for questions like \
+"what do I need before taking X?". Use this tool, not search_documents, whenever the question \
+names or implies a specific course code, or asks about prerequisite chains.
 
-When you cite a claim, use the passage's bracket number exactly as given by the tool, e.g. [1], \
-using plain ASCII square brackets only.
+Do not answer AUI-specific facts from your own general knowledge -- always use a tool. If neither \
+tool's results contain the answer, say plainly that you don't know based on the available \
+information.
 
-LANGUAGE (strict): detect the language of the student's question and write your ENTIRE answer \
-in that same language -- if the question is in English, answer only in English; if in French, \
-answer only in French. Never switch languages, even if the tool's results are in a different \
-language than the question."""
+When you cite a claim from search_documents, use the passage's bracket number in plain ASCII \
+square brackets, e.g. [1], right after the claim. Use the ordinary keyboard characters "[" and \
+"]" only -- never full-width or other Unicode bracket variants (e.g. not 【1】) -- since this \
+exact format is parsed by code.
 
-TOOLS = [search_documents]
+LANGUAGE (strict): detect the language of the student's question and write your ENTIRE answer in \
+that same language -- if the question is in English, answer only in English; if in French, \
+answer only in French. Never switch languages, even if tool results are in a different language \
+than the question."""
+
+TOOLS = [search_documents, query_courses]
 
 
 def _build_system_prompt() -> str:
@@ -62,6 +73,9 @@ if __name__ == "__main__":
     for question in [
         "How many credits can I transfer to AUI?",
         "Hello, how are you?",
+        "What are the prerequisites for ACC 2302?",
+        "What do I need before taking ACC 2302, including indirect prerequisites?",
+        "Tell me about course XYZ 9999.",
     ]:
         print(f"=== {question} ===")
         result = compiled_graph.invoke({"messages": [{"role": "user", "content": question}]})
@@ -70,5 +84,5 @@ if __name__ == "__main__":
             if tool_calls:
                 print(f"[{msg.type}] called tool(s): {[tc['name'] for tc in tool_calls]}")
             else:
-                print(f"[{msg.type}] {str(msg.content)[:300]}")
+                print(f"[{msg.type}] {str(msg.content)[:400]}")
         print()

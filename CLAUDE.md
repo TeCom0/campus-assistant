@@ -80,7 +80,7 @@ and evaluation.
 - [done ] Phase 1: ingestion pipeline (load, chunk, embed, store)
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [done ] Phase 3: RAG answers with citations via FastAPI
-- [ ] Phase 4: LangGraph agent with tools (docs search + SQL)
+- [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [ ] Phase 5: React + TypeScript chat UI with streaming
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
@@ -91,25 +91,36 @@ and evaluation.
 pipeline, all three retrieval methods with a measured evaluation baseline, and grounded/cited
 RAG generation behind a streaming FastAPI endpoint.
 
-**In progress (Phase 4):** the LangGraph agent. `search_documents` (wraps `search_hybrid()`) is
-built and working, with the explicit StateGraph (not the `create_react_agent` shortcut) so the
-tool-calling loop stays visible -- see app/agent/. A `query_fellowships` SQL tool was started,
-then cancelled: AUI doesn't actually have a fellowship program, so it didn't belong in this
-project. Replaced with `query_courses` -- a structured lookup over real catalog course data
-(code/title/credits/prerequisites), sourced only from data already ingested in Phase 1, no
-fabricated rows.
+**Phase 4 (LangGraph agent) functionally complete:** both tools from the Architecture list are
+built and verified -- `search_documents` (wraps `search_hybrid()`) and `query_courses` (structured
+lookup over real catalog course data: code/title/credits/prerequisites, extracted from
+data/processed/academic_catalog_2024_2025.txt -- 660 courses, 522 prerequisite edges, no
+fabricated rows). An explicit `StateGraph` is used (not the `create_react_agent` shortcut) so the
+tool-calling loop (agent node -> conditional routing -> tools node -> back to agent -> ...) stays
+visible -- see app/agent/. `query_courses(follow_prerequisites=True)` walks the full prerequisite
+chain via a recursive CTE (`WITH RECURSIVE` in app/agent/tools.py), with an explicit caveat in its
+own output that the flattened chain doesn't preserve AND/OR logic between alternatives (e.g. "X,
+or Y, or Z" shows all three, not "any one of") -- verified this caveat actually changes the
+agent's final answer to tell the student to check alternatives, not just present the chain as
+flatly mandatory.
 
-**Exact next step:** investigate the catalog's actual course-listing format (code/title/
-credits/prerequisites text pattern), assess how many courses can be reliably extracted, design
-the courses table schema (including how prerequisites are stored so the agent can follow chains
--- "what do I need before taking X?"), then build query_courses.
+A `query_fellowships` SQL tool was built, then fully cancelled and cleaned up (including a
+`DROP TABLE`): AUI doesn't actually have a fellowship program, so it didn't belong in this
+project. `query_courses` is what replaced it.
+
+**Decision for next session:** whether to wire the agent into the `/chat` API endpoint (replacing
+or complementing Phase 3's direct-RAG path, so real callers get tool-using behavior), or move on
+to Phase 5 (frontend) with things as they are. Not yet decided.
 
 **Open issues / decisions to remember:**
-- *Postgres port*: Docker maps to host port **55432**, not 5432/5433 -- this machine has had
-  native Postgres installs collide with both, causing misleading "password authentication
-  failed" errors that were actually a wrong-server problem, not a credentials problem. See
-  Environment section above; verify with `Get-NetTCPConnection` before assuming credentials
-  are wrong if this resurfaces.
+- *Postgres port*: Docker maps to host port **15432**, not 5432/5433/55432 -- 5432 and 5433 both
+  collided with native Postgres installs on this machine; 55432 then broke after a reboot because
+  it landed in a Windows/Hyper-V dynamic port exclusion range (chunks of the 49152-65535
+  ephemeral range get reserved for WSL2 NAT, and which chunks are excluded can shift on any
+  reboot). 15432 sits below that whole range, structurally avoiding the issue rather than dodging
+  today's specific exclusions. See Environment section above for the full diagnostic steps if a
+  DB connection ever fails again -- don't assume credentials are wrong before ruling out the
+  network layer.
 - *Embedding model switch*: started with paraphrase-multilingual-MiniLM-L12-v2, switched to
   **intfloat/multilingual-e5-small** (384-dim, 512 token limit) after discovering the first
   model's 128-token limit was silently truncating 99.8% of real chunks. embed_passages()/
