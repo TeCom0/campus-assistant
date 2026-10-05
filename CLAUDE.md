@@ -87,66 +87,54 @@ and evaluation.
 
 ## Current status
 
-**Finished previous session:** Phases 0-3, end to end -- repo/Docker setup, the full ingestion
-pipeline, all three retrieval methods with a measured evaluation baseline, and grounded/cited
-RAG generation behind a streaming FastAPI endpoint.
+**Phases 0-4 all done.** Phases 0-3: repo/Docker setup, the full ingestion pipeline, all three
+retrieval methods with a measured evaluation baseline, grounded/cited RAG generation. Phase 4
+(this session): the LangGraph agent, finished end to end including wiring it into `/chat`.
 
-**Phase 4 (LangGraph agent) functionally complete:** both tools from the Architecture list are
-built and verified -- `search_documents` (wraps `search_hybrid()`) and `query_courses` (structured
-lookup over real catalog course data: code/title/credits/prerequisites, extracted from
-data/processed/academic_catalog_2024_2025.txt -- 660 courses, 522 prerequisite edges, no
-fabricated rows). An explicit `StateGraph` is used (not the `create_react_agent` shortcut) so the
-tool-calling loop (agent node -> conditional routing -> tools node -> back to agent -> ...) stays
-visible -- see app/agent/. `query_courses(follow_prerequisites=True)` walks the full prerequisite
-chain via a recursive CTE (`WITH RECURSIVE` in app/agent/tools.py), with an explicit caveat in its
-own output that the flattened chain doesn't preserve AND/OR logic between alternatives (e.g. "X,
-or Y, or Z" shows all three, not "any one of") -- verified this caveat actually changes the
-agent's final answer to tell the student to check alternatives, not just present the chain as
-flatly mandatory.
+**Phase 4 summary:**
+- Agent: `search_documents` (wraps `search_hybrid()`) + `query_courses` (structured lookup over
+  real catalog course data -- 660 courses, 522 prerequisite edges extracted from
+  data/processed/academic_catalog_2024_2025.txt, no fabricated rows; `follow_prerequisites=True`
+  walks the full chain via a recursive CTE). Explicit `StateGraph` (not the `create_react_agent`
+  shortcut) so the tool-calling loop stays visible -- see app/agent/. A `query_fellowships` tool
+  was built then fully cancelled and cleaned up (AUI has no fellowship program); `query_courses`
+  replaced it.
+- `/chat` rewired to the agent, replacing Phase 3's direct-RAG path -- one streaming endpoint, not
+  two parallel ones (app/generation.py is kept as an unused standalone comparison script, not
+  deleted). SSE event format agreed and implemented:
+  - `token` -- `{"text": "..."}` -- answer text, piece by piece
+  - `tool_call` -- `{"tool": "...", "args": {...}, "label": "..."}` -- fires before the tool
+    executes; `label` is server-built and localized to the question's detected language
+  - `citations` -- `{"citations": [{"marker": N, "source": "...", "pages": [...]}]}` -- once,
+    after the answer is complete; `N` is globally unique and continuous across every tool call in
+    the answer, not restarted per call
+  - `done` -- `{}` -- stream finished normally
+  - `error` -- `{"message": "..."}` -- fires even if tokens already streamed, so the UI can mark
+    the answer interrupted rather than see a silent cutoff; full exception detail logged
+    server-side only, never sent to the client
+- **Bug 1 (ContextVar isolation):** LangChain runs every tool call via
+  `contextvars.copy_context().run(...)`, so a plain `ContextVar.set()` made inside a tool call
+  silently never propagates back out -- citation numbering was resetting to [1] on every tool
+  call. Fixed by holding a *mutable* counter object in the ContextVar and mutating its attribute
+  in place (copying a context copies the reference, not the object). Regression test
+  (`test_survives_copy_context_boundary_like_langchain_tool_execution`) specifically crosses this
+  boundary, since the other citation tests all pass even with the broken version.
+- **Bug 2 (full-width brackets):** Unicode full-width brackets (e.g. "【4】") still appeared in the
+  raw per-token stream despite strengthened prompt wording -- confirmed stochastic prompt-
+  following isn't reliable enough for something this structurally important (the frontend needs
+  to parse "[N]" for citation links). Fixed with deterministic normalization in app/main.py on
+  every token, not relying on the LLM alone.
+- First tests in the project: `backend/tests/test_citations.py` (pytest added as a dev
+  dependency).
 
-A `query_fellowships` SQL tool was built, then fully cancelled and cleaned up (including a
-`DROP TABLE`): AUI doesn't actually have a fellowship program, so it didn't belong in this
-project. `query_courses` is what replaced it.
-
-**`/chat` now wired to the agent, replacing Phase 3's direct-RAG path** (one endpoint, not two
-parallel ones). `POST /chat` streams SSE events: `token` (answer text, piece by piece),
-`tool_call` (fires when the agent decides to call a tool, before it executes -- includes a
-server-built, question-language-matched human-readable `label`, e.g. "Looking up course ACC 2302
-and its prerequisite chain" / "Recherche du cours..."), `citations` (once, after the answer is
-complete), `done`, and `error` (fires even if tokens already streamed, so the UI can mark the
-answer as interrupted rather than just silently cut off -- verified directly by forcing a
-mid-stream failure).
-
-Citations are now unified across both tools (not just search_documents): every passage or course
-fact either tool returns carries its own `[N]` marker, and those numbers are globally unique and
-continuous across however many tool calls happen in one answer (verified live: a question
-triggering both tools in one turn got search_documents markers 1-5 and query_courses marker 6,
-not a restart at [1]). Built via LangChain's `response_format="content_and_artifact")` on both
-`@tool`-decorated functions -- `content` is what the LLM reads, `artifact` is the structured
-citation data the API layer reads directly, avoiding fragile re-parsing of the LLM-facing text.
-
-Real bug found and fixed during this work: a plain `ContextVar` does NOT work for sharing the
-citation counter across sequential tool calls -- LangChain runs every tool call via
-`contextvars.copy_context().run(...)`, and a plain `ContextVar.set()` made inside that copy never
-propagates back out (verified directly with a minimal repro). Fixed by holding a *mutable counter
-object* in the ContextVar and mutating its attribute in place, instead of rebinding the var --
-copying a context copies the *reference*, so the mutation is visible everywhere. A regression test
-(`test_survives_copy_context_boundary_like_langchain_tool_execution`) specifically reproduces this
-boundary, since the other citation tests all happen to pass even with the broken int-based version
-(they never cross a real copy_context() boundary).
-
-Also found (again) and fixed at the streaming layer, not just the prompt: full-width Unicode
-brackets ("【4】") appeared in the raw token stream despite the system prompt's ASCII-only
-instruction -- confirmed stochastic prompt-following isn't reliable enough for something this
-structurally important (the frontend needs to parse "[N]" to link citations), so `app/main.py`
-now deterministically normalizes known bad bracket characters on every token before sending it,
-rather than relying on the LLM alone.
-
-`app/generation.py` (Phase 3's direct-RAG module) is left in place, unused by the live API, as a
-standalone comparison/testing script (`python -m app.generation` still works) -- not deleted,
-since it has its own tested history and pedagogical value, just no longer wired to `/chat`.
-
-First tests in the project: `backend/tests/test_citations.py` (pytest added as a dev dependency).
+**Exact next step:** Phase 5 -- the React + TypeScript (Vite) chat UI. Consume the SSE events
+above: render `token`s progressively, show `tool_call` labels as a "thinking/working" indicator,
+render `citations` as linked footnotes keyed by their `marker`, handle `error` by marking the
+answer interrupted. Also add optional conversation history to `/chat` as part of this phase:
+`ChatRequest` was deliberately kept single-turn/stateless but designed so an optional `messages`
+field can be added without breaking existing callers -- a real chat UI needs multi-turn context,
+and `app/agent/graph.py`'s `--chat` CLI mode already has a working message-accumulation pattern to
+reuse/adapt for this.
 
 **Open issues / decisions to remember:**
 - *Postgres port*: Docker maps to host port **15432**, not 5432/5433/55432 -- 5432 and 5433 both
