@@ -2,9 +2,9 @@
 
 ## What this project is
 A multilingual (English/French) AI assistant for Al Akhawayn University students. It answers questions
-about academic policies, the course catalog, and fellowships, always citing its sources, and uses an
-agent to query structured data (e.g. "which fellowships close this month?"). The goal is to deploy it
-to real students through TeCom (the student tech club) and measure real usage.
+about academic policies, the course catalog, and scholarships, always citing its sources, and uses an
+agent to query structured data (e.g. "what are the prerequisites for ACC 2302?"). The goal is to deploy
+it to real students through TeCom (the student tech club) and measure real usage.
 
 It is also a portfolio project for AI Software Engineer internship applications, so it must
 demonstrate: RAG, AI agents, hybrid search, REST APIs, a TypeScript frontend, tests, Docker, CI/CD,
@@ -55,7 +55,7 @@ and evaluation.
   cache where sensible, keep prompts lean, never loop on LLM calls without a cap.
 - Embeddings: open-source multilingual model via sentence-transformers, running locally (CPU)
 - Database: PostgreSQL + pgvector (vectors), Postgres full-text search or BM25 (keywords), normal
-  tables for structured data (e.g. fellowships with deadlines)
+  tables for structured data (e.g. courses with codes/credits/prerequisites)
 - Frontend: React + TypeScript (Vite), streaming chat UI with citations
 - Quality: pytest (unit + integration), an evaluation set of questions with expected answers,
   ruff for linting
@@ -66,7 +66,7 @@ and evaluation.
    with metadata (source, page, language, section).
 2. Retrieval: hybrid search = vector similarity + keyword/BM25, merged (e.g. reciprocal rank fusion).
 3. Generation: answer ONLY from retrieved chunks, cite sources, say "I don't know" when context is missing.
-4. Agent (LangGraph): tools = search_documents, query_fellowships (SQL), and more later.
+4. Agent (LangGraph): tools = search_documents, query_courses (SQL), and more later.
 5. API: FastAPI endpoints (chat with streaming, health, ingestion trigger).
 6. Frontend: React + TS chat interface showing sources.
 
@@ -87,18 +87,22 @@ and evaluation.
 
 ## Current status
 
-**Finished this session:** Phases 0-3, end to end -- repo/Docker setup, the full ingestion
+**Finished previous session:** Phases 0-3, end to end -- repo/Docker setup, the full ingestion
 pipeline, all three retrieval methods with a measured evaluation baseline, and grounded/cited
-RAG generation behind a streaming FastAPI endpoint. Session ended cleanly; working tree is
-clean (nothing uncommitted).
+RAG generation behind a streaming FastAPI endpoint.
 
-**In progress:** nothing -- this is a clean phase boundary. Phase 4 has not been started.
+**In progress (Phase 4):** the LangGraph agent. `search_documents` (wraps `search_hybrid()`) is
+built and working, with the explicit StateGraph (not the `create_react_agent` shortcut) so the
+tool-calling loop stays visible -- see app/agent/. A `query_fellowships` SQL tool was started,
+then cancelled: AUI doesn't actually have a fellowship program, so it didn't belong in this
+project. Replaced with `query_courses` -- a structured lookup over real catalog course data
+(code/title/credits/prerequisites), sourced only from data already ingested in Phase 1, no
+fabricated rows.
 
-**Exact next step:** Phase 4 -- LangGraph agent with tools (`search_documents` wrapping the
-existing `search_hybrid()`, `query_fellowships` via structured SQL -- note fellowship
-deadlines aren't ingested as structured data yet, so that tool needs its own small schema/
-ingestion first). Start by explaining LangGraph's state/graph concepts before writing code,
-per the working style above.
+**Exact next step:** investigate the catalog's actual course-listing format (code/title/
+credits/prerequisites text pattern), assess how many courses can be reliably extracted, design
+the courses table schema (including how prerequisites are stored so the agent can follow chains
+-- "what do I need before taking X?"), then build query_courses.
 
 **Open issues / decisions to remember:**
 - *Postgres port*: Docker maps to host port **55432**, not 5432/5433 -- this machine has had

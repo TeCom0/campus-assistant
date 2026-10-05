@@ -1,8 +1,11 @@
 """The LangGraph agent: an LLM with tool-calling access to search_documents.
 
-(query_fellowships will be added once fellowship deadline data is actually
-structured -- see CLAUDE.md's Current status.)
+(query_courses -- a structured lookup over real catalog course data, code/
+title/credits/prerequisites -- will be added next; see CLAUDE.md's Current
+status.)
 """
+
+from datetime import UTC, datetime
 
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -10,11 +13,13 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from app.agent.model import get_agent_model
 from app.agent.tools import search_documents
 
-SYSTEM_PROMPT = """You are the Al Akhawayn University (AUI) assistant. You have access to a \
-search_documents tool over AUI's official documents. Use it whenever a question might be \
-answered by those documents -- do not answer AUI-specific facts from your own general \
-knowledge. If the tool's results don't contain the answer, say plainly that you don't know \
-based on the available documents.
+SYSTEM_PROMPT_TEMPLATE = """You are the Al Akhawayn University (AUI) assistant. Today's date is \
+{today}.
+
+You have access to a search_documents tool over AUI's official documents. Use it whenever a \
+question might be answered by those documents -- do not answer AUI-specific facts from your own \
+general knowledge. If the tool's results don't contain the answer, say plainly that you don't \
+know based on the available documents.
 
 When you cite a claim, use the passage's bracket number exactly as given by the tool, e.g. [1], \
 using plain ASCII square brackets only.
@@ -27,9 +32,14 @@ language than the question."""
 TOOLS = [search_documents]
 
 
+def _build_system_prompt() -> str:
+    return SYSTEM_PROMPT_TEMPLATE.format(today=datetime.now(UTC).date().isoformat())
+
+
 def _agent_node(state: MessagesState) -> dict:
     model = get_agent_model().bind_tools(TOOLS)
-    response = model.invoke([{"role": "system", "content": SYSTEM_PROMPT}, *state["messages"]])
+    messages = [{"role": "system", "content": _build_system_prompt()}, *state["messages"]]
+    response = model.invoke(messages)
     return {"messages": [response]}
 
 
