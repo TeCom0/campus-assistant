@@ -64,12 +64,19 @@ def build_graph():
     return graph.compile()
 
 
-if __name__ == "__main__":
-    import sys
+def _print_messages(messages, truncate: int | None = None) -> None:
+    for msg in messages:
+        tool_calls = getattr(msg, "tool_calls", None)
+        if tool_calls:
+            print(f"[{msg.type}] called tool(s): {[tc['name'] for tc in tool_calls]}")
+        else:
+            content = str(msg.content)
+            if truncate:
+                content = content[:truncate]
+            print(f"[{msg.type}] {content}")
 
-    sys.stdout.reconfigure(encoding="utf-8")
 
-    compiled_graph = build_graph()
+def _run_test_questions(compiled_graph) -> None:
     for question in [
         "How many credits can I transfer to AUI?",
         "Hello, how are you?",
@@ -79,10 +86,45 @@ if __name__ == "__main__":
     ]:
         print(f"=== {question} ===")
         result = compiled_graph.invoke({"messages": [{"role": "user", "content": question}]})
-        for msg in result["messages"]:
-            tool_calls = getattr(msg, "tool_calls", None)
-            if tool_calls:
-                print(f"[{msg.type}] called tool(s): {[tc['name'] for tc in tool_calls]}")
-            else:
-                print(f"[{msg.type}] {str(msg.content)[:400]}")
+        _print_messages(result["messages"], truncate=400)
+        print()
+
+
+def _run_interactive_chat(compiled_graph) -> None:
+    print("Interactive agent chat. Type 'exit' to quit.\n")
+    messages: list = []
+    while True:
+        try:
+            question = input("> ").strip()
+        except EOFError:
+            break
+        if question.lower() == "exit":
+            break
+        if not question:
+            continue
+
+        messages.append({"role": "user", "content": question})
+        result = compiled_graph.invoke({"messages": messages})
+        _print_messages(result["messages"][len(messages) :])
+        messages = result["messages"]
+        print()
+
+
+if __name__ == "__main__":
+    import argparse
+    import sys
+
+    sys.stdout.reconfigure(encoding="utf-8")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--chat", action="store_true", help="Interactive chat mode (type 'exit' to quit)"
+    )
+    args = parser.parse_args()
+
+    graph = build_graph()
+    if args.chat:
+        _run_interactive_chat(graph)
+    else:
+        _run_test_questions(graph)
         print()
