@@ -29,13 +29,23 @@ and evaluation.
 - Project lives OUTSIDE OneDrive (long-path issues).
 - Give PowerShell commands, not bash, unless running inside a Docker container.
 - If the Docker daemon isn't reachable, run `docker desktop start`, wait for `docker desktop status` to report running, then continue. Don't ask Youness to start it manually.
-- Postgres (Docker) is mapped to host port 55432, not 5432. This machine has had native
-  Postgres installs bind to both 5432 and 5433 at different times, which caused connections
-  from the host to silently hit the wrong server (password authentication failures that had
-  nothing to do with the actual password). 55432 avoids the collision. If a similar port
-  conflict ever resurfaces, check `Get-NetTCPConnection -LocalPort <port> -State Listen` and
-  confirm the owning process is Docker's (`com.docker.backend`/`wslrelay`) before assuming the
-  app's credentials are wrong.
+- Postgres (Docker) is mapped to host port **15432**, not 5432/5433/55432. History:
+  5432 and 5433 both collided with native Postgres installs on this machine (misleading
+  "password authentication failed" errors that were actually a wrong-server problem). Moved
+  to 55432 to dodge that -- which then, after a reboot days later, landed inside a Windows/
+  Hyper-V *dynamic port exclusion range* (`netsh interface ipv4 show excludedportrange
+  protocol=tcp`), which silently blocks binding with no clear error until you look. Windows
+  reserves chunks of the ephemeral range (49152-65535) for WSL2 NAT, and which chunks are
+  excluded can shift on any reboot -- so any port up there is at risk, not just 55432
+  specifically. 15432 sits below that whole range, structurally avoiding this class of
+  problem rather than dodging today's specific exclusions.
+  If a DB connection ever fails again: (1) check
+  `Get-NetTCPConnection -LocalPort <port> -State Listen` -- if it's someone else's process,
+  that's the native-Postgres-collision case; if there's no listener at all despite
+  `docker compose ps` showing the mapping as up, check excluded port ranges next, and try
+  `docker compose down && docker compose up -d db` (not just `restart` -- that can leave a
+  stale binding) or `docker desktop restart` if that doesn't clear it. Don't assume
+  credentials are wrong before ruling out the network layer.
 
 ## Stack
 - Backend: Python 3.12, FastAPI
