@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
+from app.agent.citations import reset_citation_counter
 from app.agent.model import get_agent_model
 from app.agent.tools import query_courses, search_documents
 
@@ -30,10 +31,13 @@ Do not answer AUI-specific facts from your own general knowledge -- always use a
 tool's results contain the answer, say plainly that you don't know based on the available \
 information.
 
-When you cite a claim from search_documents, use the passage's bracket number in plain ASCII \
-square brackets, e.g. [1], right after the claim. Use the ordinary keyboard characters "[" and \
-"]" only -- never full-width or other Unicode bracket variants (e.g. not 【1】) -- since this \
-exact format is parsed by code.
+CITATIONS: every passage or course fact returned by EITHER tool starts with its own bracket \
+number, e.g. [6] -- these numbers are globally unique across the whole conversation (a second \
+or third tool call continues the sequence, it does not restart at [1]). When you state a fact \
+that came from a tool, cite it with that exact number right after the claim, e.g. [6]. Use the \
+ordinary keyboard characters "[" and "]" only -- never full-width or other Unicode bracket \
+variants (e.g. not 【6】) -- since this exact format is parsed by code. Never invent a citation \
+number yourself; only ever use a number a tool actually gave you.
 
 LANGUAGE (strict): detect the language of the student's question and write your ENTIRE answer in \
 that same language -- if the question is in English, answer only in English; if in French, \
@@ -85,6 +89,7 @@ def _run_test_questions(compiled_graph) -> None:
         "Tell me about course XYZ 9999.",
     ]:
         print(f"=== {question} ===")
+        reset_citation_counter()
         result = compiled_graph.invoke({"messages": [{"role": "user", "content": question}]})
         _print_messages(result["messages"], truncate=400)
         print()
@@ -104,6 +109,7 @@ def _run_interactive_chat(compiled_graph) -> None:
             continue
 
         messages.append({"role": "user", "content": question})
+        reset_citation_counter()
         result = compiled_graph.invoke({"messages": messages})
         _print_messages(result["messages"][len(messages) :])
         messages = result["messages"]

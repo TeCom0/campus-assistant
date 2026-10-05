@@ -108,9 +108,45 @@ A `query_fellowships` SQL tool was built, then fully cancelled and cleaned up (i
 `DROP TABLE`): AUI doesn't actually have a fellowship program, so it didn't belong in this
 project. `query_courses` is what replaced it.
 
-**Decision for next session:** whether to wire the agent into the `/chat` API endpoint (replacing
-or complementing Phase 3's direct-RAG path, so real callers get tool-using behavior), or move on
-to Phase 5 (frontend) with things as they are. Not yet decided.
+**`/chat` now wired to the agent, replacing Phase 3's direct-RAG path** (one endpoint, not two
+parallel ones). `POST /chat` streams SSE events: `token` (answer text, piece by piece),
+`tool_call` (fires when the agent decides to call a tool, before it executes -- includes a
+server-built, question-language-matched human-readable `label`, e.g. "Looking up course ACC 2302
+and its prerequisite chain" / "Recherche du cours..."), `citations` (once, after the answer is
+complete), `done`, and `error` (fires even if tokens already streamed, so the UI can mark the
+answer as interrupted rather than just silently cut off -- verified directly by forcing a
+mid-stream failure).
+
+Citations are now unified across both tools (not just search_documents): every passage or course
+fact either tool returns carries its own `[N]` marker, and those numbers are globally unique and
+continuous across however many tool calls happen in one answer (verified live: a question
+triggering both tools in one turn got search_documents markers 1-5 and query_courses marker 6,
+not a restart at [1]). Built via LangChain's `response_format="content_and_artifact")` on both
+`@tool`-decorated functions -- `content` is what the LLM reads, `artifact` is the structured
+citation data the API layer reads directly, avoiding fragile re-parsing of the LLM-facing text.
+
+Real bug found and fixed during this work: a plain `ContextVar` does NOT work for sharing the
+citation counter across sequential tool calls -- LangChain runs every tool call via
+`contextvars.copy_context().run(...)`, and a plain `ContextVar.set()` made inside that copy never
+propagates back out (verified directly with a minimal repro). Fixed by holding a *mutable counter
+object* in the ContextVar and mutating its attribute in place, instead of rebinding the var --
+copying a context copies the *reference*, so the mutation is visible everywhere. A regression test
+(`test_survives_copy_context_boundary_like_langchain_tool_execution`) specifically reproduces this
+boundary, since the other citation tests all happen to pass even with the broken int-based version
+(they never cross a real copy_context() boundary).
+
+Also found (again) and fixed at the streaming layer, not just the prompt: full-width Unicode
+brackets ("【4】") appeared in the raw token stream despite the system prompt's ASCII-only
+instruction -- confirmed stochastic prompt-following isn't reliable enough for something this
+structurally important (the frontend needs to parse "[N]" to link citations), so `app/main.py`
+now deterministically normalizes known bad bracket characters on every token before sending it,
+rather than relying on the LLM alone.
+
+`app/generation.py` (Phase 3's direct-RAG module) is left in place, unused by the live API, as a
+standalone comparison/testing script (`python -m app.generation` still works) -- not deleted,
+since it has its own tested history and pedagogical value, just no longer wired to `/chat`.
+
+First tests in the project: `backend/tests/test_citations.py` (pytest added as a dev dependency).
 
 **Open issues / decisions to remember:**
 - *Postgres port*: Docker maps to host port **15432**, not 5432/5433/55432 -- 5432 and 5433 both
