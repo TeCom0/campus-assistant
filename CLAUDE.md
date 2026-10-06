@@ -81,19 +81,21 @@ and evaluation.
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
-- [ ] Phase 5: React + TypeScript chat UI with streaming
+- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open items 1-4 below)
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
 
-**Phases 0-4 all done.** Phases 0-3: repo/Docker setup, the full ingestion pipeline, all three
-retrieval methods with a measured evaluation baseline, grounded/cited RAG generation. Phase 4
-(this session): the LangGraph agent, finished end to end including wiring it into `/chat`.
+**Phases 0-4 done, Phase 5 built.** Phases 0-3: repo/Docker setup, the full ingestion pipeline,
+all three retrieval methods with a measured evaluation baseline, grounded/cited RAG generation.
+Phase 4: the LangGraph agent, wired into `/chat`. Phase 5: the React + TS chat UI and multi-turn
+history. Verifying Phase 5 in the browser (2026-10-06) found bugs; three are fixed, the rest are
+the numbered next steps below.
 
 **Phase 4 summary:**
 - Agent: `search_documents` (wraps `search_hybrid()`) + `query_courses` (structured lookup over
-  real catalog course data -- 660 courses, 522 prerequisite edges extracted from
+  real catalog course data -- 660 courses, 526 prerequisite edges extracted from
   data/processed/academic_catalog_2024_2025.txt, no fabricated rows; `follow_prerequisites=True`
   walks the full chain via a recursive CTE). Explicit `StateGraph` (not the `create_react_agent`
   shortcut) so the tool-calling loop stays visible -- see app/agent/. A `query_fellowships` tool
@@ -127,14 +129,69 @@ retrieval methods with a measured evaluation baseline, grounded/cited RAG genera
 - First tests in the project: `backend/tests/test_citations.py` (pytest added as a dev
   dependency).
 
-**Exact next step:** Phase 5 -- the React + TypeScript (Vite) chat UI. Consume the SSE events
-above: render `token`s progressively, show `tool_call` labels as a "thinking/working" indicator,
-render `citations` as linked footnotes keyed by their `marker`, handle `error` by marking the
-answer interrupted. Also add optional conversation history to `/chat` as part of this phase:
-`ChatRequest` was deliberately kept single-turn/stateless but designed so an optional `messages`
-field can be added without breaking existing callers -- a real chat UI needs multi-turn context,
-and `app/agent/graph.py`'s `--chat` CLI mode already has a working message-accumulation pattern to
-reuse/adapt for this.
+**Phase 5 summary (commits f7e9e6e, 24b6a56, ad45265):**
+- frontend/ (Vite + React + TS). `chatStream.ts` POSTs to `/chat` and reads the SSE events;
+  `App.tsx` renders tokens progressively, shows `tool_call` labels, turns `[N]` into a link only
+  when a citation with marker N was received, lists sources as footnotes, and marks the answer
+  interrupted on an `error` event, a failed request, or a stream that ends without `done`.
+- Multi-turn: `ChatRequest.messages` is optional (role/content, oldest first), so single-turn
+  callers still work. app/agent/history.py keeps the last `MAX_HISTORY_MESSAGES` (10) and strips
+  `[N]` markers from earlier assistant turns (markers are per request, so old ones would point at
+  the wrong source). The UI leaves interrupted answers out of the history. Tests: test_history.py.
+- CORS allows the Vite dev origin (`CORS_ORIGINS` in config.py); the frontend calls
+  `VITE_API_URL`, default `http://127.0.0.1:8000`.
+- Run it, one terminal each: `docker compose up -d db` (repo root); in backend\ with the venv
+  active, `uvicorn app.main:app --reload --port 8000`; in frontend\, `npm run dev`, then open
+  http://localhost:5173.
+
+**Bugs found while verifying Phase 5 (2026-10-06), fixed:**
+- *Crash on a French question* (432d0af): the model ignored the prompt's "at most two searches",
+  made 5 search calls, and 5 x (agent + tools) = 10 steps hit `recursion_limit` ->
+  `GraphRecursionError` -> the answer ended in an error. Now `MAX_TOOL_ROUNDS = 3` is enforced in
+  `_agent_node`: once used, the model is called with no tools bound and the conversation rewritten
+  without tool-call structure (tool results passed as plain text), so it has to answer.
+  `MAX_AGENT_STEPS` (10) stays as a backstop; a normal run is at most 7 steps. Lesson:
+  `tool_choice="none"` was tried first and failed -- Groq *rejects* a tool call the model still
+  generates ("Tool choice is none, but model called a tool"), it doesn't prevent it.
+  Tests: test_tool_budget.py (fake model, no LLM calls).
+- *Wrong prerequisites* (3b8895f): ACC 2302's answer said MTH 1303 AND 1304 AND 1305 were all
+  required; the catalog says ACC 2301 needs any ONE. The chain was a flat list of codes, so the
+  model never saw ACC 2301's "or" (it ignored a caution note asking it to look it up). Option B:
+  each chain course is now listed once (shortest depth) with its own prerequisites in the
+  catalog's exact wording. Deliberately NOT an AND/OR parser: the wording is genuinely ambiguous
+  (78/468 prerequisite lines contain "or", 10 mix "and"/"or"; a comma means AND on some lines and
+  OR on others), and a parser would turn that into confident wrong answers. The system prompt
+  asks the agent to quote ambiguous or school-dependent wording and suggest an advisor. Cycle
+  guard: the recursive CTE carries the walked path and won't follow an edge back into it (the old
+  query only had the depth cap); depth < 10 stays as a backstop. Deepest chain: SCM 5305, 6
+  levels, 20 courses, ~2.1k chars (~530 tokens, estimated at 4 chars/token -- no tokenizer
+  installed). Tests: test_query_courses.py, the first tests that need Postgres -- skipped when
+  it isn't reachable; the cycle test builds a cycle in a transaction that is always rolled back.
+- *Missed course codes* (6fc9298): `COURSE_CODE_RE` required a space, so "CSC3326"/"MGT3301"
+  made no edge. A scan of all 429 prerequisite texts found 4 such codes and no hyphenated or
+  lowercase ones; the space is now optional, lowercase/hyphens still rejected on purpose (a
+  case-insensitive pattern would read "and 2024" as a course). Re-seeded: 522 -> 526 edges, no
+  cycles. Tests: test_course_extraction.py.
+- Test suite: 21 tests, all passing.
+
+**Next steps, in order:**
+1. Give every course in the prerequisite chain its title, or "not listed in the catalog" when it
+   has none, to stop invented titles: the agent called MTH 1305 "Calculus I" (copied from MTH
+   1303). MTH 1305 has no course-listing entry, so it has no `courses` row; its only appearance
+   is a list on line 6013 of the processed catalog ("Mathematics for Business") -- not a regex miss.
+2. Pass the language detected server-side (`detect_language` in main.py) into the system prompt
+   as a direct instruction, instead of asking the model to detect it -- an English scholarship
+   question was answered in French although its sources and tool label were English.
+3. Show only the sources the answer actually cites, without duplicates: a French "I don't know"
+   answer listed 15 sources, many repeated across its 3 searches. If footnotes are filtered,
+   number them by `marker`, not list position.
+4. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
+   how citations get linked, how history.py decides what history to send.
+5. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
+   `ruff format --check`; would break a CI format check).
+6. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
+   run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
+   app/config.py requires at import.
 
 **Open issues / decisions to remember:**
 - *Postgres port*: Docker maps to host port **15432**, not 5432/5433/55432 -- 5432 and 5433 both
@@ -164,7 +221,12 @@ reuse/adapt for this.
 - *Known residual risk, not fully resolved*: the LLM can occasionally answer in the wrong
   language despite the system prompt's "same language as the question" rule. Mitigated by
   strengthening the prompt wording; not guaranteed, since LLM instruction-following is
-  inherently stochastic -- revisit if it shows up again during Phase 4/5 testing.
+  inherently stochastic. Seen again in Phase 5 testing -> next step 2.
+- *Pattern: prompt-only rules keep failing* ("at most two searches", the prerequisite caution
+  note, the language rule, bracket style). Where something must hold, enforce it in code or
+  shape the tool output so the model doesn't have to infer it; keep prompt rules as guidance.
+- *The model can still add facts no tool gave it* (e.g. the MTH 1305 title). Clearer tool output
+  reduces this but can't rule it out.
 - *Data pipeline recap*: data/sources.md lists 3 AUI documents (catalog PDF + 2 scholarship
   pages) -> load.py/clean.py/chunk.py (data/raw/, data/processed/, 1161 chunks in
   chunks.jsonl) -> app/ingestion/store.py embeds and upserts into Postgres table
