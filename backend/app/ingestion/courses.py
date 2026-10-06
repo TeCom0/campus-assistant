@@ -28,7 +28,11 @@ SOURCE_NAME = "academic_catalog_2024_2025"
 PAGE_MARKER_RE = re.compile(r"--- page (\d+) ---")
 HEADER_RE = re.compile(r"^([A-Z]{3}) (\d{4}) (.+?)\s*\((\d+)\s*SCH\)\s*$")
 PREREQ_LABEL_RE = re.compile(r"^(Pre-?requisites?|Co-?requisites?):\s*(.*)", re.IGNORECASE)
-COURSE_CODE_RE = re.compile(r"\b([A-Z]{3}) (\d{4})\b")
+# The space is optional: a few prerequisite lines write codes without one
+# (e.g. "CSC3326, CSC3351 or MIS 3301"). Deliberately uppercase-only and no
+# hyphen: neither variant occurs in the catalog's prerequisite text, and a
+# case-insensitive pattern would match phrases like "and 2024" as a course.
+COURSE_CODE_RE = re.compile(r"\b([A-Z]{3}) ?(\d{4})\b")
 
 
 def extract_courses() -> dict[str, dict]:
