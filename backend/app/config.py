@@ -48,8 +48,14 @@ GEMINI_MODEL = "gemini-3.5-flash"
 # token limits are tight and history grows every turn.
 MAX_HISTORY_MESSAGES = 10
 
+# Tool rounds (agent turns that call tools) allowed per question. Once used up,
+# the agent must answer with what it has -- enforced in code (app/agent/graph.py),
+# since the prompt's "at most two searches" rule alone was ignored in testing.
+MAX_TOOL_ROUNDS = 3
+
 # Hard cap on agent steps per request (each agent or tool-node run counts as one).
-# Stops the model from searching in circles and burning free-tier tokens.
+# A backstop only: MAX_TOOL_ROUNDS keeps a normal run at most 3 * 2 + 1 = 7 steps.
+# Hitting this raises GraphRecursionError, which ends the answer with an error.
 MAX_AGENT_STEPS = 10
 
 # Browser origins allowed to call the API (the Vite dev server). Browsers block

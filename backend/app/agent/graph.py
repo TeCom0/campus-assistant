@@ -7,12 +7,14 @@ over narrative text can't reliably answer.
 
 from datetime import UTC, datetime
 
+from langchain_core.messages import HumanMessage
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.agent.citations import reset_citation_counter
 from app.agent.model import get_agent_model
 from app.agent.tools import query_courses, search_documents
+from app.config import MAX_TOOL_ROUNDS
 
 SYSTEM_PROMPT_TEMPLATE = """You are the Al Akhawayn University (AUI) assistant. Today's date is \
 {today}.
@@ -52,14 +54,66 @@ than the question."""
 
 TOOLS = [search_documents, query_courses]
 
+BUDGET_EXHAUSTED_NOTE = """Tools are no longer available for this question. Answer now using \
+only the tool results provided in the conversation, with citations as usual. If they don't \
+contain the answer, say plainly that you don't know based on the available information."""
+
 
 def _build_system_prompt() -> str:
     return SYSTEM_PROMPT_TEMPLATE.format(today=datetime.now(UTC).date().isoformat())
 
 
+def _tool_rounds_since_last_question(messages) -> int:
+    """Count agent turns that called tools since the student's latest message.
+
+    Walks backwards and stops at the latest human message, so tool rounds from
+    earlier questions in the conversation don't count against this one. Several
+    tool calls made in one turn count as one round.
+    """
+    rounds = 0
+    for msg in reversed(messages):
+        if msg.type == "human":
+            break
+        if msg.type == "ai" and msg.tool_calls:
+            rounds += 1
+    return rounds
+
+
+def _without_tool_calls(messages) -> list:
+    """Rewrite the conversation with no tool-call structure, for the forced final answer.
+
+    Keeps the student's messages and earlier plain-text answers, drops the
+    agent's tool-call turns, and passes the latest question's tool results
+    as one plain-text message. With no tool definitions and no tool calls to
+    imitate, the model has nothing tool-shaped to produce -- tool_choice="none"
+    wasn't enough: Groq rejects a tool call the model still generates, it
+    doesn't prevent it.
+    """
+    last_question = max(i for i, m in enumerate(messages) if m.type == "human")
+    conversation = [
+        m
+        for m in messages[: last_question + 1]
+        if m.type == "human" or (m.type == "ai" and not m.tool_calls)
+    ]
+    results = [str(m.content) for m in messages[last_question + 1 :] if m.type == "tool"]
+    return [
+        *conversation,
+        HumanMessage("Results of the searches made for this question:\n\n" + "\n\n".join(results)),
+    ]
+
+
 def _agent_node(state: MessagesState) -> dict:
-    model = get_agent_model().bind_tools(TOOLS)
-    messages = [{"role": "system", "content": _build_system_prompt()}, *state["messages"]]
+    system_prompt = _build_system_prompt()
+    if _tool_rounds_since_last_question(state["messages"]) >= MAX_TOOL_ROUNDS:
+        # Budget used: no tools bound and no tool calls in the conversation,
+        # so the model can only answer.
+        model = get_agent_model()
+        conversation = _without_tool_calls(state["messages"])
+        system_prompt += "\n\n" + BUDGET_EXHAUSTED_NOTE
+    else:
+        model = get_agent_model().bind_tools(TOOLS)
+        conversation = state["messages"]
+    messages = [{"role": "system", "content": system_prompt}, *conversation]
     response = model.invoke(messages)
     return {"messages": [response]}
 
