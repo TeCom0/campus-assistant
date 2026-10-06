@@ -27,7 +27,9 @@ documents.
 course catalog -- returns its title, credits, and prerequisites. Pass follow_prerequisites=True \
 to get the FULL prerequisite chain (not just the immediate prerequisite) for questions like \
 "what do I need before taking X?". Use this tool, not search_documents, whenever the question \
-names or implies a specific course code, or asks about prerequisite chains.
+names or implies a specific course code, or asks about prerequisite chains. Keep the catalog's \
+"and"/"or" logic exactly; if the wording is ambiguous or depends on the student's school, quote \
+it and suggest confirming with an academic advisor rather than choosing an interpretation.
 
 The student's latest message may be a follow-up that depends on earlier turns. Before calling a \
 tool, write its query so it stands alone: carry the topic over from earlier in the conversation \

@@ -52,8 +52,9 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
     as stated in the catalog.
 
     Set follow_prerequisites=True to also return the FULL prerequisite chain --
-    every course transitively required before this one, not just the immediate
-    prerequisite -- for questions like "what do I need before taking X?".
+    every course referenced directly or indirectly, each with its own
+    prerequisites in the catalog's wording -- for questions like "what do I
+    need before taking X?".
 
     Use this tool, not search_documents, whenever the question names or implies a
     specific course code or asks about prerequisite chains.
@@ -86,33 +87,15 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
         lines.append(f"Corequisites: {coreq_text}")
 
     if follow_prerequisites:
-        chain = conn.execute(
-            """
-            WITH RECURSIVE chain AS (
-                SELECT prerequisite_code, 1 AS depth
-                FROM course_prerequisites
-                WHERE course_code = %s
-                UNION ALL
-                SELECT cp.prerequisite_code, chain.depth + 1
-                FROM course_prerequisites cp
-                JOIN chain ON cp.course_code = chain.prerequisite_code
-                WHERE chain.depth < 10
-            )
-            SELECT DISTINCT prerequisite_code, depth FROM chain ORDER BY depth, prerequisite_code
-            """,
-            (code,),
-        ).fetchall()
+        chain = _prerequisite_chain(conn, code_)
         if chain:
             lines.append(
-                f"Full prerequisite chain for [{marker}] (all courses referenced, directly or "
-                "indirectly). CAUTION: this flat list does NOT capture AND/OR logic between "
-                "alternatives -- e.g. a course listing 'X, or Y, or Z' as its prerequisite will "
-                "show X, Y, and Z all here, even though only ONE of them is actually required. "
-                "For the exact logic, always check each course's own 'Prerequisites (as stated "
-                "in catalog)' text (query this tool again for that course's code if needed) "
-                "before telling the student something is mandatory."
+                f"Full prerequisite chain for [{marker}], each course listed once with its own "
+                "prerequisites in the catalog's exact wording (step 1 = direct prerequisite). "
+                'A course appearing here is not necessarily required: "or" in a course\'s '
+                "wording marks alternatives."
             )
-            lines.extend(f"  - {prereq_code} (step {depth})" for prereq_code, depth in chain)
+            lines.extend(_chain_line(*row) for row in chain)
         else:
             lines.append(
                 "No further prerequisite chain found in the structured data (either this "
@@ -128,3 +111,42 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
         }
     ]
     return "\n".join(lines), artifact
+
+
+# Walks the prerequisite graph from one course. Each row carries the path
+# walked so far; an edge leading back into its own path is a cycle and isn't
+# followed, so a cycle in the data can't make the walk loop. The depth cap is
+# only a backstop. A course reachable by several paths is walked once per path,
+# then GROUP BY lists it once, at its shortest distance.
+PREREQUISITE_CHAIN_SQL = """
+    WITH RECURSIVE chain AS (
+        SELECT prerequisite_code AS code, 1 AS depth,
+               ARRAY[course_code, prerequisite_code] AS path
+        FROM course_prerequisites
+        WHERE course_code = %(code)s
+        UNION ALL
+        SELECT cp.prerequisite_code, chain.depth + 1, chain.path || cp.prerequisite_code
+        FROM course_prerequisites cp
+        JOIN chain ON cp.course_code = chain.code
+        WHERE NOT cp.prerequisite_code = ANY(chain.path)
+          AND chain.depth < 10
+    )
+    SELECT chain.code, min(chain.depth) AS depth, c.title, c.prerequisites_text
+    FROM chain
+    LEFT JOIN courses c ON c.code = chain.code
+    GROUP BY chain.code, c.title, c.prerequisites_text
+    ORDER BY depth, chain.code
+"""
+
+
+def _prerequisite_chain(conn, code: str) -> list[tuple]:
+    """Every course in `code`'s prerequisite chain, once each:
+    (code, depth, title, prerequisites_text). Title is None for a referenced
+    code with no extracted course row (see schema.sql)."""
+    return conn.execute(PREREQUISITE_CHAIN_SQL, {"code": code}).fetchall()
+
+
+def _chain_line(code: str, depth: int, title: str | None, prereq_text: str | None) -> str:
+    if title is None:
+        return f"  - {code} (step {depth}) -- not found in the structured catalog data"
+    return f"  - {code}: {title} (step {depth}) -- requires: {prereq_text or 'none listed'}"
