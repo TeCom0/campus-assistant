@@ -18,7 +18,6 @@ dependencies = [
     "langgraph",
     "langchain-groq",
     "langchain-google-genai",
-    "langdetect",
 ]
 
 [project.optional-dependencies]

@@ -1,19 +1,10 @@
 """Human-readable, localized labels for tool_call SSE events.
 
 Only distinguishes English vs. French (this project's actual scope, not
-arbitrary language support), and defaults to English unless the question is
-confidently detected as French -- langdetect is unreliable on short/
-ambiguous text (e.g. "Hello" -> misdetected as Finnish, a bare course code
--> misdetected as Tagalog, tested directly), so treating "anything but a
-confident fr" as English is the safe choice, not a real detection bug.
+arbitrary language support). The language comes from
+app.agent.language.detect_language; when that's unsure (None), labels are
+in English.
 """
-
-from langdetect import DetectorFactory, LangDetectException, detect
-
-# langdetect is non-deterministic by default (probabilistic sampling
-# internally) -- without a fixed seed, the same input text could return
-# different results across runs/requests.
-DetectorFactory.seed = 0
 
 _TEMPLATES = {
     "search_documents": {
@@ -35,16 +26,8 @@ _FALLBACK = {
 }
 
 
-def detect_language(text: str) -> str:
-    """Return 'fr' only if confidently detected as French, else 'en'."""
-    try:
-        return "fr" if detect(text) == "fr" else "en"
-    except LangDetectException:
-        return "en"
-
-
-def build_tool_call_label(tool: str, args: dict, language: str) -> str:
-    """Build a human-readable label for a tool_call event, in `language` ('en'/'fr')."""
+def build_tool_call_label(tool: str, args: dict, language: str | None) -> str:
+    """Build a human-readable label for a tool_call event, in `language` ('en'/'fr'/None)."""
     lang = language if language == "fr" else "en"
 
     if tool == "search_documents":

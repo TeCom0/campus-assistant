@@ -81,7 +81,7 @@ and evaluation.
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
-- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open items 1-3 below)
+- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open items 1-2 below)
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
@@ -183,20 +183,32 @@ the numbered next steps below.
   direct lookup uses it when the code appears in `course_prerequisites`, and points to
   search_documents. A title from line 6013 was deliberately not added (no hand-made rows).
   Tests: 3 more in test_query_courses.py.
-- Test suite: 24 tests, all passing.
+- *Answer in the wrong language* (2026-10-08): an English scholarship question was answered in
+  French. The prompt asked the model to detect the language itself. Measured first: langdetect
+  (used for the tool label) was confidently wrong on chat-length text -- "ACC 2302
+  prerequisites" -> fr (prob 1.0), "graduation requirements for computer science" -> fr, "date
+  limite inscription" -> en -- and neither a confidence threshold nor a minimum word count fixed
+  it, so passing its output as an order would have forced wrong-language answers. Replaced by
+  app/agent/language.py: counts English vs. French function words (+1 French for an accented
+  letter), returns "en"/"fr", or None on a tie (e.g. "GPA?", "ACC 2302 prerequisites"). 0 wrong,
+  4 unsure on 27 questions not used to tune the word lists. main.py passes it through LangGraph's
+  run config (`configurable.language`, not graph state: fixed for the run, no node changes it);
+  `_agent_node` tells the model the language, or keeps the old "detect it" rule when None. The
+  tool label uses the same detection, so label and answer agree. langdetect dependency removed.
+  Tests: test_language.py (incl. an end-to-end check that the real graph passes the config to
+  the node). Verified in the UI: EN, FR, "ACC 2302 prerequisites" (label now EN), and an English
+  follow-up after a French turn all answered in the right language.
+- Test suite: 46 tests, all passing.
 
 **Next steps, in order:**
-1. Pass the language detected server-side (`detect_language` in main.py) into the system prompt
-   as a direct instruction, instead of asking the model to detect it -- an English scholarship
-   question was answered in French although its sources and tool label were English.
-2. Show only the sources the answer actually cites, without duplicates: a French "I don't know"
+1. Show only the sources the answer actually cites, without duplicates: a French "I don't know"
    answer listed 15 sources, many repeated across its 3 searches. If footnotes are filtered,
    number them by `marker`, not list position.
-3. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
+2. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
    how citations get linked, how history.py decides what history to send.
-4. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
+3. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
    `ruff format --check`; would break a CI format check).
-5. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
+4. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
    run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
    app/config.py requires at import.
 
@@ -228,12 +240,22 @@ the numbered next steps below.
 - *Known residual risk, not fully resolved*: the LLM can occasionally answer in the wrong
   language despite the system prompt's "same language as the question" rule. Mitigated by
   strengthening the prompt wording; not guaranteed, since LLM instruction-following is
-  inherently stochastic. Seen again in Phase 5 testing -> next step 1.
+  inherently stochastic. Since 2026-10-08 the model is told the detected language (see the
+  bugs list above), which removes the guessing but is still a prompt rule; when detection is
+  unsure (short keyword questions) the model still judges it itself.
 - *Pattern: prompt-only rules keep failing* ("at most two searches", the prerequisite caution
   note, the language rule, bracket style). Where something must hold, enforce it in code or
   shape the tool output so the model doesn't have to infer it; keep prompt rules as guidance.
 - *The model can still add facts no tool gave it* (e.g. the MTH 1305 title). Clearer tool output
   reduces this but can't rule it out.
+- *Wrong facts next to citations, seen 2026-10-08* -- more serious than the above, since a cited
+  claim looks verified. "Quelles bourses sont disponibles pour les étudiants internationaux ?"
+  (answered twice) listed external scholarships "(ex. McCall MacBain, Fulbright)" -- "Fulbright"
+  is in 0 chunks, and McCall MacBain is an award AUI students *won*, not a scholarship offered to
+  them -- and "réduction de 10 000 MAD sur le loyer" for alumni children, where 10,000 MAD is
+  actually the non-refundable advance paid to accept a scholarship. Not fixed. Needs measuring
+  before fixing: an answer-faithfulness check (each cited claim vs. its cited chunk) added to the
+  evaluation set, which so far only measures retrieval.
 - *The agent pads search queries, which hurts retrieval* (seen 2026-10-08): for "What is MTH
   1305?" it searched "MTH 1305 Al Akhawayn University course description" (and quoted variants),
   missing the only chunk with its title (p. 155, "Mathematics for Business"). The same search

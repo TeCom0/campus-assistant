@@ -8,6 +8,7 @@ over narrative text can't reliably answer.
 from datetime import UTC, datetime
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
@@ -49,10 +50,22 @@ ordinary keyboard characters "[" and "]" only -- never full-width or other Unico
 variants (e.g. not 【6】) -- since this exact format is parsed by code. Never invent a citation \
 number yourself; only ever use a number a tool actually gave you.
 
-LANGUAGE (strict): detect the language of the student's question and write your ENTIRE answer in \
-that same language -- if the question is in English, answer only in English; if in French, \
-answer only in French. Never switch languages, even if tool results are in a different language \
-than the question."""
+{language_rule}"""
+
+# The language is detected in code (app.agent.language) and passed in through
+# the run's config, so the model is told it rather than left to judge it --
+# an English question was once answered in French. When detection is unsure
+# (e.g. "GPA?"), the model judges it as before.
+LANGUAGE_NAMES = {"en": "English", "fr": "French"}
+
+LANGUAGE_RULE_KNOWN = """LANGUAGE (strict): the student's latest message is in {language_name}. \
+Write your ENTIRE answer in {language_name}, even if tool results or earlier turns of the \
+conversation are in a different language."""
+
+LANGUAGE_RULE_UNKNOWN = """LANGUAGE (strict): detect the language of the student's question and \
+write your ENTIRE answer in that same language -- if the question is in English, answer only in \
+English; if in French, answer only in French. Never switch languages, even if tool results are \
+in a different language than the question."""
 
 TOOLS = [search_documents, query_courses]
 
@@ -61,8 +74,14 @@ only the tool results provided in the conversation, with citations as usual. If 
 contain the answer, say plainly that you don't know based on the available information."""
 
 
-def _build_system_prompt() -> str:
-    return SYSTEM_PROMPT_TEMPLATE.format(today=datetime.now(UTC).date().isoformat())
+def _build_system_prompt(language: str | None) -> str:
+    if language in LANGUAGE_NAMES:
+        language_rule = LANGUAGE_RULE_KNOWN.format(language_name=LANGUAGE_NAMES[language])
+    else:
+        language_rule = LANGUAGE_RULE_UNKNOWN
+    return SYSTEM_PROMPT_TEMPLATE.format(
+        today=datetime.now(UTC).date().isoformat(), language_rule=language_rule
+    )
 
 
 def _tool_rounds_since_last_question(messages) -> int:
@@ -104,8 +123,12 @@ def _without_tool_calls(messages) -> list:
     ]
 
 
-def _agent_node(state: MessagesState) -> dict:
-    system_prompt = _build_system_prompt()
+def _agent_node(state: MessagesState, config: RunnableConfig | None = None) -> dict:
+    # LangGraph passes the run's config to a node that declares a `config`
+    # parameter. The language lives there, not in the state: it's fixed for
+    # the whole run and no node changes it.
+    language = (config or {}).get("configurable", {}).get("language")
+    system_prompt = _build_system_prompt(language)
     if _tool_rounds_since_last_question(state["messages"]) >= MAX_TOOL_ROUNDS:
         # Budget used: no tools bound and no tool calls in the conversation,
         # so the model can only answer.

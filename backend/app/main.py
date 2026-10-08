@@ -11,7 +11,8 @@ from pydantic import BaseModel
 from app.agent.citations import reset_citation_counter
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
-from app.agent.tool_labels import build_tool_call_label, detect_language
+from app.agent.language import detect_language
+from app.agent.tool_labels import build_tool_call_label
 from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
 
 app = FastAPI(title="Campus AI Assistant")
@@ -67,7 +68,10 @@ async def chat(request: ChatRequest) -> StreamingResponse:
             history = [m.model_dump() for m in request.messages or []]
             async for stream_mode, chunk in _compiled_graph.astream(
                 {"messages": build_input_messages(request.question, history)},
-                config={"recursion_limit": MAX_AGENT_STEPS},
+                config={
+                    "recursion_limit": MAX_AGENT_STEPS,
+                    "configurable": {"language": language},
+                },
                 stream_mode=["messages", "updates"],
             ):
                 if stream_mode == "messages":
