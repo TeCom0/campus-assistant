@@ -19,6 +19,15 @@ from app.retrieval.hybrid_search import search_hybrid
 
 CATALOG_SOURCE = "academic_catalog_2024_2025"
 
+# For a code that other courses list as a prerequisite but that has no
+# course-description entry, so no `courses` row (e.g. MTH 1305). It IS in the
+# catalog, so "not found" would be false; and with no title given, the model
+# has borrowed a neighbouring course's title before.
+NO_DESCRIPTION_NOTE = (
+    "referenced in the catalog but has no course description there, so its title and "
+    "prerequisites aren't available here -- don't state a title for it"
+)
+
 
 @tool(response_format="content_and_artifact")
 def search_documents(query: str) -> tuple[str, list[dict]]:
@@ -70,7 +79,17 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
     ).fetchone()
 
     if not row:
+        is_referenced = conn.execute(
+            "SELECT 1 FROM course_prerequisites WHERE prerequisite_code = %s LIMIT 1",
+            (code,),
+        ).fetchone()
         conn.close()
+        if is_referenced:
+            return (
+                f"{code} is {NO_DESCRIPTION_NOTE}. Other parts of the catalog (e.g. program "
+                "requirements) may still mention it: try search_documents, or suggest "
+                "checking with an academic advisor."
+            ), []
         return f"No course found with code '{code}' in AUI's course catalog.", []
 
     code_, dept, title, credits, prereq_text, coreq_text, page = row
@@ -148,5 +167,5 @@ def _prerequisite_chain(conn, code: str) -> list[tuple]:
 
 def _chain_line(code: str, depth: int, title: str | None, prereq_text: str | None) -> str:
     if title is None:
-        return f"  - {code} (step {depth}) -- not found in the structured catalog data"
+        return f"  - {code} (step {depth}) -- {NO_DESCRIPTION_NOTE}"
     return f"  - {code}: {title} (step {depth}) -- requires: {prereq_text or 'none listed'}"

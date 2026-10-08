@@ -81,7 +81,7 @@ and evaluation.
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
-- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open items 1-4 below)
+- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open items 1-3 below)
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
@@ -172,24 +172,31 @@ the numbered next steps below.
   lowercase ones; the space is now optional, lowercase/hyphens still rejected on purpose (a
   case-insensitive pattern would read "and 2024" as a course). Re-seeded: 522 -> 526 edges, no
   cycles. Tests: test_course_extraction.py.
-- Test suite: 21 tests, all passing.
+- *"Not in the catalog" for a real course* (2026-10-08): the agent once called MTH 1305
+  "Calculus I" (copied from MTH 1303). MTH 1305 has no course-description entry, so no `courses`
+  row; it appears only in lists (line 6013 of the processed catalog: "Mathematics for Business")
+  -- not a regex miss. Reproduced first: 6 agent runs after 3b8895f invented no title (0/3 on a
+  full-chain question), so 3b8895f's per-course lines had already fixed that. But "not found in
+  the structured catalog data" was passed on to students as "not located in the catalog", and a
+  direct lookup said "No course found". Now `NO_DESCRIPTION_NOTE` in tools.py says such a code is
+  referenced in the catalog with no description and tells the model not to state a title; the
+  direct lookup uses it when the code appears in `course_prerequisites`, and points to
+  search_documents. A title from line 6013 was deliberately not added (no hand-made rows).
+  Tests: 3 more in test_query_courses.py.
+- Test suite: 24 tests, all passing.
 
 **Next steps, in order:**
-1. Give every course in the prerequisite chain its title, or "not listed in the catalog" when it
-   has none, to stop invented titles: the agent called MTH 1305 "Calculus I" (copied from MTH
-   1303). MTH 1305 has no course-listing entry, so it has no `courses` row; its only appearance
-   is a list on line 6013 of the processed catalog ("Mathematics for Business") -- not a regex miss.
-2. Pass the language detected server-side (`detect_language` in main.py) into the system prompt
+1. Pass the language detected server-side (`detect_language` in main.py) into the system prompt
    as a direct instruction, instead of asking the model to detect it -- an English scholarship
    question was answered in French although its sources and tool label were English.
-3. Show only the sources the answer actually cites, without duplicates: a French "I don't know"
+2. Show only the sources the answer actually cites, without duplicates: a French "I don't know"
    answer listed 15 sources, many repeated across its 3 searches. If footnotes are filtered,
    number them by `marker`, not list position.
-4. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
+3. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
    how citations get linked, how history.py decides what history to send.
-5. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
+4. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
    `ruff format --check`; would break a CI format check).
-6. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
+5. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
    run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
    app/config.py requires at import.
 
@@ -221,12 +228,18 @@ the numbered next steps below.
 - *Known residual risk, not fully resolved*: the LLM can occasionally answer in the wrong
   language despite the system prompt's "same language as the question" rule. Mitigated by
   strengthening the prompt wording; not guaranteed, since LLM instruction-following is
-  inherently stochastic. Seen again in Phase 5 testing -> next step 2.
+  inherently stochastic. Seen again in Phase 5 testing -> next step 1.
 - *Pattern: prompt-only rules keep failing* ("at most two searches", the prerequisite caution
   note, the language rule, bracket style). Where something must hold, enforce it in code or
   shape the tool output so the model doesn't have to infer it; keep prompt rules as guidance.
 - *The model can still add facts no tool gave it* (e.g. the MTH 1305 title). Clearer tool output
   reduces this but can't rule it out.
+- *The agent pads search queries, which hurts retrieval* (seen 2026-10-08): for "What is MTH
+  1305?" it searched "MTH 1305 Al Akhawayn University course description" (and quoted variants),
+  missing the only chunk with its title (p. 155, "Mathematics for Business"). The same search
+  ranks that chunk 1st for "What is MTH 1305?" and 2nd for "MTH 1305". Not fixed yet -- candidate
+  fixes: tool-docstring guidance to search with the question's key terms, or have query_courses
+  run the search itself for a code with no description (code over prompt, per the pattern above).
 - *Data pipeline recap*: data/sources.md lists 3 AUI documents (catalog PDF + 2 scholarship
   pages) -> load.py/clean.py/chunk.py (data/raw/, data/processed/, 1161 chunks in
   chunks.jsonl) -> app/ingestion/store.py embeds and upserts into Postgres table

@@ -38,6 +38,31 @@ def test_chain_shows_each_courses_own_catalog_wording():
     ) in text
 
 
+def test_chain_course_without_description_is_not_called_missing_from_the_catalog():
+    # MTH 1305 is in the catalog (Gen Ed lists) but has no course-description
+    # entry, so it has no title in our data. The old line said "not found in
+    # the structured catalog data", which the model passed on as "not in the
+    # catalog".
+    text = _chain_text("ACC 2302")
+    assert "  - MTH 1305 (step 2) -- referenced in the catalog but has no course description" in (
+        text
+    )
+    assert "not found" not in text
+
+
+def test_direct_lookup_of_referenced_course_without_description():
+    reset_citation_counter()
+    text, artifact = query_courses.func("MTH 1305")
+    assert text.startswith("MTH 1305 is referenced in the catalog but has no course description")
+    assert artifact == []
+
+
+def test_direct_lookup_of_unknown_code_still_says_not_found():
+    reset_citation_counter()
+    text, _ = query_courses.func("ZZZ 9999")
+    assert text == "No course found with code 'ZZZ 9999' in AUI's course catalog."
+
+
 def test_each_course_is_listed_once():
     # SCM 5305 has the deepest chain in the catalog, with courses reachable
     # at more than one depth.
