@@ -135,9 +135,11 @@ export default function App() {
                 <div className="interrupted">Answer interrupted: {m.error}</div>
               )}
               {m.citations.length > 0 && (
+                // Only cited sources arrive, so markers can skip numbers ([2], [4]).
+                // value= makes each footnote show its marker, not its list position.
                 <ol className="sources">
                   {m.citations.map((c) => (
-                    <li key={c.marker} id={`source-${c.marker}`}>
+                    <li key={c.marker} id={`source-${c.marker}`} value={c.marker}>
                       {c.source}
                       {c.pages && c.pages.length > 0 ? `, p. ${c.pages.join(", ")}` : ""}
                     </li>

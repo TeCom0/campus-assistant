@@ -81,7 +81,7 @@ and evaluation.
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
-- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open items 1-2 below)
+- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open item 1 below)
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
@@ -108,8 +108,9 @@ the numbered next steps below.
   - `tool_call` -- `{"tool": "...", "args": {...}, "label": "..."}` -- fires before the tool
     executes; `label` is server-built and localized to the question's detected language
   - `citations` -- `{"citations": [{"marker": N, "source": "...", "pages": [...]}]}` -- once,
-    after the answer is complete; `N` is globally unique and continuous across every tool call in
-    the answer, not restarted per call
+    after the answer is complete; only the markers the answer cites, once each, sorted (so they
+    can skip numbers). `N` is unique per passage across every tool call in the answer, not
+    restarted per call, and a passage returned again keeps its first `N`
   - `done` -- `{}` -- stream finished normally
   - `error` -- `{"message": "..."}` -- fires even if tokens already streamed, so the UI can mark
     the answer interrupted rather than see a silent cutoff; full exception detail logged
@@ -198,17 +199,25 @@ the numbered next steps below.
   Tests: test_language.py (incl. an end-to-end check that the real graph passes the config to
   the node). Verified in the UI: EN, FR, "ACC 2302 prerequisites" (label now EN), and an English
   follow-up after a French turn all answered in the right language.
-- Test suite: 46 tests, all passing.
+- *Uncited and duplicate sources* (2026-10-08): an answer listed every passage any tool returned
+  -- 15 for "What is MTH 1305?", though its 3 searches returned only 10 distinct chunks (chunk
+  1030 three times, each copy numbered as a new source). Now `citation_number_for(key)` in
+  citations.py gives a passage one number per request (key: `(source, chunk_index)`, or
+  `("course", code)`), via a dict on the same mutable ContextVar object as the counter; a repeated
+  search passage is sent to the model as a one-line "same passage as returned by an earlier
+  search" note instead of its full text (5 of those 15 results). main.py joins the streamed
+  answer and sends only the citations it cites (`keep_cited`; reads `[3]` and `[2, 4]`), so an
+  answer citing nothing lists no sources. App.tsx: `<li value={marker}>`, since footnotes are no
+  longer 1..N. Not done: the frontend still links only single `[N]` markers, not `[2, 4]`.
+  Verified in the UI: MTH 1305 answer listed 2 sources (it cited [2], [3]), down from 15.
+- Test suite: 49 tests, all passing.
 
 **Next steps, in order:**
-1. Show only the sources the answer actually cites, without duplicates: a French "I don't know"
-   answer listed 15 sources, many repeated across its 3 searches. If footnotes are filtered,
-   number them by `marker`, not list position.
-2. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
+1. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
    how citations get linked, how history.py decides what history to send.
-3. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
+2. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
    `ruff format --check`; would break a CI format check).
-4. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
+3. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
    run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
    app/config.py requires at import.
 
@@ -259,7 +268,9 @@ the numbered next steps below.
 - *The agent pads search queries, which hurts retrieval* (seen 2026-10-08): for "What is MTH
   1305?" it searched "MTH 1305 Al Akhawayn University course description" (and quoted variants),
   missing the only chunk with its title (p. 155, "Mathematics for Business"). The same search
-  ranks that chunk 1st for "What is MTH 1305?" and 2nd for "MTH 1305". Not fixed yet -- candidate
+  ranks that chunk 1st for "What is MTH 1305?" and 2nd for "MTH 1305". In one later run (after
+  NO_DESCRIPTION_NOTE pointed it to search_documents) it searched plain "MTH 1305" and found the
+  title -- a single run, not evidence it's fixed. Not fixed yet -- candidate
   fixes: tool-docstring guidance to search with the question's key terms, or have query_courses
   run the search itself for a code with no description (code over prompt, per the pattern above).
 - *Data pipeline recap*: data/sources.md lists 3 AUI documents (catalog PDF + 2 scholarship

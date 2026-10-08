@@ -8,12 +8,12 @@ event -- avoids re-parsing the LLM-facing text to recover source/page
 metadata. Citation numbers come from app.agent.citations, which hands out
 a continuously increasing sequence across ALL tool calls within one agent
 run (so a second tool call picks up where the first left off, never
-restarting at [1]).
+restarting at [1]), and gives a passage returned again its earlier number.
 """
 
 from langchain_core.tools import tool
 
-from app.agent.citations import next_citation_numbers
+from app.agent.citations import citation_number_for
 from app.db.connection import get_connection
 from app.retrieval.hybrid_search import search_hybrid
 
@@ -42,15 +42,17 @@ def search_documents(query: str) -> tuple[str, list[dict]]:
     if not results:
         return "No relevant passages found in the university documents.", []
 
-    numbers = next_citation_numbers(len(results))
-    parts = [
-        f"[{n}] (source: {r.source}, pages: {r.pages})\n{r.text}"
-        for n, r in zip(numbers, results, strict=True)
-    ]
-    artifact = [
-        {"marker": n, "source": r.source, "pages": r.pages}
-        for n, r in zip(numbers, results, strict=True)
-    ]
+    parts = []
+    artifact = []
+    for r in results:
+        number, is_new = citation_number_for((r.source, r.chunk_index))
+        if is_new:
+            parts.append(f"[{number}] (source: {r.source}, pages: {r.pages})\n{r.text}")
+            artifact.append({"marker": number, "source": r.source, "pages": r.pages})
+        else:
+            # Its text is already in an earlier tool result for this question;
+            # sending it again would only spend tokens.
+            parts.append(f"[{number}] (same passage as returned by an earlier search)")
     return "\n\n".join(parts), artifact
 
 
@@ -93,7 +95,9 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
         return f"No course found with code '{code}' in AUI's course catalog.", []
 
     code_, dept, title, credits, prereq_text, coreq_text, page = row
-    (marker,) = next_citation_numbers(1)
+    # Same course looked up twice (e.g. again with follow_prerequisites) keeps
+    # its number. The text is always sent in full: the chain part can differ.
+    marker, is_new = citation_number_for(("course", code_))
     source_note = f"page {page}" if page is not None else "no page recorded"
     lines = [
         (
@@ -122,14 +126,10 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
             )
 
     conn.close()
-    artifact = [
-        {
-            "marker": marker,
-            "source": CATALOG_SOURCE,
-            "pages": [page] if page is not None else None,
-        }
-    ]
-    return "\n".join(lines), artifact
+    if not is_new:
+        return "\n".join(lines), []
+    pages = [page] if page is not None else None
+    return "\n".join(lines), [{"marker": marker, "source": CATALOG_SOURCE, "pages": pages}]
 
 
 # Walks the prerequisite graph from one course. Each row carries the path

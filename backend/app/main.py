@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.agent.citations import reset_citation_counter
+from app.agent.citations import keep_cited, reset_citation_counter
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
@@ -63,6 +63,10 @@ async def chat(request: ChatRequest) -> StreamingResponse:
         reset_citation_counter()
         language = detect_language(request.question)
         citations: list[dict] = []
+        # Everything streamed as answer text, so the citations event can list
+        # only the markers the answer actually uses. A marker can arrive split
+        # across tokens ("[" then "3]"), hence the whole text, not per token.
+        answer_parts: list[str] = []
 
         try:
             history = [m.model_dump() for m in request.messages or []]
@@ -77,7 +81,9 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                 if stream_mode == "messages":
                     msg_chunk, metadata = chunk
                     if metadata.get("langgraph_node") == "agent" and msg_chunk.content:
-                        yield _sse("token", {"text": _normalize_token(msg_chunk.content)})
+                        text = _normalize_token(msg_chunk.content)
+                        answer_parts.append(text)
+                        yield _sse("token", {"text": text})
 
                 elif stream_mode == "updates":
                     for node_name, node_output in chunk.items():
@@ -95,7 +101,8 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                                 if artifact:
                                     citations.extend(artifact)
 
-            yield _sse("citations", {"citations": citations})
+            cited = keep_cited(citations, "".join(answer_parts))
+            yield _sse("citations", {"citations": cited})
             yield _sse("done", {})
 
         except Exception as e:  # noqa: BLE001 -- deliberately broad: any failure
