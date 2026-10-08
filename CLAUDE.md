@@ -90,8 +90,10 @@ and evaluation.
 **Phases 0-4 done, Phase 5 built.** Phases 0-3: repo/Docker setup, the full ingestion pipeline,
 all three retrieval methods with a measured evaluation baseline, grounded/cited RAG generation.
 Phase 4: the LangGraph agent, wired into `/chat`. Phase 5: the React + TS chat UI and multi-turn
-history. Verifying Phase 5 in the browser (2026-10-06) found bugs; three are fixed, the rest are
-the numbered next steps below.
+history. Verifying Phase 5 in the browser (2026-10-06) found six bugs; all six are fixed (three
+on 2026-10-06, three on 2026-10-08) and verified in the UI. Only the Phase 5 code walkthrough
+(next step 1) remains before sign-off. The repo is on GitHub (private): see "GitHub" under open
+issues.
 
 **Phase 4 summary:**
 - Agent: `search_documents` (wraps `search_hybrid()`) + `query_courses` (structured lookup over
@@ -145,7 +147,7 @@ the numbered next steps below.
   active, `uvicorn app.main:app --reload --port 8000`; in frontend\, `npm run dev`, then open
   http://localhost:5173.
 
-**Bugs found while verifying Phase 5 (2026-10-06), fixed:**
+**Bugs found while verifying Phase 5 (2026-10-06), fixed 2026-10-06 and 2026-10-08:**
 - *Crash on a French question* (432d0af): the model ignored the prompt's "at most two searches",
   made 5 search calls, and 5 x (agent + tools) = 10 steps hit `recursion_limit` ->
   `GraphRecursionError` -> the answer ended in an error. Now `MAX_TOOL_ROUNDS = 3` is enforced in
@@ -173,7 +175,7 @@ the numbered next steps below.
   lowercase ones; the space is now optional, lowercase/hyphens still rejected on purpose (a
   case-insensitive pattern would read "and 2024" as a course). Re-seeded: 522 -> 526 edges, no
   cycles. Tests: test_course_extraction.py.
-- *"Not in the catalog" for a real course* (2026-10-08): the agent once called MTH 1305
+- *"Not in the catalog" for a real course* (0bc183a, 2026-10-08): the agent once called MTH 1305
   "Calculus I" (copied from MTH 1303). MTH 1305 has no course-description entry, so no `courses`
   row; it appears only in lists (line 6013 of the processed catalog: "Mathematics for Business")
   -- not a regex miss. Reproduced first: 6 agent runs after 3b8895f invented no title (0/3 on a
@@ -184,8 +186,8 @@ the numbered next steps below.
   direct lookup uses it when the code appears in `course_prerequisites`, and points to
   search_documents. A title from line 6013 was deliberately not added (no hand-made rows).
   Tests: 3 more in test_query_courses.py.
-- *Answer in the wrong language* (2026-10-08): an English scholarship question was answered in
-  French. The prompt asked the model to detect the language itself. Measured first: langdetect
+- *Answer in the wrong language* (6aebc91, 2026-10-08): an English scholarship question was
+  answered in French. The prompt asked the model to detect the language itself. Measured first: langdetect
   (used for the tool label) was confidently wrong on chat-length text -- "ACC 2302
   prerequisites" -> fr (prob 1.0), "graduation requirements for computer science" -> fr, "date
   limite inscription" -> en -- and neither a confidence threshold nor a minimum word count fixed
@@ -199,8 +201,8 @@ the numbered next steps below.
   Tests: test_language.py (incl. an end-to-end check that the real graph passes the config to
   the node). Verified in the UI: EN, FR, "ACC 2302 prerequisites" (label now EN), and an English
   follow-up after a French turn all answered in the right language.
-- *Uncited and duplicate sources* (2026-10-08): an answer listed every passage any tool returned
-  -- 15 for "What is MTH 1305?", though its 3 searches returned only 10 distinct chunks (chunk
+- *Uncited and duplicate sources* (bd6abae, 2026-10-08): an answer listed every passage any tool
+  returned -- 15 for "What is MTH 1305?", though its 3 searches returned only 10 distinct chunks (chunk
   1030 three times, each copy numbered as a new source). Now `citation_number_for(key)` in
   citations.py gives a passage one number per request (key: `(source, chunk_index)`, or
   `("course", code)`), via a dict on the same mutable ContextVar object as the counter; a repeated
@@ -222,6 +224,15 @@ the numbered next steps below.
    app/config.py requires at import.
 
 **Open issues / decisions to remember:**
+- *GitHub* (set up 2026-10-08): private repo **TeCom0/campus-assistant**
+  (https://github.com/TeCom0/campus-assistant). TeCom0 is Youness's *personal* GitHub account
+  (not a club account), and the commits' author identity TeCom0 <tecomclub@gmail.com> was kept
+  deliberately. Default branch `main` (renamed from `master` before the first push). GitHub CLI
+  installed via winget (`C:\Program Files\GitHub CLI\gh.exe`), logged in as TeCom0 with the
+  `workflow` scope (needed to push a GitHub Actions file in Phase 6); `gh auth setup-git` makes
+  plain `git push` use that login. Push after every commit. Windows PowerShell 5.1 mangles
+  double quotes inside `git commit -m "..."`, so write multi-line messages to a file and use
+  `git commit -F <file>`. `.env` was checked: ignored, never in history.
 - *Postgres port*: Docker maps to host port **15432**, not 5432/5433/55432 -- 5432 and 5433 both
   collided with native Postgres installs on this machine; 55432 then broke after a reboot because
   it landed in a Windows/Hyper-V dynamic port exclusion range (chunks of the 49152-65535
