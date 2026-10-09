@@ -82,7 +82,7 @@ and evaluation.
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [done ] Phase 5: React + TypeScript chat UI with streaming
-- [wip  ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI (CI done)
+- [built] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI (sign-off pending)
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
@@ -224,7 +224,13 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
   `ruff format --check` (last three files formatted in ff27da3).
 
 **Next steps, in order:**
-1. Phase 6, next: Docker Compose for the full stack (db + api + frontend).
+1. Phase 6 sign-off: Phase 6 checklist items (tests, full-stack Compose, CI) are all built; decide
+   whether anything else belongs here before moving to Phase 7 (README, architecture diagram,
+   demo video, pilot deployment).
+2. Seen during the Compose check (2026-10-09), not fixed: the UI shows raw Markdown (`**bold**`,
+   `- ` bullets) since answers are rendered as plain text; and a follow-up answer re-cited a fact
+   from the previous turn (ACC 2302's prerequisite) with this turn's [1], which points at the
+   ACC 2301 entry -- a mild case of the "wrong facts next to citations" issue below.
 
 **Phase 6 progress (2026-10-09):** GitHub Actions CI is green: `.github/workflows/ci.yml`, three
 jobs on every push to main and every PR.
@@ -243,6 +249,23 @@ jobs on every push to main and every PR.
   vector type before the extension existed, so the setup scripts couldn't create the schema on a
   new database. They now use `get_connection(register_vector_type=False)`; `init_schema()`
   registers the type after schema.sql runs. Verified on a scratch database.
+- **Docker** (06a087c, 9f3b677, b3f8b6c): `backend/Dockerfile` (python:3.12-slim;
+  layers: CPU torch -> deps read from pyproject.toml -> e5 model downloaded at build time,
+  `HF_HUB_OFFLINE=1` -> app/; non-root; 2.9 GB, mostly torch + model; a code-only rebuild takes
+  ~5 s). `frontend/Dockerfile` (multi-stage: Node builds, nginx:stable-alpine serves dist/;
+  93 MB; `VITE_API_URL` is a build arg baked into the bundle -- must be a URL the *browser*
+  reaches). `docker-compose.yml`: `db` (+ pg_isready healthcheck), `api` (env_file .env, then
+  overrides POSTGRES_HOST=db, POSTGRES_PORT=5432, CORS_ORIGINS for :8080; waits for db healthy;
+  port 8000), `frontend` (port 8080). `CORS_ORIGINS` is now env-configurable in config.py
+  (comma-separated, default = the Vite dev origins).
+  - Full stack: `docker compose up -d` -> http://localhost:8080 (stop local uvicorn first; both
+    want port 8000). Back to dev: `docker compose stop api frontend` (or `down`; the db volume
+    survives either). Dev workflow (`docker compose up -d db` + uvicorn + `npm run dev`) unchanged.
+  - Verified: db healthy before api starts; data intact after the db container was recreated;
+    CORS 200 for :8080, 400 for an unknown origin; question + follow-up in the browser.
+  - Lesson: a first frontend build failed with a missing rolldown Linux binding, then kept failing
+    from the cached layer; `--no-cache` fixed it (npm silently skips optional platform binaries
+    whose download fails). Suspect cached layers when a build failure makes no sense.
 - `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19 (GitHub notice on every run). Nothing here
   depends on the OS version; pin `ubuntu-24.04` if a run breaks around then.
 
