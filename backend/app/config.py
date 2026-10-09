@@ -58,6 +58,13 @@ MAX_TOOL_ROUNDS = 3
 # Hitting this raises GraphRecursionError, which ends the answer with an error.
 MAX_AGENT_STEPS = 10
 
-# Browser origins allowed to call the API (the Vite dev server). Browsers block
-# cross-origin requests unless the server opts in with CORS headers.
-CORS_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# Browser origins allowed to call the API. Browsers block cross-origin requests
+# unless the server opts in with CORS headers. Defaults to the Vite dev server;
+# CORS_ORIGINS (comma-separated) overrides it, e.g. in docker-compose.yml,
+# where the frontend container is served on port 8080.
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+]

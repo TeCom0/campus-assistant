@@ -10,6 +10,44 @@ services:
       - "${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Lets the api service wait until Postgres accepts connections, not just
+    # until the container has started. $$ = the container's own variables.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    # Same .env as local development (DB credentials, LLM keys)...
+    env_file: .env
+    # ...with these overriding it. Inside the Compose network Postgres is the
+    # service "db" on its own port 5432; POSTGRES_PORT in .env (15432) is only
+    # the port published to Windows.
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Called from the browser on Windows, so the API's published port,
+        # not http://api:8000.
+        VITE_API_URL: http://127.0.0.1:8000
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
 
 volumes:
   postgres_data:
