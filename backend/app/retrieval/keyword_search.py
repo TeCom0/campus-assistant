@@ -38,8 +38,7 @@ def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
     conn.close()
 
     return [
-        SearchResult(source=r[0], chunk_index=r[1], pages=r[2], text=r[3], score=r[4])
-        for r in rows
+        SearchResult(source=r[0], chunk_index=r[1], pages=r[2], text=r[3], score=r[4]) for r in rows
     ]
 
 

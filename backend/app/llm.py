@@ -60,9 +60,7 @@ def _stream_groq(prompt: str, system: str | None) -> Iterator[str]:
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
-    for chunk in client.chat.completions.create(
-        model=GROQ_MODEL, messages=messages, stream=True
-    ):
+    for chunk in client.chat.completions.create(model=GROQ_MODEL, messages=messages, stream=True):
         delta = chunk.choices[0].delta.content
         if delta:
             yield delta
