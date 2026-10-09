@@ -8,13 +8,16 @@ prior assistant turns before the agent sees them.
 
 import re
 
+from app.agent.citations import CITATION_MARKER_RE
 from app.config import MAX_HISTORY_MESSAGES
 
-_CITATION_MARKER = re.compile(r"\s*\[\d+\]")
+# The same marker pattern citations.py uses ("[3]" and "[2, 4]"), plus the
+# whitespace before it, so "68 credits [2]." becomes "68 credits.".
+_MARKER_WITH_SPACE = re.compile(r"\s*" + CITATION_MARKER_RE.pattern)
 
 
 def strip_citation_markers(text: str) -> str:
-    return _CITATION_MARKER.sub("", text)
+    return _MARKER_WITH_SPACE.sub("", text)
 
 
 def build_input_messages(

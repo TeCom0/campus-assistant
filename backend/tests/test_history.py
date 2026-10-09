@@ -31,6 +31,15 @@ def test_citation_markers_are_stripped_from_prior_assistant_turns_only():
     assert messages[1]["content"] == "68 credits.\n\n- Graduates: 12"
 
 
+def test_grouped_citation_markers_are_stripped_too():
+    # The answer can cite "[2, 4]"; keep_cited reads that form, so it must be
+    # stripped as well or its old numbers reach the next request.
+    history = [{"role": "assistant", "content": "68 credits [2, 4] and 12 [1,3]."}]
+    messages = build_input_messages("Next?", history)
+
+    assert messages[0]["content"] == "68 credits and 12."
+
+
 def test_history_is_capped_to_the_most_recent_turns():
     history = [{"role": "user", "content": f"turn {i}"} for i in range(50)]
     messages = build_input_messages("latest", history)

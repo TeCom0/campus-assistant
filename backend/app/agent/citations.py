@@ -56,13 +56,16 @@ def citation_number_for(key: Hashable) -> tuple[int, bool]:
 
 
 # "[3]", and also "[2, 4]" -- the prompt asks for one number per bracket, but
-# a grouped citation still means both sources were used.
-_CITED_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
+# a grouped citation still means both sources were used. Also used by
+# history.py to strip markers, so both agree on what counts as a marker.
+CITATION_MARKER_RE = re.compile(r"\[(\d+(?:\s*,\s*\d+)*)\]")
 
 
 def cited_markers(answer: str) -> set[int]:
     """Every citation number the answer text uses."""
-    return {int(number) for group in _CITED_RE.findall(answer) for number in group.split(",")}
+    return {
+        int(number) for group in CITATION_MARKER_RE.findall(answer) for number in group.split(",")
+    }
 
 
 def keep_cited(citations: list[dict], answer: str) -> list[dict]:
