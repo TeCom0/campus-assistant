@@ -82,12 +82,14 @@ and evaluation.
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [done ] Phase 5: React + TypeScript chat UI with streaming
-- [built] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI (sign-off pending)
+- [done ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
 
-**Phases 0-5 done.** Phases 0-3: repo/Docker setup, the full ingestion pipeline,
+**Phases 0-6 done; Phase 7 next.** Phase 6 (2026-10-09): CI (lint, tests on a real Postgres,
+frontend build) and the full stack in Docker Compose -- see the Phase 6 summary below.
+Phases 0-3: repo/Docker setup, the full ingestion pipeline,
 all three retrieval methods with a measured evaluation baseline, grounded/cited RAG generation.
 Phase 4: the LangGraph agent, wired into `/chat`. Phase 5: the React + TS chat UI and multi-turn
 history. Verifying Phase 5 in the browser (2026-10-06) found six bugs; all six are fixed (three
@@ -224,15 +226,20 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
   `ruff format --check` (last three files formatted in ff27da3).
 
 **Next steps, in order:**
-1. Phase 6 sign-off: Phase 6 checklist items (tests, full-stack Compose, CI) are all built; decide
-   whether anything else belongs here before moving to Phase 7 (README, architecture diagram,
-   demo video, pilot deployment).
-2. Seen during the Compose check (2026-10-09), not fixed: the UI shows raw Markdown (`**bold**`,
-   `- ` bullets) since answers are rendered as plain text; and a follow-up answer re-cited a fact
-   from the previous turn (ACC 2302's prerequisite) with this turn's [1], which points at the
-   ACC 2301 entry -- a mild case of the "wrong facts next to citations" issue below.
+1. Phase 7: README, architecture diagram, demo video, deployment for the student pilot. Plan the
+   order first (the README and diagram need no new infrastructure; deployment needs hosting
+   decisions: where, cost, how secrets are stored, CORS_ORIGINS and VITE_API_URL for a domain).
 
-**Phase 6 progress (2026-10-09):** GitHub Actions CI is green: `.github/workflows/ci.yml`, three
+**Seen during the Compose check (2026-10-09), not fixed:** a follow-up answer re-cited a fact
+from the previous turn (ACC 2302's prerequisite) with this turn's [1], which points at the
+ACC 2301 entry -- a mild case of the "wrong facts next to citations" issue below.
+
+**Answers render as Markdown** (c0e0d7a, 2026-10-09): react-markdown in App.tsx (no raw HTML).
+`linkCitationMarkers()` rewrites each `[N]` that has a received citation into a Markdown link
+to its footnote before rendering; an `a` override in `markdownComponents` shows those as
+superscripts. Still single markers only (`[2, 4]` stays plain text). Bundle 223 -> 341 kB.
+
+**Phase 6 summary (done 2026-10-09):** GitHub Actions CI is green: `.github/workflows/ci.yml`, three
 jobs on every push to main and every PR.
 - `frontend`: Node 24, `npm ci` from the committed lockfile, `npm run lint` (oxlint), then
   `npm run build` (`tsc -b` type-check + Vite build).
