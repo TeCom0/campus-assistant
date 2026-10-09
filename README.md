@@ -7,8 +7,8 @@ are the prerequisites for ACC 2302?"* — including the full prerequisite chain.
 
 Built to be piloted with real students through TeCom, AUI's student tech club.
 
-**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6). Next: architecture
-diagram, demo video and the student pilot deployment.
+**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6). Next: a demo video
+and the student pilot deployment.
 
 ---
 
@@ -28,20 +28,54 @@ diagram, demo video and the student pilot deployment.
 
 ## Architecture
 
-```
-React + TS UI  --POST /chat (SSE stream)-->  FastAPI
-                                               |
-                                     LangGraph agent (LLM: Groq / Gemini)
-                                        |                        |
-                              search_documents             query_courses
-                                        |                        |
-                     hybrid search: pgvector + Postgres     courses tables
-                     full-text, merged with RRF             (recursive CTE)
-                                        \                        /
-                                         PostgreSQL + pgvector
+**Answering a question.** The agent node decides which tools to call; after 3 tool rounds it
+must answer with what it has (enforced in code). Events stream back to the browser as they
+happen.
 
-Ingestion (offline): AUI PDF/HTML -> clean -> chunk -> embed (multilingual-e5-small, CPU)
-                     -> document_chunks;  catalog text -> course extraction -> courses tables
+```mermaid
+flowchart TD
+    UI["React + TypeScript chat UI<br/>(browser)"]
+    API["FastAPI<br/>POST /chat"]
+    UI -- "question + recent history" --> API
+    API -. "SSE stream: tool_call, token,<br/>citations, done / error" .-> UI
+
+    subgraph AGENT["LangGraph agent"]
+        AG["agent node<br/>LLM: Groq or Gemini"]
+        TN["tools node"]
+        AG -- "tool calls<br/>(max 3 rounds)" --> TN
+        TN -- "results with<br/>citation numbers" --> AG
+    end
+    API --> AG
+
+    TN --> SD["search_documents<br/>hybrid search"]
+    TN --> QC["query_courses<br/>course lookup"]
+
+    SD --> VS["vector search<br/>query embedded with e5-small"]
+    SD --> KS["keyword search<br/>Postgres full-text"]
+    VS --> RRF["merged by rank (RRF)"]
+    KS --> RRF
+
+    subgraph DB["PostgreSQL + pgvector"]
+        DC[("document_chunks")]
+        CT[("courses<br/>course_prerequisites")]
+    end
+    VS --> DC
+    KS --> DC
+    QC -- "recursive CTE<br/>for prerequisite chains" --> CT
+```
+
+**Getting the data in** (run once, offline):
+
+```mermaid
+flowchart LR
+    SRC["AUI public documents<br/>catalog PDF + 2 scholarship pages"]
+    SRC --> LOAD["load<br/>download"]
+    LOAD --> CLEAN["clean<br/>PDF / HTML to text"]
+    CLEAN --> CHUNK["chunk"]
+    CHUNK --> EMBED["embed<br/>multilingual-e5-small, CPU"]
+    EMBED --> DC[("document_chunks<br/>1161 chunks")]
+    CLEAN --> EXTRACT["extract courses<br/>from catalog text"]
+    EXTRACT --> CT[("courses + prerequisites<br/>660 courses, 526 links")]
 ```
 
 ## Tech stack
