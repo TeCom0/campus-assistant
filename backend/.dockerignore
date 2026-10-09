@@ -1,0 +1,10 @@
+# Everything listed here is left out of the build context sent to Docker.
+# .venv matters most: it is large and holds Windows binaries that can't run
+# in a Linux container anyway.
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+tests/
+*.egg-info/
