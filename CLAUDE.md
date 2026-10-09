@@ -220,12 +220,11 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
   history.py had its own regex matching only `[3]`. It now builds its pattern from
   citations.py's `CITATION_MARKER_RE` (renamed from `_CITED_RE`), so both agree on what a
   marker is. Test: test_history.py.
-- Test suite: 50 tests, all passing.
+- Test suite: 50 tests, all passing. The backend passes `ruff check` and
+  `ruff format --check` (last three files formatted in ff27da3).
 
 **Next steps, in order:**
-1. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
-   `ruff format --check`; would break a CI format check).
-2. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
+1. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
    run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
    app/config.py requires at import.
 
