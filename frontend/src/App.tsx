@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import Markdown, { type Components } from "react-markdown";
 import "./App.css";
 import { streamChat } from "./chatStream";
 import type { Citation, HistoryMessage } from "./types";
@@ -19,18 +20,40 @@ interface AssistantMessage {
 
 type Message = UserMessage | AssistantMessage;
 
-// Splits "[3]" markers out of the answer so each can be rendered as a link.
-// Two regexes on purpose: a global regex used with .test() keeps state
-// between calls, so the split pattern and the whole-part check stay separate.
-const MARKER_SPLIT = /(\[\d+\])/;
-const MARKER_ONLY = /^\[\d+\]$/;
-
 // Footnote ids include the message index: markers restart at [1] in every
 // answer, so "source-1" alone would repeat and every link would jump to the
 // first answer's footnote.
 function sourceId(messageIndex: number, marker: number | string) {
   return `source-${messageIndex}-${marker}`;
 }
+
+// Rewrites each "[3]" that has a received citation into a Markdown link to its
+// footnote ("[\[3\]](#source-2-3)"; the escaped brackets keep "[3]" as the
+// visible text). Markers with no citation stay plain text, so the model can't
+// create a link to a source that doesn't exist.
+function linkCitationMarkers(text: string, citations: Citation[], messageIndex: number) {
+  const knownMarkers = new Set(citations.map((c) => c.marker));
+  return text.replace(/\[(\d+)\]/g, (marker, number: string) =>
+    knownMarkers.has(Number(number))
+      ? `[\\[${number}\\]](#${sourceId(messageIndex, number)})`
+      : marker,
+  );
+}
+
+// Footnote links render as superscripts; any other link in an answer opens in
+// a new tab. No raw HTML: react-markdown escapes it unless a plugin allows it.
+const markdownComponents: Components = {
+  a: ({ href, children }) =>
+    href?.startsWith("#source-") ? (
+      <sup>
+        <a href={href}>{children}</a>
+      </sup>
+    ) : (
+      <a href={href} target="_blank" rel="noreferrer">
+        {children}
+      </a>
+    ),
+};
 
 function AnswerText({
   text,
@@ -41,19 +64,10 @@ function AnswerText({
   citations: Citation[];
   messageIndex: number;
 }) {
-  const knownMarkers = new Set(citations.map((c) => `[${c.marker}]`));
   return (
-    <>
-      {text.split(MARKER_SPLIT).map((part, i) =>
-        MARKER_ONLY.test(part) && knownMarkers.has(part) ? (
-          <sup key={i}>
-            <a href={`#${sourceId(messageIndex, part.slice(1, -1))}`}>{part}</a>
-          </sup>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </>
+    <Markdown components={markdownComponents}>
+      {linkCitationMarkers(text, citations, messageIndex)}
+    </Markdown>
   );
 }
 

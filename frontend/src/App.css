@@ -28,6 +28,8 @@
 .message.assistant {
   align-self: flex-start;
   max-width: 100%;
+  /* #root centers text (index.css); answers contain lists and paragraphs. */
+  text-align: left;
 }
 
 .tool-label {
@@ -37,9 +39,14 @@
   margin-bottom: 0.25rem;
 }
 
+/* No white-space: pre-wrap: Markdown turns the answer's line breaks into
+   paragraphs and lists, so keeping them would add extra blank lines. */
 .answer {
-  white-space: pre-wrap;
   line-height: 1.5;
+}
+
+.answer > :first-child {
+  margin-top: 0;
 }
 
 .cursor {
