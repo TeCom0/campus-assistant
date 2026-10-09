@@ -25,14 +25,29 @@ type Message = UserMessage | AssistantMessage;
 const MARKER_SPLIT = /(\[\d+\])/;
 const MARKER_ONLY = /^\[\d+\]$/;
 
-function AnswerText({ text, citations }: { text: string; citations: Citation[] }) {
+// Footnote ids include the message index: markers restart at [1] in every
+// answer, so "source-1" alone would repeat and every link would jump to the
+// first answer's footnote.
+function sourceId(messageIndex: number, marker: number | string) {
+  return `source-${messageIndex}-${marker}`;
+}
+
+function AnswerText({
+  text,
+  citations,
+  messageIndex,
+}: {
+  text: string;
+  citations: Citation[];
+  messageIndex: number;
+}) {
   const knownMarkers = new Set(citations.map((c) => `[${c.marker}]`));
   return (
     <>
       {text.split(MARKER_SPLIT).map((part, i) =>
         MARKER_ONLY.test(part) && knownMarkers.has(part) ? (
           <sup key={i}>
-            <a href={`#source-${part.slice(1, -1)}`}>{part}</a>
+            <a href={`#${sourceId(messageIndex, part.slice(1, -1))}`}>{part}</a>
           </sup>
         ) : (
           <span key={i}>{part}</span>
@@ -128,7 +143,7 @@ export default function App() {
                 </div>
               ))}
               <div className="answer">
-                <AnswerText text={m.text} citations={m.citations} />
+                <AnswerText text={m.text} citations={m.citations} messageIndex={i} />
                 {m.status === "streaming" && <span className="cursor">▍</span>}
               </div>
               {m.status === "interrupted" && (
@@ -139,7 +154,7 @@ export default function App() {
                 // value= makes each footnote show its marker, not its list position.
                 <ol className="sources">
                   {m.citations.map((c) => (
-                    <li key={c.marker} id={`source-${c.marker}`} value={c.marker}>
+                    <li key={c.marker} id={sourceId(i, c.marker)} value={c.marker}>
                       {c.source}
                       {c.pages && c.pages.length > 0 ? `, p. ${c.pages.join(", ")}` : ""}
                     </li>
