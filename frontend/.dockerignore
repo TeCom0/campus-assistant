@@ -1,0 +1,4 @@
+# Left out of the build context: the image runs its own npm ci and build,
+# and node_modules holds Windows binaries (e.g. oxlint's) anyway.
+node_modules/
+dist/
