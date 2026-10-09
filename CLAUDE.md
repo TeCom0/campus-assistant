@@ -224,11 +224,12 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
   `ruff format --check` (last three files formatted in ff27da3).
 
 **Next steps, in order:**
-1. Phase 6, next: Docker Compose for the full stack (db + api + frontend). Possibly a frontend
-   CI job too (`npm run build` = tsc type-check + Vite build, and `npm run lint`).
+1. Phase 6, next: Docker Compose for the full stack (db + api + frontend).
 
-**Phase 6 progress (2026-10-09):** GitHub Actions CI is green: `.github/workflows/ci.yml`, two
+**Phase 6 progress (2026-10-09):** GitHub Actions CI is green: `.github/workflows/ci.yml`, three
 jobs on every push to main and every PR.
+- `frontend`: Node 24, `npm ci` from the committed lockfile, `npm run lint` (oxlint), then
+  `npm run build` (`tsc -b` type-check + Vite build).
 - `lint`: installs only `ruff==0.16.9` (pinned to the local version -- a newer ruff can format
   differently; bump both together), runs `ruff check` + `ruff format --check`. ~10 s.
 - `test`: `pgvector/pgvector:pg16` service container (health-checked), POSTGRES_* set in the
