@@ -88,8 +88,12 @@ and evaluation.
 
 ## Current status
 
-**Phases 0-6 done; Phase 7 next.** Phase 6 (2026-10-09): CI (lint, tests on a real Postgres,
-frontend build) and the full stack in Docker Compose -- see the Phase 6 summary below.
+**Phases 0-6 done; Phase 7 in progress (README + diagrams done).** Session 2026-10-09: Phase 5
+code walkthrough (2 bugs found and fixed), Phase 6 built and signed off (CI with 3 jobs, Docker
+images, full stack in Compose, Markdown answers), README and architecture diagrams written.
+**Start the next session with the deployment decisions** (next steps, item 1). Youness asked
+to collect interview-style questions during walkthroughs and do one knowledge-check session at
+the very end, rather than quizzing step by step.
 Phases 0-3: repo/Docker setup, the full ingestion pipeline,
 all three retrieval methods with a measured evaluation baseline, grounded/cited RAG generation.
 Phase 4: the LangGraph agent, wired into `/chat`. Phase 5: the React + TS chat UI and multi-turn
