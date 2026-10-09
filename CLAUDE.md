@@ -82,7 +82,7 @@ and evaluation.
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [done ] Phase 5: React + TypeScript chat UI with streaming
-- [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
+- [wip  ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI (CI done)
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
@@ -224,9 +224,26 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
   `ruff format --check` (last three files formatted in ff27da3).
 
 **Next steps, in order:**
-1. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
-   run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
-   app/config.py requires at import.
+1. Phase 6, next: Docker Compose for the full stack (db + api + frontend). Possibly a frontend
+   CI job too (`npm run build` = tsc type-check + Vite build, and `npm run lint`).
+
+**Phase 6 progress (2026-10-09):** GitHub Actions CI is green: `.github/workflows/ci.yml`, two
+jobs on every push to main and every PR.
+- `lint`: installs only `ruff==0.16.9` (pinned to the local version -- a newer ruff can format
+  differently; bump both together), runs `ruff check` + `ruff format --check`. ~10 s.
+- `test`: `pgvector/pgvector:pg16` service container (health-checked), POSTGRES_* set in the
+  workflow (a throwaway DB, not secrets), CPU-only torch installed first (a plain install pulls
+  the multi-GB CUDA build), `pip install -e ".[dev]"`, then `python -m app.ingestion.courses`
+  seeds the courses before `pytest -v -rs`. The seed step doubles as a reachability check, so
+  the DB tests can't silently skip. ~1.5 min. All 50 tests run, 0 skipped.
+- `data/processed/academic_catalog_2024_2025.txt` is now tracked (.gitignore exception) so CI
+  seeds from the same text as local runs; regenerate and recommit it if clean.py changes.
+- *Fresh-database bug* (6abec8a), found by the first CI run: `get_connection()` registered the
+  vector type before the extension existed, so the setup scripts couldn't create the schema on a
+  new database. They now use `get_connection(register_vector_type=False)`; `init_schema()`
+  registers the type after schema.sql runs. Verified on a scratch database.
+- `ubuntu-latest` moves to Ubuntu 26 from 2026-10-19 (GitHub notice on every run). Nothing here
+  depends on the OS version; pin `ubuntu-24.04` if a run breaks around then.
 
 **Open issues / decisions to remember:**
 - *GitHub* (set up 2026-10-08): private repo **TeCom0/campus-assistant**
