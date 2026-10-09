@@ -83,7 +83,8 @@ and evaluation.
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [done ] Phase 5: React + TypeScript chat UI with streaming
 - [done ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
-- [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
+- [wip  ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
+  (README + diagram done)
 
 ## Current status
 
@@ -226,9 +227,17 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
   `ruff format --check` (last three files formatted in ff27da3).
 
 **Next steps, in order:**
-1. Phase 7: README, architecture diagram, demo video, deployment for the student pilot. Plan the
-   order first (the README and diagram need no new infrastructure; deployment needs hosting
-   decisions: where, cost, how secrets are stored, CORS_ORIGINS and VITE_API_URL for a domain).
+1. Phase 7, remaining: deployment for the student pilot, then the demo video (record it against
+   the deployed version). Deployment needs decisions from Youness first: where to host, cost,
+   how secrets are stored, the domain (CORS_ORIGINS and VITE_API_URL depend on it), and auth /
+   rate limiting before it's public (README lists both as missing).
+
+**Phase 7 progress (2026-10-09):** README written (26995cd): what it does, stack, design
+decisions, evaluation numbers, setup from a fresh clone (the DB starts empty: 5 ingestion
+commands), Docker and dev run modes, known limitations, what data leaves the server. Two Mermaid
+diagrams in it (0f2b90d): answering a question, and the ingestion pipeline. Checked rendering on
+GitHub via a temporary branch before fast-forwarding main. No CI badge (private repo: badges
+don't show to visitors) -- add one if the repo is made public.
 
 **Seen during the Compose check (2026-10-09), not fixed:** a follow-up answer re-cited a fact
 from the previous turn (ACC 2302's prerequisite) with this turn's [1], which points at the
