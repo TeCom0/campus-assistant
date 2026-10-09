@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # Only ruff, not the whole project: linting doesn't import the code, and
+      # the full install pulls in torch via sentence-transformers. Pinned to
+      # the local version, since a newer ruff can format differently.
+      - name: Install ruff
+        run: pip install ruff==0.16.9
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
