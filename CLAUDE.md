@@ -81,19 +81,19 @@ and evaluation.
 - [done ] Phase 2: retrieval (vector, keyword, hybrid) + evaluation set to measure retrieval quality
 - [done ] Phase 3: RAG answers with citations via FastAPI
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
-- [built] Phase 5: React + TypeScript chat UI with streaming (sign-off after open item 1 below)
+- [done ] Phase 5: React + TypeScript chat UI with streaming
 - [ ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
 - [ ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
 
 ## Current status
 
-**Phases 0-4 done, Phase 5 built.** Phases 0-3: repo/Docker setup, the full ingestion pipeline,
+**Phases 0-5 done.** Phases 0-3: repo/Docker setup, the full ingestion pipeline,
 all three retrieval methods with a measured evaluation baseline, grounded/cited RAG generation.
 Phase 4: the LangGraph agent, wired into `/chat`. Phase 5: the React + TS chat UI and multi-turn
 history. Verifying Phase 5 in the browser (2026-10-06) found six bugs; all six are fixed (three
-on 2026-10-06, three on 2026-10-08) and verified in the UI. Only the Phase 5 code walkthrough
-(next step 1) remains before sign-off. The repo is on GitHub (private): see "GitHub" under open
-issues.
+on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code walkthrough
+(2026-10-09) found two more, both fixed (see the end of the bugs list). The repo is on GitHub
+(private): see "GitHub" under open issues.
 
 **Phase 4 summary:**
 - Agent: `search_documents` (wraps `search_hybrid()`) + `query_courses` (structured lookup over
@@ -212,14 +212,20 @@ issues.
   answer citing nothing lists no sources. App.tsx: `<li value={marker}>`, since footnotes are no
   longer 1..N. Not done: the frontend still links only single `[N]` markers, not `[2, 4]`.
   Verified in the UI: MTH 1305 answer listed 2 sources (it cited [2], [3]), down from 15.
-- Test suite: 49 tests, all passing.
+- *Footnote links jumped to the first answer* (bbad7ae, 2026-10-09, found in the walkthrough):
+  every answer rendered `id="source-1"`, and duplicate ids make the browser jump to the first
+  one. Ids now include the message index (`source-3-1`) via one `sourceId()` helper used for
+  both the link and the footnote. Verified in the UI.
+- *`[2, 4]` markers survived into history* (5222397, 2026-10-09, found in the walkthrough):
+  history.py had its own regex matching only `[3]`. It now builds its pattern from
+  citations.py's `CITATION_MARKER_RE` (renamed from `_CITED_RE`), so both agree on what a
+  marker is. Test: test_history.py.
+- Test suite: 50 tests, all passing.
 
 **Next steps, in order:**
-1. Phase 5 code walkthrough (interview depth): how chatStream.ts/App.tsx parse the SSE stream,
-   how citations get linked, how history.py decides what history to send.
-2. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
+1. `ruff format` connection.py, llm.py and keyword_search.py (they already fail
    `ruff format --check`; would break a CI format check).
-3. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
+2. Phase 6: GitHub Actions CI (ruff + pytest) with a Postgres service container, so the DB tests
    run instead of skipping -- needs the schema and seeded courses, and the POSTGRES_* env vars
    app/config.py requires at import.
 
