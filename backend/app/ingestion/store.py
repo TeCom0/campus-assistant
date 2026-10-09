@@ -28,7 +28,7 @@ def load_chunks() -> list[dict]:
 
 
 def store_chunks(chunks: list[dict]) -> None:
-    conn = get_connection()
+    conn = get_connection(register_vector_type=False)
     init_schema(conn)
 
     with conn.cursor() as cur:

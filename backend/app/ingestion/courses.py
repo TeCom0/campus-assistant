@@ -124,7 +124,7 @@ def seed_courses() -> None:
     courses = extract_courses()
     edges = extract_prerequisite_edges(courses)
 
-    conn = get_connection()
+    conn = get_connection(register_vector_type=False)
     init_schema(conn)
     with conn.cursor() as cur:
         cur.executemany(COURSE_UPSERT_SQL, list(courses.values()))
