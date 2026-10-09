@@ -29,3 +29,59 @@ jobs:
 
       - name: Check formatting
         run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    # A throwaway Postgres for this job only, same image as docker-compose.yml
+    # (schema.sql needs the pgvector extension). The health check makes the
+    # job wait until Postgres accepts connections before the steps start.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: campus_assistant
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: campus_assistant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U campus_assistant"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # app/config.py reads these at import. Not secrets: the database only
+    # exists inside this job and is deleted when it ends.
+    env:
+      POSTGRES_USER: campus_assistant
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_DB: campus_assistant
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      # CPU-only torch first: a plain install on Linux pulls the CUDA build,
+      # several GB of NVIDIA libraries. sentence-transformers then accepts
+      # the torch already installed.
+      - name: Install CPU-only torch
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install backend
+        run: pip install -e ".[dev]"
+
+      # Also proves the database is reachable: if it isn't, this step fails,
+      # instead of the DB tests silently skipping and the job passing.
+      - name: Seed courses
+        run: python -m app.ingestion.courses
+
+      - name: Run tests
+        run: pytest -v -rs
