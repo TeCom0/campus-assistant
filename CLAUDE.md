@@ -286,6 +286,18 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      2026-10-11 -- shows the rules are understood, NOT agreement on real claims. **Blind
      guard**: refuses `--run 1` until every claim and answer in labels_run1.json is labelled
      (`hand_labels.labels_complete`). The terminal prints counts only, never labels.
+   - **Gemini free-tier limits (found 2026-10-11)**: 20 requests/day/model, and long 503 "high
+     demand" spells (5+ minutes); failed attempts appear to count toward the 20. The quota
+     error names the model **gemini-3.6-flash** although config.py says gemini-3.5-flash --
+     Google seems to route the name; record the judge model as reported. Run 1 judging stopped
+     at 5/32 answers (judgements_run1.jsonl); retries now wait 60/120/.../300 s and stop
+     cleanly ("re-run to resume") on a lasting 503 or the daily 429. 32 calls per run don't
+     fit in 20/day -- decision pending (see the end of the 2026-10-11 session).
+   - Agreement (app/evaluation/agreement.py -> agreement_runN.json): reference labels vs. the
+     judge's final labels on the same claims; raw agreement + Wilson 95% CI, Cohen's kappa,
+     confusion, lenient (judge supported / human unsupported) vs. strict errors listed
+     separately, effect of the quote check, abstains agreement, quick pass vs. careful sample.
+     Not run on real data yet (waiting for the judge).
    - Hand labels (app/evaluation/hand_labels.py + labelling_template.html): `python -m
      app.evaluation.hand_labels --run 1` writes eval/results/faithfulness/labelling_run1.html,
      a self-contained offline page (32 answers, 153 claims; auto-labelled claims and crashed
@@ -327,6 +339,9 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
    **40 questions/day and 1-2 per minute across all students** -- one question can exceed the
    per-minute limit on its own. /chat would show a 429 as a generic error. Options to decide
    before the pilot: fall back to Gemini on a Groq 429, a paid Groq tier, or a cap this small.
+   **But Gemini's free tier is no real fallback**: 20 requests/day/model (found 2026-10-11 by
+   the judge run, quota `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, value 20; failed
+   503 attempts appear to count too) = ~5-10 student questions/day.
    The evaluation shares the same quota (a full run ~150k tokens): don't run it on pilot days.
 3. **Deployment for the student pilot**, then the demo video against the deployed version.
    Decided: a VPS running the same docker-compose.yml; frontend and API on one origin with the

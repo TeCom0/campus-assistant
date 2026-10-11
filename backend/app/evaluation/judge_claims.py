@@ -41,8 +41,10 @@ from app.evaluation.hand_labels import labels_complete, reference_labels_path
 
 CALIBRATION_PATH = EVAL_DIR / "judge_calibration.json"
 HAND_LABELLED_RUNS = {1}
+# Waits grow (60 s, 120 s, ... 300 s): Gemini's 503 "high demand" lasted several
+# minutes on 2026-10-11, longer than three flat 60 s waits.
 RATE_LIMIT_WAIT_SECONDS = 60
-RATE_LIMIT_RETRIES = 3
+RATE_LIMIT_RETRIES = 5
 
 JUDGE_INSTRUCTIONS = """You check whether the claims in a university assistant's answer are \
 supported by the source passages the assistant was given. You are strict: students may act on \
@@ -195,8 +197,9 @@ def call_judge(client: genai.Client, prompt: str) -> tuple[AnswerVerdict, int]:
             per_day = "PerDay" in str(e) or "per day" in str(e).lower()
             transient = (e.code == 429 and not per_day) or e.code == 503
             if transient and attempt <= RATE_LIMIT_RETRIES:
-                print(f"  Gemini {e.code}, waiting {RATE_LIMIT_WAIT_SECONDS}s")
-                time.sleep(RATE_LIMIT_WAIT_SECONDS)
+                wait = RATE_LIMIT_WAIT_SECONDS * attempt
+                print(f"  Gemini {e.code}, waiting {wait}s")
+                time.sleep(wait)
                 continue
             raise
     if response.parsed is None:
@@ -277,10 +280,11 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> None:
             abstains, results, tokens = judge_answer(
                 client, a["question"], a["answer"], a["passages"], claims_by_id[answer_id]
             )
-        except genai_errors.ClientError as e:
-            if e.code == 429:
+        except (genai_errors.ClientError, genai_errors.ServerError) as e:
+            if e.code in (429, 503):
                 print(
-                    f"\nGemini daily limit reached at {answer_id}; stopping. Re-run to resume.\n{e}"
+                    f"\nGemini unavailable at {answer_id} (daily limit, or still overloaded "
+                    f"after the retries); stopping. Re-run to resume.\n{e}"
                 )
                 return
             raise
