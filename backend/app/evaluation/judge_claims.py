@@ -3,8 +3,10 @@ split_claims.py as supported / unsupported / no_claim against the passages it
 is checked against.
 
 The judge is Gemini, a different model family from the Groq model that wrote
-the answers (a model judging its own family's output tends to be lenient). One
-call per answer; the output is forced into a JSON schema (AnswerVerdict), so
+the answers (a model judging its own family's output tends to be lenient).
+Answers are judged ANSWERS_PER_CALL at a time, each in its own block: the
+free tier allows only 20 requests a day (one call per answer = 32 calls per
+run didn't fit). The output is forced into a JSON schema (BatchVerdict), so
 it's validated, not parsed out of free text. Strict: partly supported is
 unsupported. A "supported" verdict must quote its evidence verbatim, and code
 checks the quote really is in that claim's passages; if not, the claim counts
@@ -45,13 +47,16 @@ HAND_LABELLED_RUNS = {1}
 # minutes on 2026-10-11, longer than three flat 60 s waits.
 RATE_LIMIT_WAIT_SECONDS = 60
 RATE_LIMIT_RETRIES = 5
+ANSWERS_PER_CALL = 4
 
-JUDGE_INSTRUCTIONS = """You check whether the claims in a university assistant's answer are \
+JUDGE_INSTRUCTIONS = """You check whether the claims in a university assistant's answers are \
 supported by the source passages the assistant was given. You are strict: students may act on \
 these answers.
 
-For each claim, use ONLY the passages listed for it under "check against". Never use outside \
-knowledge, even when the claim is true.
+The input contains one or more independent ANSWER blocks. Passage numbers belong to their own \
+block: [1] in one block has nothing to do with [1] in another. For each claim, use ONLY the \
+passages of its own block listed for it under "check against". Never use outside knowledge, \
+even when the claim is true.
 
 Labels:
 - supported: everything the claim states is stated in, or directly follows from, those \
@@ -70,10 +75,11 @@ evidence_quote: for supported, copy the shortest span that shows the support VER
 of the claim's passages, in the passage's own language (at most about 300 characters; you may \
 join two spans with "..."). For unsupported and no_claim, use "".
 reason: one short sentence; for unsupported, say what is missing or wrong.
-abstains: true if the answer as a whole says it can't answer because the information isn't \
-available; false otherwise.
+abstains (one entry per answer block, by its answer id): true if that answer as a whole says \
+it can't answer because the information isn't available; false otherwise.
 
-Return exactly one verdict per claim id listed, using the ids as given."""
+Return exactly one verdict per claim id listed, using the ids as given, and one abstains entry \
+per answer id."""
 
 
 class ClaimVerdict(BaseModel):
@@ -83,21 +89,38 @@ class ClaimVerdict(BaseModel):
     reason: str
 
 
-class AnswerVerdict(BaseModel):
+class AnswerAbstains(BaseModel):
+    answer_id: str
     abstains: bool
+
+
+class BatchVerdict(BaseModel):
+    answers: list[AnswerAbstains]
     verdicts: list[ClaimVerdict]
 
 
-def build_prompt(question: str, answer: str, passages: list[dict], claims: list[dict]) -> str:
-    lines = [f"QUESTION:\n{question}", f"\nANSWER (for context):\n{answer}", "\nPASSAGES:"]
-    for p in passages:
-        text = "\n--- (same marker, returned again with more text) ---\n".join(p["texts"])
-        lines.append(f"\n[{p['marker']}] (source: {p['source']}, pages: {p['pages']})\n{text}")
-    lines.append("\nCLAIMS:")
-    for c in claims:
-        scope = ", ".join(f"[{m}]" for m in c["markers"]) if c["markers"] else "all passages"
-        lines.append(f"- id: {c['claim_id']} | check against: {scope} | claim: {c['text']}")
-    return "\n".join(lines)
+def build_prompt(items: list[dict]) -> str:
+    """One block per answer: its question, the answer, its passages, its claims.
+
+    Each item: {"id", "question", "answer", "passages", "claims"}, with the
+    auto-labelled claims already left out.
+    """
+    lines = []
+    for item in items:
+        lines += [
+            f"\n========== ANSWER {item['id']} ==========",
+            f"QUESTION:\n{item['question']}",
+            f"\nANSWER (for context):\n{item['answer']}",
+            f"\nPASSAGES (of answer {item['id']} only):",
+        ]
+        for p in item["passages"]:
+            text = "\n--- (same marker, returned again with more text) ---\n".join(p["texts"])
+            lines.append(f"\n[{p['marker']}] (source: {p['source']}, pages: {p['pages']})\n{text}")
+        lines.append(f"\nCLAIMS (of answer {item['id']}):")
+        for c in item["claims"]:
+            scope = ", ".join(f"[{m}]" for m in c["markers"]) if c["markers"] else "all passages"
+            lines.append(f"- id: {c['claim_id']} | check against: {scope} | claim: {c['text']}")
+    return "\n".join(lines).strip()
 
 
 _QUOTE_CHARS = str.maketrans(
@@ -130,12 +153,14 @@ def quote_found(quote: str, texts: list[str]) -> bool:
     return False
 
 
-def merge_verdicts(claims: list[dict], passages: list[dict], verdict: AnswerVerdict) -> list[dict]:
+def merge_verdicts(
+    claims: list[dict], passages: list[dict], verdicts: list[ClaimVerdict]
+) -> list[dict]:
     """One result per claim: the judge's label, the quote check, the final label."""
     texts_by_marker = {p["marker"]: p["texts"] for p in passages}
     all_texts = [t for p in passages for t in p["texts"]]
     by_id: dict[str, ClaimVerdict] = {}
-    for v in verdict.verdicts:
+    for v in verdicts:
         by_id.setdefault(v.claim_id, v)  # a duplicate verdict: the first one counts
 
     results = []
@@ -176,14 +201,14 @@ def merge_verdicts(claims: list[dict], passages: list[dict], verdict: AnswerVerd
     return results
 
 
-def call_judge(client: genai.Client, prompt: str) -> tuple[AnswerVerdict, int]:
+def call_judge(client: genai.Client, prompt: str) -> tuple[BatchVerdict, int]:
     """One Gemini call. Waits out what clears by itself -- a per-minute rate limit
     (429) or the model being overloaded (503 "high demand", seen 2026-10-11) --
     and raises on a daily limit or after the retries."""
     config = genai_types.GenerateContentConfig(
         system_instruction=JUDGE_INSTRUCTIONS,
         response_mime_type="application/json",
-        response_schema=AnswerVerdict,
+        response_schema=BatchVerdict,
         temperature=0,
         automatic_function_calling=genai_types.AutomaticFunctionCallingConfig(disable=True),
     )
@@ -208,17 +233,24 @@ def call_judge(client: genai.Client, prompt: str) -> tuple[AnswerVerdict, int]:
     return response.parsed, tokens or 0
 
 
-def judge_answer(client, question, answer, passages, claims) -> tuple[bool, list[dict], int]:
-    to_judge = [c for c in claims if not c["auto_label"]]
-    if not to_judge:  # nothing to ask: every claim already labelled in code
-        return (
-            False,
-            merge_verdicts(claims, passages, AnswerVerdict(abstains=False, verdicts=[])),
-            0,
-        )
-    prompt = build_prompt(question, answer, passages, to_judge)
-    verdict, tokens = call_judge(client, prompt)
-    return verdict.abstains, merge_verdicts(claims, passages, verdict), tokens
+def judge_batch(client, answers: list[dict]) -> tuple[dict[str, tuple], int]:
+    """Judge several answers in one call.
+
+    Each answer: {"id", "question", "answer", "passages", "claims"} (all its
+    claims, auto-labelled ones included). Returns {answer id: (abstains,
+    per-claim results)} and the call's tokens. abstains is None if the judge
+    skipped that answer; an answer with nothing to ask isn't sent.
+    """
+    items = [{**a, "claims": [c for c in a["claims"] if not c["auto_label"]]} for a in answers]
+    items = [i for i in items if i["claims"]]
+    verdict, tokens = call_judge(client, build_prompt(items)) if items else (None, 0)
+    claim_verdicts = verdict.verdicts if verdict else []
+    abstains = {a.answer_id: a.abstains for a in verdict.answers} if verdict else {}
+    judged = {}
+    for a in answers:
+        results = merge_verdicts(a["claims"], a["passages"], claim_verdicts)
+        judged[a["id"]] = (abstains.get(a["id"]), results)
+    return judged, tokens
 
 
 def _client() -> genai.Client:
@@ -227,16 +259,16 @@ def _client() -> genai.Client:
     return genai.Client(api_key=GEMINI_API_KEY)
 
 
-def run_calibration() -> None:
+def run_calibration() -> tuple[int, int]:
     """Judge hand-made claims with known labels; prints judge vs. expected."""
     cases = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
-    client, agree, total = _client(), 0, 0
+    answers = [{**case, "answer": " ".join(c["text"] for c in case["claims"])} for case in cases]
+    judged, tokens = judge_batch(_client(), answers)  # all cases in one call, as in a run
+    print(f"{len(cases)} cases in one call, {tokens} tokens")
+    agree, total = 0, 0
     for case in cases:
-        answer = " ".join(c["text"] for c in case["claims"])
-        _, results, tokens = judge_answer(
-            client, case["question"], answer, case["passages"], case["claims"]
-        )
-        print(f"\n=== {case['id']} ({tokens} tokens)")
+        _, results = judged[case["id"]]
+        print(f"\n=== {case['id']}")
         for claim, r in zip(case["claims"], results, strict=True):
             ok = r["label"] == claim["expected"]
             agree, total = agree + ok, total + 1
@@ -247,6 +279,7 @@ def run_calibration() -> None:
             print(f"       claim:  {claim['text']}")
             print(f"       reason: {r.get('reason')}")
     print(f"\nCalibration: {agree}/{total} labels as expected.")
+    return agree, total
 
 
 def _load_jsonl(path) -> list[dict]:
@@ -263,44 +296,49 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> None:
     done = {r["id"] for r in _load_jsonl(out_path)} if out_path.exists() else set()
 
     selected = [i for i in answers if i in claims_by_id and (not ids or i in ids)]
-    if dry_run:
-        a = answers[selected[0]]
-        to_judge = [c for c in claims_by_id[a["id"]] if not c["auto_label"]]
-        print(JUDGE_INSTRUCTIONS, "\n\n" + "=" * 80 + "\n")
-        print(build_prompt(a["question"], a["answer"], a["passages"], to_judge))
-        return
-
-    client = _client()
     for answer_id in selected:
         if answer_id in done:
             print(f"{answer_id:<28} already judged, skipped")
-            continue
-        a = answers[answer_id]
+    todo = [{**answers[i], "claims": claims_by_id[i]} for i in selected if i not in done]
+    batches = [todo[k : k + ANSWERS_PER_CALL] for k in range(0, len(todo), ANSWERS_PER_CALL)]
+    if dry_run:
+        first = [
+            {**a, "claims": [c for c in a["claims"] if not c["auto_label"]]} for a in batches[0]
+        ]
+        print(JUDGE_INSTRUCTIONS, "\n\n" + "=" * 80 + "\n")
+        print(build_prompt(first))
+        return
+
+    client = _client()
+    for batch in batches:
+        batch_ids = [a["id"] for a in batch]
         try:
-            abstains, results, tokens = judge_answer(
-                client, a["question"], a["answer"], a["passages"], claims_by_id[answer_id]
-            )
+            judged, tokens = judge_batch(client, batch)
         except (genai_errors.ClientError, genai_errors.ServerError) as e:
             if e.code in (429, 503):
                 print(
-                    f"\nGemini unavailable at {answer_id} (daily limit, or still overloaded "
+                    f"\nGemini unavailable at {batch_ids[0]} (daily limit, or still overloaded "
                     f"after the retries); stopping. Re-run to resume.\n{e}"
                 )
                 return
             raise
-        record = {
-            "id": answer_id,
-            "run": run,
-            "judge_model": GEMINI_MODEL,
-            "abstains": abstains,
-            "claims": results,
-            "tokens": tokens,
-            "judged_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        }
         with out_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            for answer_id in batch_ids:
+                abstains, results = judged[answer_id]
+                record = {
+                    "id": answer_id,
+                    "run": run,
+                    "judge_model": GEMINI_MODEL,
+                    "batch": batch_ids,
+                    "abstains": abstains,
+                    "claims": results,
+                    "batch_tokens": tokens,
+                    "judged_at": datetime.now(UTC).isoformat(timespec="seconds"),
+                }
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
         # Counts only, no labels: keeps the terminal from showing verdicts by accident.
-        print(f"{answer_id:<28} {len(results)} claims judged, {tokens} tokens")
+        n_claims = sum(len(judged[i][1]) for i in batch_ids)
+        print(f"batch of {len(batch_ids)} answers: {n_claims} claims judged, {tokens} tokens")
 
 
 if __name__ == "__main__":
@@ -316,7 +354,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.calibration:
-        run_calibration()
+        agree, total = run_calibration()
+        sys.exit(0 if agree == total else 1)  # lets a script stop before a costly run
     elif args.run is None:
         parser.error("pass --calibration or --run N")
     else:

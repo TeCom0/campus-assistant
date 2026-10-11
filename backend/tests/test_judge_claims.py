@@ -1,12 +1,16 @@
 """Tests for the faithfulness judge's deterministic parts
-(app.evaluation.judge_claims): prompt building, the quote check, and merging
-the judge's verdicts into per-claim results. No LLM calls.
+(app.evaluation.judge_claims): prompt building, the quote check, merging the
+judge's verdicts into per-claim results, and batching. No LLM calls (the
+batch test replaces call_judge with a fake).
 """
 
+from app.evaluation import judge_claims
 from app.evaluation.judge_claims import (
-    AnswerVerdict,
+    AnswerAbstains,
+    BatchVerdict,
     ClaimVerdict,
     build_prompt,
+    judge_batch,
     merge_verdicts,
     quote_found,
 )
@@ -36,12 +40,24 @@ def _verdict(n: int, label: str, quote: str = "") -> ClaimVerdict:
     return ClaimVerdict(claim_id=f"q#{n}", label=label, evidence_quote=quote, reason="r")
 
 
+def _item(answer_id: str, claims: list[dict], passages=PASSAGES) -> dict:
+    return {"id": answer_id, "question": "Q?", "answer": "A [1].", "passages": passages,
+            "claims": claims}  # fmt: skip
+
+
 def test_prompt_lists_each_claims_scope_and_every_text_of_a_repeated_marker():
     passages = [{"marker": 1, "source": "catalog", "pages": [222], "texts": ["entry", "entry+"]}]
-    prompt = build_prompt("Q?", "A [1].", passages, [_claim(1, [1]), _claim(2, [], "uncited")])
+    prompt = build_prompt([_item("q", [_claim(1, [1]), _claim(2, [], "uncited")], passages)])
     assert "- id: q#1 | check against: [1] | claim: claim 1" in prompt
     assert "- id: q#2 | check against: all passages | claim: claim 2" in prompt
     assert "entry\n--- (same marker, returned again with more text) ---\nentry+" in prompt
+
+
+def test_batch_prompt_keeps_each_answers_passages_in_its_own_block():
+    prompt = build_prompt([_item("a", [_claim(1, [1])]), _item("b", [_claim(2, [1])])])
+    block_a, block_b = prompt.split("========== ANSWER b ==========")
+    assert "ANSWER a" in block_a and "PASSAGES (of answer a only):" in block_a
+    assert "PASSAGES (of answer b only):" in block_b and "q#2" in block_b and "q#2" not in block_a
 
 
 def test_quote_found_ignores_line_breaks_case_and_typographic_quotes():
@@ -64,18 +80,14 @@ def test_quote_found_rejects_invented_or_out_of_order_text():
 
 def test_supported_with_a_verifiable_quote_stays_supported():
     claims = [_claim(1, [1])]
-    verdict = AnswerVerdict(
-        abstains=False, verdicts=[_verdict(1, "supported", "A maximum of three of these absences")]
-    )
+    verdict = [_verdict(1, "supported", "A maximum of three of these absences")]
     assert merge_verdicts(claims, PASSAGES, verdict)[0]["label"] == "supported"
 
 
 def test_quote_from_a_passage_the_claim_did_not_cite_makes_it_unsupported():
     # Cites [2], but the judge's evidence is in [1].
     claims = [_claim(1, [2])]
-    verdict = AnswerVerdict(
-        abstains=False, verdicts=[_verdict(1, "supported", "A maximum of three of these absences")]
-    )
+    verdict = [_verdict(1, "supported", "A maximum of three of these absences")]
     result = merge_verdicts(claims, PASSAGES, verdict)[0]
     assert (result["judge_label"], result["label"], result["flag"]) == (
         "supported",
@@ -86,19 +98,42 @@ def test_quote_from_a_passage_the_claim_did_not_cite_makes_it_unsupported():
 
 def test_uncited_claims_are_checked_against_all_passages():
     claims = [_claim(1, [], "uncited")]
-    verdict = AnswerVerdict(abstains=False, verdicts=[_verdict(1, "supported", "count once")])
+    verdict = [_verdict(1, "supported", "count once")]
     assert merge_verdicts(claims, PASSAGES, verdict)[0]["label"] == "supported"
 
 
 def test_auto_labelled_missing_and_duplicate_verdicts():
     claims = [_claim(1, [9], auto_label="unsupported"), _claim(2, [1]), _claim(3, [1])]
-    verdict = AnswerVerdict(
-        abstains=False,
-        verdicts=[_verdict(2, "no_claim"), _verdict(2, "supported", "x"), _verdict(7, "no_claim")],
-    )
+    verdict = [_verdict(2, "no_claim"), _verdict(2, "supported", "x"), _verdict(7, "no_claim")]
     results = merge_verdicts(claims, PASSAGES, verdict)
     assert [(r["label"], r["flag"]) for r in results] == [
         ("unsupported", "invalid_citation"),
         ("no_claim", None),  # the first verdict for q#2 counts
         (None, "no_verdict"),  # the judge skipped q#3 (and q#7 isn't a claim)
     ]
+
+
+def test_judge_batch_maps_verdicts_back_to_their_answers(monkeypatch):
+    sent = []
+
+    def fake_call_judge(client, prompt):
+        sent.append(prompt)
+        verdict = BatchVerdict(
+            answers=[AnswerAbstains(answer_id="a", abstains=True)],  # "b" left out
+            verdicts=[_verdict(1, "no_claim"), _verdict(2, "supported", "count once")],
+        )
+        return verdict, 123
+
+    monkeypatch.setattr(judge_claims, "call_judge", fake_call_judge)
+    answers = [
+        _item("a", [_claim(1, [1])]),
+        _item("b", [_claim(2, [2])]),
+        _item("auto_only", [_claim(3, [9], auto_label="unsupported")]),
+    ]
+    judged, tokens = judge_batch(None, answers)
+    assert (len(sent), tokens) == (1, 123)  # one call for the whole batch
+    assert "auto_only" not in sent[0]  # nothing to ask about it
+    assert judged["a"][0] is True and judged["a"][1][0]["label"] == "no_claim"
+    assert judged["b"][0] is None  # the judge gave no abstains for "b"
+    assert judged["b"][1][0]["label"] == "supported"
+    assert judged["auto_only"][1][0]["flag"] == "invalid_citation"
