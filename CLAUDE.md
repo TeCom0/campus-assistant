@@ -249,9 +249,22 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      repeated lookup too, so one marker can have several texts (e.g. without, then with the
      prerequisite chain): stage 1 saves every distinct text per marker, and the judge checks a
      claim against all of them combined (the quote check accepts a quote found in any of them).
-   - Claim splitting in code (sentences/bullets; a piece with [N] is checked against only the
-     passages it cites; unmarked factual pieces counted as "uncited"; markers pointing at no
-     passage fail automatically).
+   - Claim splitting in code: app/evaluation/split_claims.py -> claims_runN.jsonl. Blocks
+     (paragraphs, list items, table rows rendered with their headers) -> sentences. Which
+     passages a claim is checked against = first rule that applies: `own` (its markers),
+     `block` (markers elsewhere in the same paragraph/item/row), `lead_in` (list item / table
+     row only: nearest preceding cited block in the same section -- Youness's rule), `source_line`
+     (blocks saying where the answer comes from, not facts: "Source: [1]", markers alone on a
+     line, "This information is taken from the catalog [5]", a citation key "Holds and form
+     requirement: [4]", a reference entry "[1] (repeat policy: ...)", items under a
+     "Sources"/"Key citations" heading -- their markers cover all still-unassigned claims), else
+     `uncited` (judged against all the answer's passages, reported separately). Prose
+     paragraphs don't inherit. Every rule beyond `own` came from a real run-1 answer (named in
+     tests/test_split_claims.py): models cite once per paragraph, in closing source lines, in
+     key lists under a table, or on a line of their own. Report the headline over all cited
+     kinds AND over `own` only, to see how much the scope rules matter. Filler/advice isn't
+     filtered in code: judge and human label it `no_claim`. Markers pointing at no passage:
+     auto-unsupported if all are invalid; not sent to the judge or the hand labels.
    - Judge: Gemini Flash (different family from the gpt-oss-20b generator). Strict: "partly
      supported" = unsupported; a rule stated more generally than its passage (e.g. graduate
      rules given as general rules) = unsupported. The judge quotes its evidence and code checks
@@ -262,11 +275,24 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
    - Report EN and FR separately, `main` separately from regression/unanswerable. Headline:
      % of answers with >=1 unsupported cited claim. Results committed under eval/results/.
    - Pilot threshold: set after the baseline, before any fixes.
-   - Steps: (1) eval set [done], (2) passage text in the citation artifact + stage 1 script,
-     (3) claim splitting + deterministic checks + unit tests, (4) judge + quote check,
-     (5) baseline run, blind hand labels, agreement, record.
+   - Steps: (1) eval set [done], (2) passage text in the citation artifact + stage 1 script
+     [done], (3) claim splitting + deterministic checks + unit tests [done], (4) judge + quote
+     check, (5) baseline run, blind hand labels, agreement, record.
+   - **Run 1 done (2026-10-11)**: eval/results/faithfulness/answers_run1.jsonl, 34 answers, 32
+     answered + 2 errors (the forced-answer crash, see open issues), ~169k Groq tokens (~5.3k
+     per answered question, 2-4 LLM calls). claims_run1.jsonl: 156 claims (own 33, block 8,
+     lead_in 14, source_line 35, uncited 66; 3 auto-unsupported, all in mth1305_fr, which cites
+     a [1] no tool returned). Not committed yet: results are committed once, at step 5.
+     **Run 2 needs a new day's Groq quota** (a run costs ~85-95% of 200k/day).
 2. **Rate limit + daily cap**: per-IP rate limit and a global daily question cap (protects the
-   Groq free-tier quota); access code for the pilot.
+   Groq free-tier quota); access code for the pilot. **Size it from the measured limits**
+   (found 2026-10-11 during faithfulness run 1): Groq free tier for gpt-oss-20b is 200k tokens
+   per day, 1k requests per day AND **8,000 tokens per minute**; a question costs ~3-11k tokens
+   (2-4 LLM calls; run 1 averaged ~5.3k per answered question). So the whole pilot can serve roughly
+   **40 questions/day and 1-2 per minute across all students** -- one question can exceed the
+   per-minute limit on its own. /chat would show a 429 as a generic error. Options to decide
+   before the pilot: fall back to Gemini on a Groq 429, a paid Groq tier, or a cap this small.
+   The evaluation shares the same quota (a full run ~150k tokens): don't run it on pilot days.
 3. **Deployment for the student pilot**, then the demo video against the deployed version.
    Decided: a VPS running the same docker-compose.yml; frontend and API on one origin with the
    API under /api (no CORS, VITE_API_URL="/api"); .env only on the server (chmod 600);
@@ -391,6 +417,21 @@ jobs on every push to main and every PR.
   title -- a single run, not evidence it's fixed. Not fixed yet -- candidate
   fixes: tool-docstring guidance to search with the question's key terms, or have query_courses
   run the search itself for a code with no description (code over prompt, per the pattern above).
+- *Forced final answer can still crash* (found 2026-10-11 by faithfulness run 1, **fix after
+  the baseline**): course_load_en used all 3 tool rounds in ~12 s; in the forced-answer path
+  (no tools bound, conversation rewritten without tool structure -- the 432d0af fix) gpt-oss-20b
+  still emitted a tool call, `search_documents` with invented args `topn`/`source` (its
+  built-in browsing-tool habit), and Groq returned 400 "Tool choice is none, but model called a
+  tool". /chat would end that answer with an error. The 432d0af rewrite lowered the odds but
+  doesn't prevent it. Candidate fixes: catch that 400 and retry the forced call once (maybe
+  with a stronger "answer in plain text" instruction), or fall back to a canned "couldn't
+  complete" answer listing the passages found. Recorded as an error in the baseline.
+- *query_courses' "no description" result can't be cited* (found 2026-10-11 by run 1, **fix
+  after the baseline**): for a code with no courses row (MTH 1305) it returns
+  NO_DESCRIPTION_NOTE text with no [N] marker and no citation, so anything the model says from
+  it is either uncited or cites a marker it invented -- mth1305_fr cited a [1] no tool
+  returned (3 auto-unsupported claims). Fix: give that result a marker and a citation (source:
+  the catalog's course_prerequisites reference), so it can be cited honestly.
 - *Section headings get separated from their content during chunking* (found 2026-10-11,
   **fix after the faithfulness baseline**). chunk.py cuts fixed ~1000-char, line-aligned
   windows, so a heading can land in a different chunk from its rules: the undergraduate
