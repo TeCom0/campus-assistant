@@ -91,7 +91,8 @@ and evaluation.
 **Phases 0-6 done; Phase 7 in progress (README + diagrams done).** Session 2026-10-09: Phase 5
 code walkthrough (2 bugs found and fixed), Phase 6 built and signed off (CI with 3 jobs, Docker
 images, full stack in Compose, Markdown answers), README and architecture diagrams written.
-**Start the next session with the deployment decisions** (next steps, item 1). Youness asked
+Session 2026-10-11: Youness decided no students use it before a faithfulness baseline exists;
+the faithfulness check is in progress (see next steps, item 1). Youness asked
 to collect interview-style questions during walkthroughs and do one knowledge-check session at
 the very end, rather than quizzing step by step.
 Phases 0-3: repo/Docker setup, the full ingestion pipeline,
@@ -230,11 +231,46 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
 - Test suite: 50 tests, all passing. The backend passes `ruff check` and
   `ruff format --check` (last three files formatted in ff27da3).
 
-**Next steps, in order:**
-1. Phase 7, remaining: deployment for the student pilot, then the demo video (record it against
-   the deployed version). Deployment needs decisions from Youness first: where to host, cost,
-   how secrets are stored, the domain (CORS_ORIGINS and VITE_API_URL depend on it), and auth /
-   rate limiting before it's public (README lists both as missing).
+**Next steps, in order (agreed 2026-10-11):**
+1. **Faithfulness check with a baseline score** -- students don't use the assistant before it
+   exists. Measures how often cited answers contain claims their cited passages don't support.
+   Design (agreed):
+   - Eval set: `eval/faithfulness_eval_set.json`, 34 questions = 17 topics, each asked in EN
+     and FR. `set`: `main` (13 topics, the baseline), `regression` (2 known past failures:
+     international scholarships, MTH 1305), `unanswerable` (2: Fulbright, CSC 3326's
+     instructor; correct behavior is "I don't know"). No expected answers; `notes` say where
+     the answer lives and which traps to watch.
+   - Stage 1: run the real graph (same config as /chat), save each answer + the passage text
+     behind each [N] to JSON, per question, so a run can resume the next day if Groq's daily
+     limit cuts it off. Two answers per question if the Groq budget allows (run-to-run
+     variance); measure token use on a few questions first.
+   - Claim splitting in code (sentences/bullets; a piece with [N] is checked against only the
+     passages it cites; unmarked factual pieces counted as "uncited"; markers pointing at no
+     passage fail automatically).
+   - Judge: Gemini Flash (different family from the gpt-oss-20b generator). Strict: "partly
+     supported" = unsupported; a rule stated more generally than its passage (e.g. graduate
+     rules given as general rules) = unsupported. The judge quotes its evidence and code checks
+     the quote is really in the passage.
+   - Youness hand-labels ALL claims from the first run, blind (labelling file without the
+     judge's verdicts); agreement computed only after Youness is done, reporting especially "judge
+     said supported, human said unsupported".
+   - Report EN and FR separately, `main` separately from regression/unanswerable. Headline:
+     % of answers with >=1 unsupported cited claim. Results committed under eval/results/.
+   - Pilot threshold: set after the baseline, before any fixes.
+   - Steps: (1) eval set [done], (2) passage text in the citation artifact + stage 1 script,
+     (3) claim splitting + deterministic checks + unit tests, (4) judge + quote check,
+     (5) baseline run, blind hand labels, agreement, record.
+2. **Rate limit + daily cap**: per-IP rate limit and a global daily question cap (protects the
+   Groq free-tier quota); access code for the pilot.
+3. **Deployment for the student pilot**, then the demo video against the deployed version.
+   Decided: a VPS running the same docker-compose.yml; frontend and API on one origin with the
+   API under /api (no CORS, VITE_API_URL="/api"); .env only on the server (chmod 600);
+   access code; privacy-preserving usage logging (question, language, tools, latency; no IPs or
+   identities; a notice in the UI). Still to do: compare Azure for Students ($100 credit, no
+   card; how long $100 lasts for a VM with enough RAM -- the API needs ~1-1.5 GB) against
+   Hetzner, with current prices; a visible UI disclaimer that this is an unofficial student
+   project, not an AUI service. Youness is checking with TeCom about a domain and getting
+   permission before going live.
 
 **Phase 7 progress (2026-10-09):** README written (26995cd): what it does, stack, design
 decisions, evaluation numbers, setup from a fresh clone (the DB starts empty: 5 ingestion
@@ -350,6 +386,22 @@ jobs on every push to main and every PR.
   title -- a single run, not evidence it's fixed. Not fixed yet -- candidate
   fixes: tool-docstring guidance to search with the question's key terms, or have query_courses
   run the search itself for a code with no description (code over prompt, per the pattern above).
+- *Section headings get separated from their content during chunking* (found 2026-10-11,
+  **fix after the faithfulness baseline**). chunk.py cuts fixed ~1000-char, line-aligned
+  windows, so a heading can land in a different chunk from its rules: the undergraduate
+  "Repeat Policy" heading is in chunk 281 and its rules in chunk 282 (a probation table sits
+  between them), so the rules chunk never says what it's about. Chunks carry only
+  source/chunk_index/pages/language/text -- the "section" metadata in the target Architecture
+  was never implemented. Fix: track the current section heading while chunking and add it to
+  each chunk's text (so both embeddings and keyword search see it) and to its metadata.
+  Re-run retrieval + faithfulness evals before/after.
+- *Undergraduate vs. graduate rules get confused* (found 2026-10-11, **fix after the
+  faithfulness baseline**). The catalog has parallel undergraduate and graduate policies with
+  different thresholds (repeat policy: C- or lower, pp. 120-121, vs. B- or lower, p. 314, chunk
+  786); a search for "repeat a course" can return the graduate chunk, which has heading and
+  rules together. Same risk for the scholarships page, which covers graduate scholarships only.
+  Fix: tag chunks by level (undergraduate / graduate / both) during ingestion, so the agent can
+  filter by level, or ask the student their level when the question doesn't say.
 - *Data pipeline recap*: data/sources.md lists 3 AUI documents (catalog PDF + 2 scholarship
   pages) -> load.py/clean.py/chunk.py (data/raw/, data/processed/, 1161 chunks in
   chunks.jsonl) -> app/ingestion/store.py embeds and upserts into Postgres table
