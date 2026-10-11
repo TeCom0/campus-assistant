@@ -37,7 +37,7 @@ from pydantic import BaseModel
 
 from app.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.evaluation.generate_faithfulness_answers import EVAL_DIR, RESULTS_DIR
-from app.evaluation.hand_labels import labels_complete, labels_path
+from app.evaluation.hand_labels import labels_complete, reference_labels_path
 
 CALIBRATION_PATH = EVAL_DIR / "judge_calibration.json"
 HAND_LABELLED_RUNS = {1}
@@ -320,7 +320,7 @@ if __name__ == "__main__":
         if blind and not args.dry_run and not args.force:
             parser.error(
                 f"run {args.run} is hand-labelled blind: judge it after every claim in "
-                f"{labels_path(args.run).name} is labelled (check: python -m "
+                f"{reference_labels_path(args.run).name} is labelled (check: python -m "
                 f"app.evaluation.hand_labels --run {args.run} --check; --force to override)"
             )
         run_judge(args.run, args.ids.split(",") if args.ids else None, args.dry_run)

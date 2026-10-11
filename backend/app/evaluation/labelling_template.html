@@ -63,7 +63,7 @@
 </head>
 <body>
 <header>
-  <h1>Faithfulness labelling · run <span id="run"></span></h1>
+  <h1>Faithfulness labelling · <span id="run"></span></h1>
   <span class="progress" id="progress"></span>
   <span class="spacer"></span>
   <button id="prev" title="Previous answer (p)">← Prev</button>
@@ -107,7 +107,9 @@
 const DATA = JSON.parse(document.getElementById("data").textContent);
 const ITEMS = DATA.items;
 const LABELS = ["supported", "unsupported", "no_claim"];
-const STORAGE_KEY = "faithfulness-labels-run" + DATA.run;
+// One storage key and export file per label set ("run1", "run1_sample"), so the
+// sample page starts empty and can't overwrite the full pass's labels.
+const STORAGE_KEY = "faithfulness-labels-" + DATA.name;
 const TOTAL_CLAIMS = ITEMS.reduce((n, item) => n + item.claims.length, 0);
 
 // Labels: { claims: {claim_id: {label, note}}, answers: {answer_id: {abstains}} }.
@@ -249,9 +251,9 @@ function go(index) {
 }
 
 function exportLabels() {
-  const payload = { run: DATA.run, exported_at: new Date().toISOString(), ...state };
+  const payload = { run: DATA.run, name: DATA.name, exported_at: new Date().toISOString(), ...state };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const link = el("a", { href: URL.createObjectURL(blob), download: `labels_run${DATA.run}.json` });
+  const link = el("a", { href: URL.createObjectURL(blob), download: `labels_${DATA.name}.json` });
   link.click();
   URL.revokeObjectURL(link.href);
 }
@@ -259,8 +261,9 @@ function exportLabels() {
 function importLabels(file) {
   file.text().then(text => {
     const data = JSON.parse(text);
-    if (data.run !== DATA.run) {
-      document.getElementById("progress").textContent = `Not imported: that file is for run ${data.run}, this page is run ${DATA.run}.`;
+    const fileName = data.name || `run${data.run}`;
+    if (fileName !== DATA.name) {
+      document.getElementById("progress").textContent = `Not imported: that file is for ${fileName}, this page is ${DATA.name}.`;
       return;
     }
     state = { claims: data.claims || {}, answers: data.answers || {} };
@@ -270,7 +273,7 @@ function importLabels(file) {
 }
 
 // --- wiring -----------------------------------------------------------------
-document.getElementById("run").textContent = DATA.run;
+document.getElementById("run").textContent = DATA.name;
 const jump = document.getElementById("jump");
 ITEMS.forEach((item, i) => jump.append(el("option", { value: String(i) }, item.id)));
 jump.addEventListener("change", () => go(Number(jump.value)));

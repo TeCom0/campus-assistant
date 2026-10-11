@@ -297,6 +297,18 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      Chosen over a CSV: Excel on a French locale expects ";" and mangles UTF-8, and labelling
      needs claim and passages side by side. Browser-checked 2026-10-11 (labels, abstains,
      progress, navigation, uncited -> all passages, import incl. wrong-run refusal).
+   - **Run 1's full hand pass is NOT the reference** (2026-10-11): the first pass labelled only
+     each answer's first claim (the page didn't show more cards below -- fixed, b049d38: per-
+     answer "N claims, M labelled" line); the completed pass took ~11 min for 121 claims (~5 s
+     each, too fast to read the passages) and gave 148 supported / 4 unsupported / 0 no_claim.
+     Kept as labels_run1.json ("quick pass", 1 claim missing) for comparison only. Youness chose
+     **option A: a careful 40-claim sample as the reference** -- `--sample 40` drew it
+     (sample_run1.json, seed 20261011, proportional to kind x language, max 3 per answer: 20 EN
+     / 20 FR, uncited 18, source_line 9, own 8, lead_in 3, block 2; 23 answers) and wrote
+     labelling_run1_sample.html (own storage key and export file labels_run1_sample.json; starts
+     empty; refuses the quick-pass file on Import). The judge guard and `--check` now use the
+     sample once sample_run1.json exists. Agreement is measured on these 40 (~±10 points);
+     the judge still labels all 153.
    - Steps: (1) eval set [done], (2) passage text in the citation artifact + stage 1 script
      [done], (3) claim splitting + deterministic checks + unit tests [done], (4) judge + quote
      check [done], (5) blind hand labels on run 1 -> judge run 1 -> agreement; run 2 (new day's
