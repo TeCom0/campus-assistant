@@ -8,7 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.agent.citations import keep_cited, reset_citation_counter
+from app.agent.citations import (
+    keep_cited,
+    normalize_brackets,
+    reset_citation_counter,
+    without_passage_text,
+)
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
@@ -23,18 +28,6 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 _compiled_graph = build_graph()
-
-# LLM output occasionally uses full-width Unicode brackets (e.g. "【4】")
-# instead of the ASCII "[4]" the system prompt asks for -- confirmed directly in
-# the raw token stream, not just the final text, so this is corrected
-# deterministically here rather than relying on prompt-following alone.
-_BRACKET_FIXES = {"【": "[", "】": "]"}
-
-
-def _normalize_token(text: str) -> str:
-    for bad, good in _BRACKET_FIXES.items():
-        text = text.replace(bad, good)
-    return text
 
 
 @app.get("/health")
@@ -81,7 +74,7 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                 if stream_mode == "messages":
                     msg_chunk, metadata = chunk
                     if metadata.get("langgraph_node") == "agent" and msg_chunk.content:
-                        text = _normalize_token(msg_chunk.content)
+                        text = normalize_brackets(msg_chunk.content)
                         answer_parts.append(text)
                         yield _sse("token", {"text": text})
 
@@ -101,7 +94,7 @@ async def chat(request: ChatRequest) -> StreamingResponse:
                                 if artifact:
                                     citations.extend(artifact)
 
-            cited = keep_cited(citations, "".join(answer_parts))
+            cited = without_passage_text(keep_cited(citations, "".join(answer_parts)))
             yield _sse("citations", {"citations": cited})
             yield _sse("done", {})
 

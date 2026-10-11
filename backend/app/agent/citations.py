@@ -68,6 +68,31 @@ def cited_markers(answer: str) -> set[int]:
     }
 
 
+# LLM output occasionally uses full-width Unicode brackets (e.g. "【4】")
+# instead of the ASCII "[4]" the system prompt asks for -- confirmed directly in
+# the raw token stream, not just the final text, so this is corrected
+# deterministically rather than relying on prompt-following alone. Shared by
+# /chat (per token) and the faithfulness evaluation (whole answer), so both
+# read the same markers.
+_BRACKET_FIXES = {"【": "[", "】": "]"}
+
+
+def normalize_brackets(text: str) -> str:
+    for bad, good in _BRACKET_FIXES.items():
+        text = text.replace(bad, good)
+    return text
+
+
+def without_passage_text(citations: list[dict]) -> list[dict]:
+    """Citations as sent to the browser: everything except the passage text.
+
+    Tools keep the text the model read on each citation, because the
+    faithfulness evaluation checks claims against it. The UI shows only source
+    and pages, so sending ~1 KB of text per source would only cost bandwidth.
+    """
+    return [{key: value for key, value in c.items() if key != "text"} for c in citations]
+
+
 def keep_cited(citations: list[dict], answer: str) -> list[dict]:
     """The citations the answer actually cites, once per marker, in marker order.
 

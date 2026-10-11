@@ -12,7 +12,9 @@ from app.agent.citations import (
     citation_number_for,
     cited_markers,
     keep_cited,
+    normalize_brackets,
     reset_citation_counter,
+    without_passage_text,
 )
 
 
@@ -97,3 +99,15 @@ def test_answer_without_citations_lists_no_sources():
 def test_marker_with_no_matching_citation_is_ignored():
     # The model invented [9]; there's no source to show for it.
     assert keep_cited([_citation(1)], "Fact [1], other fact [9].") == [_citation(1)]
+
+
+def test_normalize_brackets_turns_full_width_brackets_into_ascii():
+    assert normalize_brackets("Needs ACC 2301 【3】.") == "Needs ACC 2301 [3]."
+    assert cited_markers(normalize_brackets("【2, 4】")) == {2, 4}
+
+
+def test_passage_text_is_not_sent_to_the_browser():
+    citations = [{"marker": 1, "source": "catalog", "pages": [31], "text": "68 credits..."}]
+    assert without_passage_text(citations) == [{"marker": 1, "source": "catalog", "pages": [31]}]
+    # The tools' own list is untouched: the evaluation still reads the text.
+    assert citations[0]["text"] == "68 credits..."

@@ -57,6 +57,18 @@ def test_direct_lookup_of_referenced_course_without_description():
     assert artifact == []
 
 
+def test_repeated_lookup_returns_its_citation_with_the_new_text():
+    # The second lookup adds the chain; a claim citing the marker may rest on
+    # either text, so the evaluation needs both, under the same marker.
+    reset_citation_counter()
+    first_text, first = query_courses.func("ACC 2302")
+    second_text, second = query_courses.func("ACC 2302", follow_prerequisites=True)
+    assert first[0]["marker"] == second[0]["marker"] == 1
+    assert first[0]["text"] == first_text
+    assert second[0]["text"] == second_text
+    assert "Full prerequisite chain" in second_text
+
+
 def test_direct_lookup_of_unknown_code_still_says_not_found():
     reset_citation_counter()
     text, _ = query_courses.func("ZZZ 9999")

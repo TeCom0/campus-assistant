@@ -5,7 +5,9 @@ string the LLM reads, `artifact` is structured citation data attached to
 the resulting ToolMessage that the LLM never sees but the API layer (app/
 main.py) reads directly to build the /chat endpoint's `citations` SSE
 event -- avoids re-parsing the LLM-facing text to recover source/page
-metadata. Citation numbers come from app.agent.citations, which hands out
+metadata. Each citation also carries the passage `text` the model read, for
+the faithfulness evaluation (claims are checked against it); main.py strips
+it before sending citations to the browser. Citation numbers come from app.agent.citations, which hands out
 a continuously increasing sequence across ALL tool calls within one agent
 run (so a second tool call picks up where the first left off, never
 restarting at [1]), and gives a passage returned again its earlier number.
@@ -48,7 +50,9 @@ def search_documents(query: str) -> tuple[str, list[dict]]:
         number, is_new = citation_number_for((r.source, r.chunk_index))
         if is_new:
             parts.append(f"[{number}] (source: {r.source}, pages: {r.pages})\n{r.text}")
-            artifact.append({"marker": number, "source": r.source, "pages": r.pages})
+            artifact.append(
+                {"marker": number, "source": r.source, "pages": r.pages, "text": r.text}
+            )
         else:
             # Its text is already in an earlier tool result for this question;
             # sending it again would only spend tokens.
@@ -97,7 +101,7 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
     code_, dept, title, credits, prereq_text, coreq_text, page = row
     # Same course looked up twice (e.g. again with follow_prerequisites) keeps
     # its number. The text is always sent in full: the chain part can differ.
-    marker, is_new = citation_number_for(("course", code_))
+    marker, _ = citation_number_for(("course", code_))
     source_note = f"page {page}" if page is not None else "no page recorded"
     lines = [
         (
@@ -126,10 +130,12 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
             )
 
     conn.close()
-    if not is_new:
-        return "\n".join(lines), []
+    text = "\n".join(lines)
     pages = [page] if page is not None else None
-    return "\n".join(lines), [{"marker": marker, "source": CATALOG_SOURCE, "pages": pages}]
+    # Returned on a repeated lookup too, unlike search_documents: the text can
+    # differ (a second lookup may add the chain), and a claim citing [marker]
+    # may rest on either version. keep_cited still lists the marker once.
+    return text, [{"marker": marker, "source": CATALOG_SOURCE, "pages": pages, "text": text}]
 
 
 # Walks the prerequisite graph from one course. Each row carries the path

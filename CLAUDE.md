@@ -244,6 +244,11 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      behind each [N] to JSON, per question, so a run can resume the next day if Groq's daily
      limit cuts it off. Two answers per question if the Groq budget allows (run-to-run
      variance); measure token use on a few questions first.
+   - Passage text comes from the citation artifacts (`text`, added in step 2a; main.py strips
+     it before sending citations to the browser). `query_courses` returns its citation on a
+     repeated lookup too, so one marker can have several texts (e.g. without, then with the
+     prerequisite chain): stage 1 saves every distinct text per marker, and the judge checks a
+     claim against all of them combined (the quote check accepts a quote found in any of them).
    - Claim splitting in code (sentences/bullets; a piece with [N] is checked against only the
      passages it cites; unmarked factual pieces counted as "uncited"; markers pointing at no
      passage fail automatically).
