@@ -36,6 +36,16 @@ EVAL_DIR = Path(__file__).resolve().parents[3] / "eval"
 EVAL_SET_PATH = EVAL_DIR / "faithfulness_eval_set.json"
 RESULTS_DIR = EVAL_DIR / "results" / "faithfulness"
 GROQ_TOKENS_PER_DAY = 200_000  # free tier, openai/gpt-oss-20b (console.groq.com, 2026-10-11)
+# The free tier also allows only 8,000 tokens per MINUTE, and one question can
+# use more than that (add_drop_fr: 10,982 over 4 calls). That limit clears
+# within a minute, so it means wait and retry the question, not stop for the day.
+PER_MINUTE_WAIT_SECONDS = 60
+PER_MINUTE_RETRIES = 3
+
+
+def is_per_minute_limit(error: Exception) -> bool:
+    """Groq names the limit in the message: "tokens per minute (TPM)", "per day (TPD)"..."""
+    return "per minute" in str(error)
 
 
 def answer_text(messages) -> str:
@@ -110,26 +120,34 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
             print(f"{q['id']:<28} already in {out_path.name}, skipped")
             continue
 
-        reset_citation_counter()
         language = detect_language(q["question"])
-        started = time.perf_counter()
-        try:
-            result = graph.invoke(
-                {"messages": build_input_messages(q["question"], None)},
-                config={
-                    "recursion_limit": MAX_AGENT_STEPS,
-                    "configurable": {"language": language},
-                },
-            )
-            messages, error = result["messages"], None
-        except RateLimitError as e:
-            # Daily (or per-minute) limit: stop, so the run can resume later
-            # instead of recording answers that never got generated.
-            print(f"\nGroq rate limit reached at {q['id']}; stopping. Re-run to resume.\n{e}")
-            break
-        except Exception as e:  # noqa: BLE001 -- /chat shows any failure as an
-            # interrupted answer; record it as one rather than dropping the question.
-            messages, error = [], repr(e)
+        for attempt in range(1, PER_MINUTE_RETRIES + 2):
+            reset_citation_counter()
+            started = time.perf_counter()
+            try:
+                result = graph.invoke(
+                    {"messages": build_input_messages(q["question"], None)},
+                    config={
+                        "recursion_limit": MAX_AGENT_STEPS,
+                        "configurable": {"language": language},
+                    },
+                )
+                messages, error = result["messages"], None
+                break
+            except RateLimitError as e:
+                if is_per_minute_limit(e) and attempt <= PER_MINUTE_RETRIES:
+                    print(f"{q['id']:<28} per-minute limit, waiting {PER_MINUTE_WAIT_SECONDS}s")
+                    time.sleep(PER_MINUTE_WAIT_SECONDS)
+                    continue
+                # Daily limit (or still blocked after the retries): stop, so the
+                # run can resume later instead of recording answers that never
+                # got generated.
+                print(f"\nGroq rate limit reached at {q['id']}; stopping. Re-run to resume.\n{e}")
+                return records
+            except Exception as e:  # noqa: BLE001 -- /chat shows any failure as an
+                # interrupted answer; record it as one rather than dropping the question.
+                messages, error = [], repr(e)
+                break
 
         answer = answer_text(messages)
         record = {

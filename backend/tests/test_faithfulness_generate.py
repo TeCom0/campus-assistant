@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from app.evaluation.generate_faithfulness_answers import (
     answer_text,
     collect_passages,
+    is_per_minute_limit,
     load_done_ids,
     token_usage,
     tool_calls,
@@ -97,3 +98,14 @@ def test_done_ids_are_read_from_existing_jsonl(tmp_path):
         json.dumps({"id": "a"}) + "\n" + json.dumps({"id": "b"}) + "\n\n", encoding="utf-8"
     )
     assert load_done_ids(path) == {"a", "b"}
+
+
+def test_per_minute_limit_is_told_apart_from_the_daily_limit():
+    # The message Groq sent on 2026-10-11 (TPM), and the same shape for TPD.
+    tpm = (
+        "Rate limit reached for model `openai/gpt-oss-20b` ... on tokens per minute (TPM): "
+        "Limit 8000, Used 6601, Requested 2215. Please try again in 6.12s."
+    )
+    tpd = "Rate limit reached for model `openai/gpt-oss-20b` ... on tokens per day (TPD): ..."
+    assert is_per_minute_limit(Exception(tpm))
+    assert not is_per_minute_limit(Exception(tpd))
