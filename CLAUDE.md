@@ -91,8 +91,17 @@ and evaluation.
 **Phases 0-6 done; Phase 7 in progress (README + diagrams done).** Session 2026-10-09: Phase 5
 code walkthrough (2 bugs found and fixed), Phase 6 built and signed off (CI with 3 jobs, Docker
 images, full stack in Compose, Markdown answers), README and architecture diagrams written.
-Session 2026-10-11: Youness decided no students use it before a faithfulness baseline exists;
-the faithfulness check is in progress (see next steps, item 1). Youness asked
+Session 2026-10-11: Youness decided no students use it before a faithfulness baseline exists.
+Built the whole faithfulness pipeline (eval set of 34 EN/FR questions, answer generation,
+claim splitting with citation-scope rules, Gemini judge with a verbatim quote check, blind
+labelling page, agreement statistics; 102 tests), ran run 1 (34 answers, 156 claims), and
+Youness hand-labelled a careful 40-claim sample as the reference. Found on the way: the
+forced-final-answer crash, query_courses' uncitable "no description" result, Groq's 8k
+tokens/minute and Gemini's 20 requests/day free-tier limits (both matter for the pilot).
+**Start the next session by judging run 1 and running the agreement report** (the background
+job scheduled for 00:10 UTC died with the session if it was closed -- check whether
+eval/results/faithfulness/judgements_run1.jsonl exists; commands under "Pending as of
+2026-10-11" in next steps item 1), then run 2 on the new Groq day. Youness asked
 to collect interview-style questions during walkthroughs and do one knowledge-check session at
 the very end, rather than quizzing step by step.
 Phases 0-3: repo/Docker setup, the full ingestion pipeline,
