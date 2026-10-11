@@ -1,0 +1,53 @@
+[
+  {
+    "id": "calibration_absences_en",
+    "question": "How many excused absences can I get per semester for university events?",
+    "language": "en",
+    "passages": [
+      {
+        "marker": 1,
+        "source": "academic_catalog_2024_2025",
+        "pages": [101, 102],
+        "texts": [
+          "the student permission to be absent if the student’s academic performance is not judged to be\nadequate. Once approved, these absences should not count in the student’s absence record.\nInstructors should be informed before the absence to agree with the student on a suitable time\nand manner for makeup, should it be necessary. A maximum of three of these absences per\nsemester may be authorized.\nExternal Events\nThe student must submit a completed and signed form from the Student Activities Office, the\nAthletic Department, or the Dean for Student Affairs (DSA) to the instructor. Examples of these\nabsences include participation in university-sponsored sports, cultural, or other events as a\nuniversity representative."
+        ]
+      }
+    ],
+    "claims": [
+      {"claim_id": "calibration_absences_en#1", "text": "Up to three excused absences per semester may be authorized for university events [1].", "kind": "own", "markers": [1], "auto_label": null, "expected": "supported", "why": "plain match"},
+      {"claim_id": "calibration_absences_en#2", "text": "Up to five excused absences per semester may be authorized [1].", "kind": "own", "markers": [1], "auto_label": null, "expected": "unsupported", "why": "wrong number"},
+      {"claim_id": "calibration_absences_en#3", "text": "Approved excused absences still count in your absence record [1].", "kind": "own", "markers": [1], "auto_label": null, "expected": "unsupported", "why": "contradicts the passage"},
+      {"claim_id": "calibration_absences_en#4", "text": "You should inform your instructor before the absence.", "kind": "uncited", "markers": [], "auto_label": null, "expected": "supported", "why": "uncited but in a passage"},
+      {"claim_id": "calibration_absences_en#5", "text": "If you're unsure, it's best to ask your instructor.", "kind": "uncited", "markers": [], "auto_label": null, "expected": "no_claim", "why": "advice"}
+    ]
+  },
+  {
+    "id": "calibration_repeat_fr",
+    "question": "Je suis en licence et j'ai eu C- dans un cours. Puis-je reprendre ce cours ?",
+    "language": "fr",
+    "passages": [
+      {
+        "marker": 1,
+        "source": "academic_catalog_2024_2025",
+        "pages": [314],
+        "texts": [
+          "Repeat Policy\nAll courses taken at AUI, whether passed or failed, remain a permanent part of the student’s record. If\na course is repeated, the highest grade earned is the grade used to compute the cumulative grade point\naverage (CGPA) for all purposes. Repeated courses are counted only once for credit.\nA graduate course in which a grade of B or higher has been earned may not be repeated for credit. A\nstudent may repeat any course in which a B- or lower has been earned.\nNormally a student is allowed to repeat a course only once. If a required course is failed a second time, a\nstudent may, after consulting with the advisor and the school coordinator, appeal to the school dean for\npermission to take the course a third time.\nUndergraduate Foundation Courses"
+        ]
+      },
+      {
+        "marker": 2,
+        "source": "academic_catalog_2024_2025",
+        "pages": [120, 121],
+        "texts": [
+          "If a course is repeated, the highest grade earned is the grade used to compute the cumulative\ngrade point average (CGPA) for all purposes. Repeated courses are counted only once for credit.\nAn undergraduate course in which a grade of C or higher has been earned may not be repeated for\ncredit. A student may repeat any course in which a C- or lower has been earned.\nNormally a student is allowed to repeat a course only once. If a required course is failed a second\ntime, a student may, after consulting with the advisor and the school coordinator, appeal to the"
+        ]
+      }
+    ],
+    "claims": [
+      {"claim_id": "calibration_repeat_fr#1", "text": "En licence, vous pouvez reprendre un cours dans lequel vous avez obtenu C- ou moins [2].", "kind": "own", "markers": [2], "auto_label": null, "expected": "supported", "why": "French claim, English passage"},
+      {"claim_id": "calibration_repeat_fr#2", "text": "Vous pouvez reprendre tout cours dans lequel vous avez obtenu B- ou moins [1].", "kind": "own", "markers": [1], "auto_label": null, "expected": "unsupported", "why": "graduate rule presented as applying to this undergraduate"},
+      {"claim_id": "calibration_repeat_fr#3", "text": "La note la plus élevée est celle retenue pour calculer la moyenne cumulée [2].", "kind": "own", "markers": [2], "auto_label": null, "expected": "supported", "why": "translation"},
+      {"claim_id": "calibration_repeat_fr#4", "text": "La note la plus élevée est retenue pour la moyenne cumulée, et vous pouvez reprendre le cours trois fois sans autorisation [2].", "kind": "own", "markers": [2], "auto_label": null, "expected": "unsupported", "why": "partly supported: second half is wrong"}
+    ]
+  }
+]

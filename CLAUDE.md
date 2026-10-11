@@ -275,9 +275,22 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
    - Report EN and FR separately, `main` separately from regression/unanswerable. Headline:
      % of answers with >=1 unsupported cited claim. Results committed under eval/results/.
    - Pilot threshold: set after the baseline, before any fixes.
+   - Judge (step 4, app/evaluation/judge_claims.py): one Gemini call per answer, output forced
+     into a pydantic schema (`AnswerVerdict`: `abstains` + per-claim label/evidence_quote/
+     reason), temperature 0. Code checks a "supported" quote verbatim (case, quotes, dashes,
+     spaces normalized; "a ... b" allowed in order) in that claim's passages -- not found ->
+     unsupported, flag `quote_not_found`. Waits out Gemini 429 per-minute limits and 503 "high
+     demand" (hit 3x in a row on 2026-10-11). `--calibration` judges eval/judge_calibration.json
+     (9 hand-made claims from real chunks, known labels: wrong number, contradiction, graduate
+     rule given to an undergraduate, partly wrong, FR claim vs EN passage, advice): 9/9 on
+     2026-10-11 -- shows the rules are understood, NOT agreement on real claims. **Blind
+     guard**: refuses `--run 1` until labels_run1.csv exists; when step 5 creates a labels
+     template, make the guard check that every row is labelled, not just that the file exists.
+     The terminal prints counts only, never labels.
    - Steps: (1) eval set [done], (2) passage text in the citation artifact + stage 1 script
      [done], (3) claim splitting + deterministic checks + unit tests [done], (4) judge + quote
-     check, (5) baseline run, blind hand labels, agreement, record.
+     check [done], (5) blind hand labels on run 1 -> judge run 1 -> agreement; run 2 (new day's
+     Groq quota) -> split -> judge; report; record.
    - **Run 1 done (2026-10-11)**: eval/results/faithfulness/answers_run1.jsonl, 34 answers, 32
      answered + 2 errors (the forced-answer crash, see open issues), ~169k Groq tokens (~5.3k
      per answered question, 2-4 LLM calls). claims_run1.jsonl: 156 claims (own 33, block 8,
