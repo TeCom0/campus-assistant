@@ -1,0 +1,342 @@
+[
+  {
+    "id": "transfer_credits_en",
+    "question": "How many credits can I transfer to AUI from another university?",
+    "language": "en",
+    "topic": "transfer_credits",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog pp. 31-32 (chunk 51): 'Transfer Credit Maximums', 68 credits for undergraduate programs, with school-specific rules."
+  },
+  {
+    "id": "transfer_credits_fr",
+    "question": "Combien de crédits puis-je transférer à l'AUI depuis une autre université ?",
+    "language": "fr",
+    "topic": "transfer_credits",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as transfer_credits_en."
+  },
+  {
+    "id": "plagiarism_en",
+    "question": "What is considered plagiarism at AUI?",
+    "language": "en",
+    "topic": "plagiarism",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 107 (chunk 245), academic integrity section."
+  },
+  {
+    "id": "plagiarism_fr",
+    "question": "Qu'est-ce que le plagiat selon le règlement de l'AUI ?",
+    "language": "fr",
+    "topic": "plagiarism",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as plagiarism_en. 2 of 4 French retrieval questions failed retrieval in Phase 2; check whether this one gets the right chunk."
+  },
+  {
+    "id": "add_drop_en",
+    "question": "How do I add or drop a course at AUI?",
+    "language": "en",
+    "topic": "add_drop",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 103 (chunk 232): online add/drop for students in good standing with no holds; holds must be cleared first."
+  },
+  {
+    "id": "add_drop_fr",
+    "question": "Comment ajouter ou supprimer un cours à l'AUI ?",
+    "language": "fr",
+    "topic": "add_drop",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as add_drop_en."
+  },
+  {
+    "id": "excused_absences_en",
+    "question": "How many excused absences can I get per semester for university events?",
+    "language": "en",
+    "topic": "excused_absences",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 101, 'Excused Absences': at most three authorized per semester; the instructor may refuse if academic performance isn't adequate. Specific number: a good probe for invented details."
+  },
+  {
+    "id": "excused_absences_fr",
+    "question": "Combien d'absences justifiées puis-je avoir par semestre pour des événements universitaires ?",
+    "language": "fr",
+    "topic": "excused_absences",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as excused_absences_en."
+  },
+  {
+    "id": "course_load_en",
+    "question": "How many courses can I take in a regular semester, and when am I allowed a sixth course?",
+    "language": "en",
+    "topic": "course_load",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 116, 'Course Load Policy': normal load five courses (12-17 SCH); six (up to 20 SCH) with CGPA 3.00, or below 3.00 with coordinator and Dean approval."
+  },
+  {
+    "id": "course_load_fr",
+    "question": "Combien de cours puis-je suivre pendant un semestre normal, et quand ai-je droit à un sixième cours ?",
+    "language": "fr",
+    "topic": "course_load",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as course_load_en."
+  },
+  {
+    "id": "graduation_honors_en",
+    "question": "What GPA do I need to graduate summa cum laude?",
+    "language": "en",
+    "topic": "graduation_honors",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 118, 'Graduation with Honors': 3.65-4.00, at least 60 SCH at AUI, AUI record only. The GPA table is split from its heading in the PDF text, a test of whether the right lines are retrieved together."
+  },
+  {
+    "id": "graduation_honors_fr",
+    "question": "Quelle moyenne (GPA) faut-il pour obtenir son diplôme avec la mention summa cum laude ?",
+    "language": "fr",
+    "topic": "graduation_honors",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as graduation_honors_en."
+  },
+  {
+    "id": "academic_probation_en",
+    "question": "What happens if my GPA falls between 1.5 and 1.99?",
+    "language": "en",
+    "topic": "academic_probation",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 121, 'Academic Probation': probation, at most four courses (13 SCH) next regular semester, SGPA 2.00 to return to good standing, summer doesn't count, no notation on transcript; dismissal rules follow."
+  },
+  {
+    "id": "academic_probation_fr",
+    "question": "Que se passe-t-il si ma moyenne (GPA) est entre 1,5 et 1,99 ?",
+    "language": "fr",
+    "topic": "academic_probation",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as academic_probation_en. Uses a decimal comma, as a French student would write it."
+  },
+  {
+    "id": "repeat_course_en",
+    "question": "I'm an undergraduate and got a C- in a course. Can I retake it, and which grade counts in my GPA?",
+    "language": "en",
+    "topic": "repeat_course",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog pp. 120-121, undergraduate 'Repeat Policy' (chunk 282): C- or lower may be repeated; highest grade counts in the CGPA; counted once for credit; normally only once, a third attempt needs an appeal to the dean. Trap: the heading is in chunk 281 and the rules in chunk 282 (a table splits them), while the GRADUATE repeat policy (p. 314, chunk 786, B- or lower) has heading and rules together. Graduate rules stated as general rules count as unsupported."
+  },
+  {
+    "id": "repeat_course_fr",
+    "question": "Je suis en licence et j'ai eu C- dans un cours. Puis-je reprendre ce cours, et quelle note compte dans ma moyenne ?",
+    "language": "fr",
+    "topic": "repeat_course",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as repeat_course_en."
+  },
+  {
+    "id": "w_grade_en",
+    "question": "What does a W grade mean, and until when can I drop a course and still get a W?",
+    "language": "en",
+    "topic": "w_grade",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Catalog p. 112 (chunk 258): W = official withdrawal up to the 40th class day of a semester (18th of a summer term), not counted in the GPA; later, WP (passing) or WF (failing, 0.00). Catalog pp. 103-104 (chunk 233): no refund in that period; after it the instructor assigns WP or WF; not attending without dropping gives WF. The 2024-2025 academic calendar (chunks 13-20) lists the actual last days per term. Traps: dropping one course vs. withdrawing from the University (W before mid-semester, p. 104) vs. retroactive withdrawal (p. 104); calendar dates are for 2024-2025 only."
+  },
+  {
+    "id": "w_grade_fr",
+    "question": "Que signifie la note W, et jusqu'à quand puis-je abandonner un cours en obtenant un W ?",
+    "language": "fr",
+    "topic": "w_grade",
+    "category": "policy",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as w_grade_en."
+  },
+  {
+    "id": "scholarship_conditions_en",
+    "question": "What are the conditions for keeping an Al Akhawayn scholarship?",
+    "language": "en",
+    "topic": "scholarship_conditions",
+    "category": "scholarship",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "graduate_scholarships page: 'Scholarship Conditions' and 'Scholarship Renewal Policy' (SGPA 3.5; probation between 3.00 and 3.49). The page covers graduate (Master's) scholarships only; an answer that presents this as covering undergraduates is unsupported."
+  },
+  {
+    "id": "scholarship_conditions_fr",
+    "question": "Quelles sont les conditions pour conserver une bourse Al Akhawayn ?",
+    "language": "fr",
+    "topic": "scholarship_conditions",
+    "category": "scholarship",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as scholarship_conditions_en."
+  },
+  {
+    "id": "scholarship_work_hours_en",
+    "question": "Do graduate scholarship students have to work for the university?",
+    "language": "en",
+    "topic": "scholarship_work_hours",
+    "category": "scholarship",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "graduate_scholarships page: students with a tuition waiver or more hold unpaid part-time jobs assigned by the Financial Aid Office, 10 hours per week (160 hours per semester)."
+  },
+  {
+    "id": "scholarship_work_hours_fr",
+    "question": "Les étudiants boursiers en master doivent-ils travailler pour l'université ?",
+    "language": "fr",
+    "topic": "scholarship_work_hours",
+    "category": "scholarship",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as scholarship_work_hours_en."
+  },
+  {
+    "id": "acc2302_chain_en",
+    "question": "What do I need to take before ACC 2302, including all earlier prerequisites?",
+    "language": "en",
+    "topic": "acc2302_chain",
+    "category": "course",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "query_courses with follow_prerequisites. ACC 2302 requires ACC 2301; ACC 2301 needs ONE of several math courses (the 'or' that caused bug 3b8895f). Saying all are required is unsupported."
+  },
+  {
+    "id": "acc2302_chain_fr",
+    "question": "Quels cours dois-je suivre avant ACC 2302, y compris tous les prérequis en amont ?",
+    "language": "fr",
+    "topic": "acc2302_chain",
+    "category": "course",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as acc2302_chain_en."
+  },
+  {
+    "id": "csc3326_prereqs_en",
+    "question": "What are the prerequisites for CSC 3326?",
+    "language": "en",
+    "topic": "csc3326_prereqs",
+    "category": "course",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "courses table: 'CSC 2306 (or CSC 1402 or BAI 3301) and Junior classification' (catalog p. 161, Database Systems, 3 credits). Ambiguous wording: the prompt asks the agent to quote it rather than reinterpret it."
+  },
+  {
+    "id": "csc3326_prereqs_fr",
+    "question": "Quels sont les prérequis du cours CSC 3326 ?",
+    "language": "fr",
+    "topic": "csc3326_prereqs",
+    "category": "course",
+    "set": "main",
+    "expected_behavior": "answer",
+    "notes": "Same as csc3326_prereqs_en."
+  },
+  {
+    "id": "intl_scholarships_fr",
+    "question": "Quelles bourses sont disponibles pour les étudiants internationaux ?",
+    "language": "fr",
+    "topic": "intl_scholarships",
+    "category": "scholarship",
+    "set": "regression",
+    "expected_behavior": "answer",
+    "notes": "Exact question from 2026-10-08 that produced 'Fulbright' (0 chunks), McCall MacBain presented as offered (it's an award AUI students won), and '10 000 MAD rent reduction' (it's the non-refundable advance). Supported answer: graduate scholarships are for Moroccan applicants only; a few may go to international graduate candidates in the School of Humanities and Social Sciences."
+  },
+  {
+    "id": "intl_scholarships_en",
+    "question": "What scholarships are available for international students?",
+    "language": "en",
+    "topic": "intl_scholarships",
+    "category": "scholarship",
+    "set": "regression",
+    "expected_behavior": "answer",
+    "notes": "English version of intl_scholarships_fr."
+  },
+  {
+    "id": "mth1305_en",
+    "question": "What is MTH 1305?",
+    "language": "en",
+    "topic": "mth1305",
+    "category": "course",
+    "set": "regression",
+    "expected_behavior": "answer",
+    "notes": "No course-description entry, so no courses row; the only title is 'Mathematics for Business' in a list (catalog p. 155). Past failures: invented title 'Calculus I', 'not in the catalog', padded search queries missing the title chunk."
+  },
+  {
+    "id": "mth1305_fr",
+    "question": "Qu'est-ce que le cours MTH 1305 ?",
+    "language": "fr",
+    "topic": "mth1305",
+    "category": "course",
+    "set": "regression",
+    "expected_behavior": "answer",
+    "notes": "Same as mth1305_en."
+  },
+  {
+    "id": "fulbright_en",
+    "question": "How do I apply for a Fulbright scholarship through AUI?",
+    "language": "en",
+    "topic": "fulbright",
+    "category": "scholarship",
+    "set": "unanswerable",
+    "expected_behavior": "abstain",
+    "notes": "'Fulbright' appears in no raw/processed file and 0 of 1161 chunks (checked 2026-10-11); the model invented it on 2026-10-08. Correct: say the documents don't cover it. Trap: the graduate_scholarships page DOES describe how to apply for AUI's own graduate scholarships (form, interview, committee), and the prestigious_scholarships page lists external awards AUI students won; presenting either as the Fulbright process is unsupported."
+  },
+  {
+    "id": "fulbright_fr",
+    "question": "Comment postuler à la bourse Fulbright via l'AUI ?",
+    "language": "fr",
+    "topic": "fulbright",
+    "category": "scholarship",
+    "set": "unanswerable",
+    "expected_behavior": "abstain",
+    "notes": "Same as fulbright_en."
+  },
+  {
+    "id": "instructor_en",
+    "question": "Who is teaching CSC 3326 next semester?",
+    "language": "en",
+    "topic": "instructor",
+    "category": "course",
+    "set": "unanswerable",
+    "expected_behavior": "abstain",
+    "notes": "The catalog has course descriptions, not per-semester schedules or instructors. Tempting because the course itself IS in the data: a partial answer about the course is fine; a name is not."
+  },
+  {
+    "id": "instructor_fr",
+    "question": "Qui enseigne CSC 3326 le semestre prochain ?",
+    "language": "fr",
+    "topic": "instructor",
+    "category": "course",
+    "set": "unanswerable",
+    "expected_behavior": "abstain",
+    "notes": "Same as instructor_en."
+  }
+]
