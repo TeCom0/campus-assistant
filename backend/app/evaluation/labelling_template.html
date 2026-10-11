@@ -55,6 +55,9 @@
   .passage.in-scope { opacity: 1; border-left-color: var(--accent); background: var(--scope); }
   .abstains { display: flex; gap: 12px; align-items: center; margin: 8px 0; }
   .help { color: var(--muted); font-size: 13px; }
+  #answer-progress { font-weight: 600; padding: 6px 10px; border-radius: 6px; }
+  #answer-progress.todo { background: var(--focus); border: 1px solid var(--no-claim); }
+  #answer-progress.done { color: var(--supported); }
   kbd { border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; font-size: 12px; }
 </style>
 </head>
@@ -87,6 +90,9 @@
       <kbd>j</kbd>/<kbd>k</kbd> next/previous claim · <kbd>n</kbd>/<kbd>p</kbd> next/previous answer.
       Strict: partly supported = unsupported; a rule for a narrower group (e.g. graduate) presented
       as general = unsupported. no_claim = advice, filler, a question, an intro fragment, or "I couldn't find…".</p>
+    <!-- How many claims this answer has, and how many are labelled: in run 1 only each
+         answer's first claim got labelled, because nothing showed the others below. -->
+    <p id="answer-progress"></p>
     <div id="claims"></div>
   </section>
   <section id="right">
@@ -130,21 +136,36 @@ function el(tag, attrs = {}, text = "") {
   return node;
 }
 
+function labelledCount(item) {
+  return item.claims.filter(c => LABELS.includes(state.claims[c.claim_id]?.label)).length;
+}
+
 function itemDone(item) {
   const abstains = state.answers[item.id]?.abstains;
-  return typeof abstains === "boolean" &&
-    item.claims.every(c => LABELS.includes(state.claims[c.claim_id]?.label));
+  return typeof abstains === "boolean" && labelledCount(item) === item.claims.length;
 }
 
 function renderProgress() {
-  const labelled = ITEMS.flatMap(i => i.claims).filter(c => LABELS.includes(state.claims[c.claim_id]?.label)).length;
+  const labelled = ITEMS.reduce((n, item) => n + labelledCount(item), 0);
   const answersDone = ITEMS.filter(itemDone).length;
   document.getElementById("progress").textContent =
     `${labelled}/${TOTAL_CLAIMS} claims · ${answersDone}/${ITEMS.length} answers complete`;
   const jump = document.getElementById("jump");
   ITEMS.forEach((item, i) => {
-    jump.options[i].textContent = `${itemDone(item) ? "✓" : "·"} ${i + 1}. ${item.id}`;
+    const mark = itemDone(item) ? "✓" : labelledCount(item) || item.id in state.answers ? "◐" : "·";
+    jump.options[i].textContent = `${mark} ${i + 1}. ${item.id} (${labelledCount(item)}/${item.claims.length})`;
   });
+  // This answer's own status, in words, right above its claims.
+  const item = ITEMS[current];
+  const remaining = item.claims.length - labelledCount(item);
+  const abstainsMissing = typeof state.answers[item.id]?.abstains !== "boolean";
+  const todo = [];
+  if (remaining) todo.push(`${remaining} claim${remaining > 1 ? "s" : ""} below still to label`);
+  if (abstainsMissing) todo.push(`the "decline?" question above`);
+  const status = document.getElementById("answer-progress");
+  status.textContent = `This answer has ${item.claims.length} claim${item.claims.length > 1 ? "s" : ""}, ` +
+    `${labelledCount(item)} labelled.` + (todo.length ? ` To do: ${todo.join(" and ")}.` : " Done ✓");
+  status.className = todo.length ? "todo" : "done";
 }
 
 function setFocus(index) {
@@ -218,6 +239,7 @@ function renderAnswer() {
   document.getElementById("jump").value = String(current);
   focused = 0;
   renderClaims();
+  renderProgress();
   window.scrollTo({ top: 0 });
 }
 
