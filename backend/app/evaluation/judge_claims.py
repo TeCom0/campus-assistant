@@ -13,7 +13,7 @@ passage the claim didn't cite.
 
 Claims auto-labelled by split_claims.py (markers no tool returned) are never
 sent. Run 1 is hand-labelled blind, so the judge refuses to run on it before
-the labels file exists.
+every claim in the labels file is labelled (hand_labels.py).
 
 Usage (from backend/):
     python -m app.evaluation.judge_claims --calibration   # known answers, check the judge
@@ -37,6 +37,7 @@ from pydantic import BaseModel
 
 from app.config import GEMINI_API_KEY, GEMINI_MODEL
 from app.evaluation.generate_faithfulness_answers import EVAL_DIR, RESULTS_DIR
+from app.evaluation.hand_labels import labels_complete, labels_path
 
 CALIBRATION_PATH = EVAL_DIR / "judge_calibration.json"
 HAND_LABELLED_RUNS = {1}
@@ -315,11 +316,11 @@ if __name__ == "__main__":
     elif args.run is None:
         parser.error("pass --calibration or --run N")
     else:
-        labels_path = RESULTS_DIR / f"labels_run{args.run}.csv"
-        blind = args.run in HAND_LABELLED_RUNS and not labels_path.exists()
+        blind = args.run in HAND_LABELLED_RUNS and not labels_complete(args.run)
         if blind and not args.dry_run and not args.force:
             parser.error(
-                f"run {args.run} is hand-labelled blind: judge it after {labels_path.name} "
-                "exists (--force to override)"
+                f"run {args.run} is hand-labelled blind: judge it after every claim in "
+                f"{labels_path(args.run).name} is labelled (check: python -m "
+                f"app.evaluation.hand_labels --run {args.run} --check; --force to override)"
             )
         run_judge(args.run, args.ids.split(",") if args.ids else None, args.dry_run)
