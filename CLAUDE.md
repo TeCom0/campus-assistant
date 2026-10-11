@@ -284,9 +284,19 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      (9 hand-made claims from real chunks, known labels: wrong number, contradiction, graduate
      rule given to an undergraduate, partly wrong, FR claim vs EN passage, advice): 9/9 on
      2026-10-11 -- shows the rules are understood, NOT agreement on real claims. **Blind
-     guard**: refuses `--run 1` until labels_run1.csv exists; when step 5 creates a labels
-     template, make the guard check that every row is labelled, not just that the file exists.
-     The terminal prints counts only, never labels.
+     guard**: refuses `--run 1` until every claim and answer in labels_run1.json is labelled
+     (`hand_labels.labels_complete`). The terminal prints counts only, never labels.
+   - Hand labels (app/evaluation/hand_labels.py + labelling_template.html): `python -m
+     app.evaluation.hand_labels --run 1` writes eval/results/faithfulness/labelling_run1.html,
+     a self-contained offline page (32 answers, 153 claims; auto-labelled claims and crashed
+     answers left out; the question's `set` hidden to avoid bias; no judge data). Click a claim
+     -> its "check against" passages highlighted; keys 1/2/3 = supported/unsupported/no_claim,
+     j/k claims, n/p answers; abstains yes/no per answer. Autosaves in the browser
+     (localStorage); "Export labels" downloads labels_run1.json -> move it into
+     eval/results/faithfulness/; "Import" restores one. `--check` lists what's unlabelled.
+     Chosen over a CSV: Excel on a French locale expects ";" and mangles UTF-8, and labelling
+     needs claim and passages side by side. Browser-checked 2026-10-11 (labels, abstains,
+     progress, navigation, uncited -> all passages, import incl. wrong-run refusal).
    - Steps: (1) eval set [done], (2) passage text in the citation artifact + stage 1 script
      [done], (3) claim splitting + deterministic checks + unit tests [done], (4) judge + quote
      check [done], (5) blind hand labels on run 1 -> judge run 1 -> agreement; run 2 (new day's
