@@ -291,8 +291,18 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      error names the model **gemini-3.6-flash** although config.py says gemini-3.5-flash --
      Google seems to route the name; record the judge model as reported. Run 1 judging stopped
      at 5/32 answers (judgements_run1.jsonl); retries now wait 60/120/.../300 s and stop
-     cleanly ("re-run to resume") on a lasting 503 or the daily 429. 32 calls per run don't
-     fit in 20/day -- decision pending (see the end of the 2026-10-11 session).
+     cleanly ("re-run to resume") on a lasting 503 or the daily 429. 32 calls per run didn't
+     fit in 20/day -> **decided (Youness, option B): batch 4 answers per call** (b530db1): 8
+     calls per run, prompts up to ~11k tokens, each answer in its own block ("passage numbers
+     belong to their block"). The 5 answers judged one-per-call moved to
+     judgements_run1_unbatched.jsonl; run 1 is re-judged entirely batched for consistency.
+     `--calibration` (1 call, batched) exits non-zero unless 9/9.
+   - **Pending as of 2026-10-11 17:50 UTC**: a background chain in that session waits for the
+     Gemini quota reset (~00:00 UTC), then runs calibration && judge run 1 && agreement. If the
+     session ended first, run by hand from backend\: `python -m app.evaluation.judge_claims
+     --calibration`, then (if 9/9) `python -m app.evaluation.judge_claims --run 1`, then
+     `python -m app.evaluation.agreement --run 1`. Then: run 2 (new Groq day) -> split ->
+     judge; baseline report; pilot threshold.
    - Agreement (app/evaluation/agreement.py -> agreement_runN.json): reference labels vs. the
      judge's final labels on the same claims; raw agreement + Wilson 95% CI, Cohen's kappa,
      confusion, lenient (judge supported / human unsupported) vs. strict errors listed
