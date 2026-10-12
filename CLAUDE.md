@@ -98,10 +98,13 @@ labelling page, agreement statistics; 102 tests), ran run 1 (34 answers, 156 cla
 Youness hand-labelled a careful 40-claim sample as the reference. Found on the way: the
 forced-final-answer crash, query_courses' uncitable "no description" result, Groq's 8k
 tokens/minute and Gemini's 20 requests/day free-tier limits (both matter for the pilot).
-**Start the next session by judging run 1 and running the agreement report** (the background
-job scheduled for 00:10 UTC died with the session if it was closed -- check whether
-eval/results/faithfulness/judgements_run1.jsonl exists; commands under "Pending as of
-2026-10-11" in next steps item 1), then run 2 on the new Groq day. Youness asked
+Session 2026-10-12: judge calibration 9/9 but Gemini 503s stopped run-1 judging at 1/8
+batches; fixed the judge chain so it can't report agreement on partial results (f1a3915);
+run 2 generated and split. **Start the next session by finishing the judging**, from backend\:
+`python -m app.evaluation.judge_claims --run 1`, then (if it exits 0) `python -m
+app.evaluation.agreement --run 1`, then `python -m app.evaluation.judge_claims --run 2`
+(~15 Gemini calls of 20/day; both resume where they stopped). Then: baseline report, pilot
+threshold, commit eval/results/. Youness asked
 to collect interview-style questions during walkthroughs and do one knowledge-check session at
 the very end, rather than quizzing step by step.
 Phases 0-3: repo/Docker setup, the full ingestion pipeline,
