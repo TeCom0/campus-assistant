@@ -311,7 +311,15 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      used (11 were failed 503 attempts). It exited 0, so the chain ran agreement on 4 of 40
      claims -- meaningless, file deleted. Fixed: judge_claims exits 1 when stopped early;
      agreement refuses until every reference claim is judged. Resume with `--run 1` (skips
-     judged answers). Quick pass vs. careful sample agree on 31/40 claims.
+     judged answers). Quick pass vs. careful sample agree on 31/40 claims. A retry at 17:08
+     UTC got 6 more 503s (still no 429, so whether failed attempts count is unknown).
+     **Run 2 generated + split (2026-10-12)**: answers_run2.jsonl, 30 answered + 4 errors
+     (add_drop_fr, course_load_en, course_load_fr, fulbright_fr -- all the forced-answer
+     400), ~171k Groq tokens; claims_run2.jsonl 148 claims (own 41, block 19, lead_in 14,
+     source_line 10, uncited 64; 2 auto-unsupported). Forced-answer crash: 6/68 attempts
+     over both runs (~9%; course_load_en both times). A background chain was set to run at
+     00:10 UTC 2026-10-13: judge run 1 && agreement && judge run 2. If judgements_run2.jsonl
+     doesn't exist, run those three by hand (commands below).
    - **Pending as of 2026-10-11 17:50 UTC**: a background chain in that session waits for the
      Gemini quota reset (~00:00 UTC), then runs calibration && judge run 1 && agreement. If the
      session ended first, run by hand from backend\: `python -m app.evaluation.judge_claims
