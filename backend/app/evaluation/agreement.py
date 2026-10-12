@@ -69,6 +69,11 @@ def compare(human: dict[str, str], judge: dict[str, str]) -> dict:
     }
 
 
+def unjudged(human: dict[str, str], judge: dict[str, str]) -> list[str]:
+    """Reference claims the judge has no label for yet (e.g. it stopped early)."""
+    return sorted(set(human) - set(judge))
+
+
 def _load_jsonl(path) -> list[dict]:
     with path.open(encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
@@ -80,10 +85,19 @@ def run(run_number: int) -> dict:
     human = {cid: v["label"] for cid, v in reference["claims"].items()}
     notes = {cid: v.get("note", "") for cid, v in reference["claims"].items()}
 
-    judgements = _load_jsonl(RESULTS_DIR / f"judgements_run{run_number}.jsonl")
+    judgements_path = RESULTS_DIR / f"judgements_run{run_number}.jsonl"
+    judgements = _load_jsonl(judgements_path) if judgements_path.exists() else []
     results = {c["claim_id"]: c for j in judgements for c in j["claims"]}
     judge_final = {cid: r["label"] for cid, r in results.items() if r["label"]}
     judge_own = {cid: r["judge_label"] for cid, r in results.items() if r["judge_label"]}
+    # Statistics over part of the sample would look like a result but aren't one
+    # (on 2026-10-12 a stopped judge left 4 of 40 claims: "75%, kappa 0.0").
+    missing = unjudged(human, judge_final)
+    if missing:
+        raise SystemExit(
+            f"The judge hasn't labelled {len(missing)} of the {len(human)} reference claims "
+            f"yet; finish it first: python -m app.evaluation.judge_claims --run {run_number}"
+        )
     claim_text = {
         c["claim_id"]: c["text"] for c in _load_jsonl(RESULTS_DIR / f"claims_run{run_number}.jsonl")
     }

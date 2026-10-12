@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.evaluation.agreement import cohens_kappa, compare, wilson_interval
+from app.evaluation.agreement import cohens_kappa, compare, unjudged, wilson_interval
 
 
 def test_kappa_is_one_for_perfect_agreement_and_zero_at_chance():
@@ -36,3 +36,10 @@ def test_compare_separates_lenient_and_strict_errors():
     assert result["lenient"] == ["a"]
     assert result["strict"] == ["b"]
     assert result["disagreements"] == ["a", "b"]
+
+
+def test_unjudged_lists_reference_claims_the_judge_has_not_labelled():
+    human = {"a#1": "supported", "a#2": "unsupported", "b#1": "no_claim"}
+    assert unjudged(human, {"a#1": "supported"}) == ["a#2", "b#1"]
+    # Extra judge labels (claims outside the sample) don't matter.
+    assert unjudged(human, {**human, "c#1": "supported"}) == []

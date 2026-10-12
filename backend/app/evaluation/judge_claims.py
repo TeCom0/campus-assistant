@@ -287,7 +287,8 @@ def _load_jsonl(path) -> list[dict]:
         return [json.loads(line) for line in f if line.strip()]
 
 
-def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> None:
+def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
+    """Judge the run's answers not judged yet; False if Gemini stopped it early."""
     answers = {a["id"]: a for a in _load_jsonl(RESULTS_DIR / f"answers_run{run}.jsonl")}
     claims_by_id = defaultdict(list)
     for c in _load_jsonl(RESULTS_DIR / f"claims_run{run}.jsonl"):
@@ -307,7 +308,7 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> None:
         ]
         print(JUDGE_INSTRUCTIONS, "\n\n" + "=" * 80 + "\n")
         print(build_prompt(first))
-        return
+        return True
 
     client = _client()
     for batch in batches:
@@ -320,7 +321,7 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> None:
                     f"\nGemini unavailable at {batch_ids[0]} (daily limit, or still overloaded "
                     f"after the retries); stopping. Re-run to resume.\n{e}"
                 )
-                return
+                return False
             raise
         with out_path.open("a", encoding="utf-8") as f:
             for answer_id in batch_ids:
@@ -339,6 +340,7 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> None:
         # Counts only, no labels: keeps the terminal from showing verdicts by accident.
         n_claims = sum(len(judged[i][1]) for i in batch_ids)
         print(f"batch of {len(batch_ids)} answers: {n_claims} claims judged, {tokens} tokens")
+    return True
 
 
 if __name__ == "__main__":
@@ -366,4 +368,6 @@ if __name__ == "__main__":
                 f"{reference_labels_path(args.run).name} is labelled (check: python -m "
                 f"app.evaluation.hand_labels --run {args.run} --check; --force to override)"
             )
-        run_judge(args.run, args.ids.split(",") if args.ids else None, args.dry_run)
+        finished = run_judge(args.run, args.ids.split(",") if args.ids else None, args.dry_run)
+        # Non-zero when stopped early, so "judge && agreement" can't go on with partial results.
+        sys.exit(0 if finished else 1)

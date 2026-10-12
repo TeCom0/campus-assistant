@@ -306,6 +306,12 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      belong to their block"). The 5 answers judged one-per-call moved to
      judgements_run1_unbatched.jsonl; run 1 is re-judged entirely batched for consistency.
      `--calibration` (1 call, batched) exits non-zero unless 9/9.
+   - **2026-10-12**: calibration 9/9; judging run 1 stopped after 1 of 8 batches (4 answers,
+     17 claims in judgements_run1.jsonl) on a lasting Gemini 503, ~14 of the day's 20 requests
+     used (11 were failed 503 attempts). It exited 0, so the chain ran agreement on 4 of 40
+     claims -- meaningless, file deleted. Fixed: judge_claims exits 1 when stopped early;
+     agreement refuses until every reference claim is judged. Resume with `--run 1` (skips
+     judged answers). Quick pass vs. careful sample agree on 31/40 claims.
    - **Pending as of 2026-10-11 17:50 UTC**: a background chain in that session waits for the
      Gemini quota reset (~00:00 UTC), then runs calibration && judge run 1 && agreement. If the
      session ended first, run by hand from backend\: `python -m app.evaluation.judge_claims
