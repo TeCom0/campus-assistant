@@ -2,12 +2,12 @@
 split_claims.py as supported / unsupported / no_claim against the passages it
 is checked against.
 
-The judge is Gemini, a different model family from the Groq model that wrote
-the answers (a model judging its own family's output tends to be lenient).
-Answers are judged ANSWERS_PER_CALL at a time, each in its own block: the
-free tier allows only 20 requests a day (one call per answer = 32 calls per
-run didn't fit). The output is forced into a JSON schema (BatchVerdict), so
-it's validated, not parsed out of free text. Strict: partly supported is
+The judge (JUDGE_PROVIDER) is Qwen on Groq, or Gemini: either way a different
+model family from gpt-oss, which wrote the answers (a model judging its own
+family's output tends to be lenient). Answers are judged ANSWERS_PER_CALL at a
+time, each in its own block: one per call on Groq (8k tokens/minute), four on
+Gemini (20 requests/day). The output must fit a JSON schema (BatchVerdict) and
+is validated, not parsed out of free text. Strict: partly supported is
 unsupported. A "supported" verdict must quote its evidence verbatim, and code
 checks the quote really is in that claim's passages; if not, the claim counts
 as unsupported (flag quote_not_found) -- that also catches a judge leaning on a
@@ -35,21 +35,38 @@ from typing import Literal
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
+from groq import Groq
+from groq import RateLimitError as GroqRateLimitError
 from pydantic import BaseModel
 
-from app.config import GEMINI_API_KEY, GEMINI_MODEL
-from app.evaluation.generate_faithfulness_answers import EVAL_DIR, RESULTS_DIR
+from app.config import GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY
+from app.evaluation.generate_faithfulness_answers import (
+    EVAL_DIR,
+    PER_MINUTE_RETRIES,
+    PER_MINUTE_WAIT_SECONDS,
+    RESULTS_DIR,
+    is_per_minute_limit,
+)
 from app.evaluation.hand_labels import labels_complete, reference_labels_path
 
 CALIBRATION_PATH = EVAL_DIR / "judge_calibration.json"
 HAND_LABELLED_RUNS = {1}
-# Failed attempts count toward the free tier's 20 requests/day (2026-10-12: 2
-# successful calls + 18 failed 503s, then a daily 429), so retry rarely and wait
-# long: 120 s, then 240 s. A 503 "high demand" spell lasts minutes; when it's
-# still on after that, the batch stops and a later re-run resumes it.
+
+# Which judge: "groq" (Qwen, Alibaba's family -- still not the generator's) or
+# "gemini". Switched to Groq on 2026-10-13: Gemini's free tier answered 503
+# "high demand" to ~28 of ~30 calls over three days.
+JUDGE_PROVIDER = "groq"
+JUDGE_MODEL = {"groq": "qwen/qwen3.8-27b", "gemini": GEMINI_MODEL}[JUDGE_PROVIDER]
+# Gemini allows 20 requests/day, so 4 answers per call. Groq allows 1,000/day
+# but 8,000 tokens/minute, and the largest answer alone is ~5k: one per call.
+ANSWERS_PER_CALL = {"groq": 1, "gemini": 4}[JUDGE_PROVIDER]
+
+# Gemini only. Failed attempts count toward the free tier's 20 requests/day
+# (2026-10-12: 2 successful calls + 18 failed 503s, then a daily 429), so retry
+# rarely and wait long: 120 s, then 240 s. A 503 "high demand" spell lasts
+# minutes; when it's still on after that, the batch stops and a re-run resumes.
 RATE_LIMIT_WAIT_SECONDS = 120
 RATE_LIMIT_RETRIES = 2
-ANSWERS_PER_CALL = 4
 
 JUDGE_INSTRUCTIONS = """You check whether the claims in a university assistant's answers are \
 supported by the source passages the assistant was given. You are strict: students may act on \
@@ -203,7 +220,47 @@ def merge_verdicts(
     return results
 
 
-def call_judge(client: genai.Client, prompt: str) -> tuple[BatchVerdict, int]:
+def call_judge(client, prompt: str) -> tuple[BatchVerdict, int]:
+    """One judge call, to the provider JUDGE_PROVIDER names."""
+    if JUDGE_PROVIDER == "groq":
+        return _call_groq(client, prompt)
+    return _call_gemini(client, prompt)
+
+
+def _call_groq(client: Groq, prompt: str) -> tuple[BatchVerdict, int]:
+    """One Groq call. The reply is asked for in BatchVerdict's JSON schema, then
+    validated here (a reply that doesn't fit raises instead of being misread).
+    Waits out a per-minute limit; raises on the daily one."""
+    for attempt in range(1, PER_MINUTE_RETRIES + 2):
+        try:
+            response = client.chat.completions.create(
+                model=JUDGE_MODEL,
+                messages=[
+                    {"role": "system", "content": JUDGE_INSTRUCTIONS},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "BatchVerdict",
+                        "schema": BatchVerdict.model_json_schema(),
+                    },
+                },
+                temperature=0,
+                reasoning_format="hidden",  # Qwen thinks first; keep only the JSON
+            )
+            break
+        except GroqRateLimitError as e:
+            if is_per_minute_limit(e) and attempt <= PER_MINUTE_RETRIES:
+                print(f"  Groq per-minute limit, waiting {PER_MINUTE_WAIT_SECONDS}s")
+                time.sleep(PER_MINUTE_WAIT_SECONDS)
+                continue
+            raise
+    verdict = BatchVerdict.model_validate_json(response.choices[0].message.content)
+    return verdict, response.usage.total_tokens if response.usage else 0
+
+
+def _call_gemini(client: genai.Client, prompt: str) -> tuple[BatchVerdict, int]:
     """One Gemini call. Waits out what clears by itself -- a per-minute rate limit
     (429) or the model being overloaded (503 "high demand", seen 2026-10-11) --
     and raises on a daily limit or after the retries."""
@@ -217,7 +274,7 @@ def call_judge(client: genai.Client, prompt: str) -> tuple[BatchVerdict, int]:
     for attempt in range(1, RATE_LIMIT_RETRIES + 2):
         try:
             response = client.models.generate_content(
-                model=GEMINI_MODEL, contents=prompt, config=config
+                model=JUDGE_MODEL, contents=prompt, config=config
             )
             break
         except (genai_errors.ClientError, genai_errors.ServerError) as e:
@@ -255,7 +312,11 @@ def judge_batch(client, answers: list[dict]) -> tuple[dict[str, tuple], int]:
     return judged, tokens
 
 
-def _client() -> genai.Client:
+def _client():
+    if JUDGE_PROVIDER == "groq":
+        if not GROQ_API_KEY:
+            raise SystemExit("GROQ_API_KEY is not set (check .env)")
+        return Groq(api_key=GROQ_API_KEY)
     if not GEMINI_API_KEY:
         raise SystemExit("GEMINI_API_KEY is not set (check .env)")
     return genai.Client(api_key=GEMINI_API_KEY)
@@ -265,8 +326,11 @@ def run_calibration() -> tuple[int, int]:
     """Judge hand-made claims with known labels; prints judge vs. expected."""
     cases = json.loads(CALIBRATION_PATH.read_text(encoding="utf-8"))
     answers = [{**case, "answer": " ".join(c["text"] for c in case["claims"])} for case in cases]
-    judged, tokens = judge_batch(_client(), answers)  # all cases in one call, as in a run
-    print(f"{len(cases)} cases in one call, {tokens} tokens")
+    client, judged, tokens = _client(), {}, 0
+    for k in range(0, len(answers), ANSWERS_PER_CALL):  # batched as in a run
+        batch_judged, batch_tokens = judge_batch(client, answers[k : k + ANSWERS_PER_CALL])
+        judged, tokens = {**judged, **batch_judged}, tokens + batch_tokens
+    print(f"Judge: {JUDGE_PROVIDER} {JUDGE_MODEL}; {len(cases)} cases, {tokens} tokens")
     agree, total = 0, 0
     for case in cases:
         _, results = judged[case["id"]]
@@ -290,7 +354,7 @@ def _load_jsonl(path) -> list[dict]:
 
 
 def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
-    """Judge the run's answers not judged yet; False if Gemini stopped it early."""
+    """Judge the run's answers not judged yet; False if the provider stopped it early."""
     answers = {a["id"]: a for a in _load_jsonl(RESULTS_DIR / f"answers_run{run}.jsonl")}
     claims_by_id = defaultdict(list)
     for c in _load_jsonl(RESULTS_DIR / f"claims_run{run}.jsonl"):
@@ -317,11 +381,11 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
         batch_ids = [a["id"] for a in batch]
         try:
             judged, tokens = judge_batch(client, batch)
-        except (genai_errors.ClientError, genai_errors.ServerError) as e:
-            if e.code in (429, 503):
+        except (genai_errors.ClientError, genai_errors.ServerError, GroqRateLimitError) as e:
+            if isinstance(e, GroqRateLimitError) or e.code in (429, 503):
                 print(
-                    f"\nGemini unavailable at {batch_ids[0]} (daily limit, or still overloaded "
-                    f"after the retries); stopping. Re-run to resume.\n{e}"
+                    f"\n{JUDGE_PROVIDER} unavailable at {batch_ids[0]} (daily limit, or still "
+                    f"limited/overloaded after the retries); stopping. Re-run to resume.\n{e}"
                 )
                 return False
             raise
@@ -331,7 +395,8 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
                 record = {
                     "id": answer_id,
                     "run": run,
-                    "judge_model": GEMINI_MODEL,
+                    "judge_provider": JUDGE_PROVIDER,
+                    "judge_model": JUDGE_MODEL,
                     "batch": batch_ids,
                     "abstains": abstains,
                     "claims": results,

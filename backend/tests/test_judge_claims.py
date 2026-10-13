@@ -1,8 +1,13 @@
 """Tests for the faithfulness judge's deterministic parts
 (app.evaluation.judge_claims): prompt building, the quote check, merging the
 judge's verdicts into per-claim results, and batching. No LLM calls (the
-batch test replaces call_judge with a fake).
+batch test replaces call_judge with a fake, the Groq tests use a fake client).
 """
+
+from types import SimpleNamespace
+
+import pytest
+from pydantic import ValidationError
 
 from app.evaluation import judge_claims
 from app.evaluation.judge_claims import (
@@ -137,3 +142,39 @@ def test_judge_batch_maps_verdicts_back_to_their_answers(monkeypatch):
     assert judged["b"][0] is None  # the judge gave no abstains for "b"
     assert judged["b"][1][0]["label"] == "supported"
     assert judged["auto_only"][1][0]["flag"] == "invalid_citation"
+
+
+class _FakeGroq:
+    """Stands in for groq.Groq: returns one canned reply, records the request."""
+
+    def __init__(self, content: str):
+        self.requests = []
+        reply = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
+            usage=SimpleNamespace(total_tokens=321),
+        )
+
+        def create(**kwargs):
+            self.requests.append(kwargs)
+            return reply
+
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=create))
+
+
+def test_groq_reply_is_validated_against_the_verdict_schema():
+    reply = (
+        '{"answers": [{"answer_id": "a", "abstains": false}], "verdicts": [{"claim_id": '
+        '"q#1", "label": "supported", "evidence_quote": "three", "reason": "ok"}]}'
+    )
+    client = _FakeGroq(reply)
+    verdict, tokens = judge_claims._call_groq(client, "the prompt")
+    assert (verdict.verdicts[0].label, tokens) == ("supported", 321)
+    sent = client.requests[0]
+    assert sent["response_format"]["json_schema"]["schema"] == BatchVerdict.model_json_schema()
+    assert sent["messages"][1]["content"] == "the prompt"
+
+
+def test_groq_reply_outside_the_schema_raises_instead_of_being_misread():
+    reply = '{"answers": [], "verdicts": [{"claim_id": "q#1", "label": "mostly supported"}]}'
+    with pytest.raises(ValidationError):
+        judge_claims._call_groq(_FakeGroq(reply), "the prompt")
