@@ -323,6 +323,15 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      over both runs (~9%; course_load_en both times). A background chain was set to run at
      00:10 UTC 2026-10-13: judge run 1 && agreement && judge run 2. If judgements_run2.jsonl
      doesn't exist, run those three by hand (commands below).
+   - **2026-10-13 00:28 UTC**: the first judge call got the *daily* 429 ("limit: 20, model:
+     gemini-3.6-flash") although nothing had been sent since 2026-10-12 17:30 UTC. So
+     (a) **failed 503 attempts count** toward the 20 (that day: 2 successful calls + 18
+     failed attempts), and (b) the quota does **not** reset at 00:00 UTC: Google documents
+     midnight Pacific time (07:00 UTC in summer time, 08:00 in winter time); the error's
+     own "retry in 23h31m" disagrees, so one attempt after 07:00 UTC settles it (a
+     refused call costs nothing). Fix 3: at most 3 attempts per batch, waits 120 s / 240 s.
+     The judge model as served is gemini-3.6-flash; the records' `judge_model` field says
+     gemini-3.5-flash (config name) -- name 3.6 in the baseline write-up.
    - **Pending as of 2026-10-11 17:50 UTC**: a background chain in that session waits for the
      Gemini quota reset (~00:00 UTC), then runs calibration && judge run 1 && agreement. If the
      session ended first, run by hand from backend\: `python -m app.evaluation.judge_claims

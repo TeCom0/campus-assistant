@@ -43,10 +43,12 @@ from app.evaluation.hand_labels import labels_complete, reference_labels_path
 
 CALIBRATION_PATH = EVAL_DIR / "judge_calibration.json"
 HAND_LABELLED_RUNS = {1}
-# Waits grow (60 s, 120 s, ... 300 s): Gemini's 503 "high demand" lasted several
-# minutes on 2026-10-11, longer than three flat 60 s waits.
-RATE_LIMIT_WAIT_SECONDS = 60
-RATE_LIMIT_RETRIES = 5
+# Failed attempts count toward the free tier's 20 requests/day (2026-10-12: 2
+# successful calls + 18 failed 503s, then a daily 429), so retry rarely and wait
+# long: 120 s, then 240 s. A 503 "high demand" spell lasts minutes; when it's
+# still on after that, the batch stops and a later re-run resumes it.
+RATE_LIMIT_WAIT_SECONDS = 120
+RATE_LIMIT_RETRIES = 2
 ANSWERS_PER_CALL = 4
 
 JUDGE_INSTRUCTIONS = """You check whether the claims in a university assistant's answers are \
