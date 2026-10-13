@@ -100,11 +100,20 @@ forced-final-answer crash, query_courses' uncitable "no description" result, Gro
 tokens/minute and Gemini's 20 requests/day free-tier limits (both matter for the pilot).
 Session 2026-10-12: judge calibration 9/9 but Gemini 503s stopped run-1 judging at 1/8
 batches; fixed the judge chain so it can't report agreement on partial results (f1a3915);
-run 2 generated and split. **Start the next session by finishing the judging**, from backend\:
-`python -m app.evaluation.judge_claims --run 1`, then (if it exits 0) `python -m
-app.evaluation.agreement --run 1`, then `python -m app.evaluation.judge_claims --run 2`
-(~15 Gemini calls of 20/day; both resume where they stopped). Then: baseline report, pilot
-threshold, commit eval/results/. Youness asked
+run 2 generated and split; baseline report script (5c2b1af). Session 2026-10-13: free
+Gemini stayed unusable; a Qwen-on-Groq judge (8/9 calibration) judged run 1 but agreed with
+the 40 hand labels only 25/40 (kappa 0.20) -- not trustworthy. **Youness is setting up paid
+Gemini** (AI Studio -> Projects -> "Set up billing", Prepay $5, no auto-reload; est. ~$0.50
+for both runs). **Start the next session, once billing is on**, from backend\: set
+`JUDGE_PROVIDER = "gemini"` in judge_claims.py and pin the Gemini judge model to
+`gemini-3.6-flash` (the name Google actually serves; config.py's 3.5 is routed to it); with
+the 20/day limit gone, decide ANSWERS_PER_CALL (4 = as calibrated) ; `--calibration` (must
+be 9/9) -> `--run 1` -> `agreement --run 1` -> `--run 2` -> `report --runs 1 2` -> pilot
+threshold -> commit eval/results/. The Qwen results are kept as *_qwen* files in
+eval/results/faithfulness/ (judgements_run1_qwen.jsonl, judgements_run2_qwen_partial.jsonl,
+agreement_run1_qwen.json, report_runs_1_qwen.json) for a judge-vs-judge comparison.
+Optional before or after: adjudicate the judge/human disagreements (Qwen had 15; e.g.
+repeat_course_en#2's note says "this inst supported" but its label is supported). Youness asked
 to collect interview-style questions during walkthroughs and do one knowledge-check session at
 the very end, rather than quizzing step by step.
 Phases 0-3: repo/Docker setup, the full ingestion pipeline,
