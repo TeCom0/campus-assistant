@@ -332,6 +332,26 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
      refused call costs nothing). Fix 3: at most 3 attempts per batch, waits 120 s / 240 s.
      The judge model as served is gemini-3.6-flash; the records' `judge_model` field says
      gemini-3.5-flash (config name) -- name 3.6 in the baseline write-up.
+   - **Judge switched to Qwen on Groq (2026-10-13, 7e1258c + a20f9f0)** -- free Gemini
+     unusable (3 more 503s at 07:10 UTC; gemini-2.5-flash gone (404); 3.8-flash dropped the
+     connection). Youness will pay for Gemini later and re-judge then; Qwen results are a
+     **preliminary** baseline. `JUDGE_PROVIDER` in judge_claims.py switches back. Qwen
+     (qwen/qwen3.8-27b) scores **8/9 on calibration**: it labels the graduate-only "B- or
+     lower" repeat rule given to an undergraduate "supported" (gpt-oss-120b too, even at
+     high reasoning effort; the passage literally says "A student may repeat any course in
+     which a B- or lower has been earned", graduate only by context). Groq limits for Qwen:
+     8k tokens/min, **1k output tokens/min**, **200k tokens/day**, 1k requests/day. Fixes:
+     strict JSON schema, one answer per call returning {verdicts, abstains}
+     (`SingleAnswerVerdict` -- with the answer list Qwen stalled on plagiarism_en), claims
+     in groups of 6. Old Gemini batch: judgements_run1_gemini_partial.jsonl.
+   - **Run 1 judged by Qwen; agreement with the 40-claim sample: 25/40 = 62% (95% CI
+     47-76%), kappa 0.20** -- 4 lenient (judge supported / human unsupported), 8 strict, 3
+     no_claim mix-ups; the quote check turned 3 human-supported claims unsupported (28/40
+     before it: Qwen quotes less verbatim). Abstains 23/23. Run 1 report (preliminary):
+     main 8/24 = 33% answers with >=1 unsupported cited claim (EN 5/12, FR 3/12),
+     regression 2/4, unanswerable declined 4/4. **Run 2 judging stopped** at
+     academic_probation_en on Qwen's 200k tokens/day (run 1 + probes used it); re-run
+     `judge_claims --run 2` to resume. Next: adjudicate the 15 disagreements.
    - **Pending as of 2026-10-11 17:50 UTC**: a background chain in that session waits for the
      Gemini quota reset (~00:00 UTC), then runs calibration && judge run 1 && agreement. If the
      session ended first, run by hand from backend\: `python -m app.evaluation.judge_claims
