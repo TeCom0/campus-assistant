@@ -4,6 +4,7 @@ judge's verdicts into per-claim results, and batching. No LLM calls (the
 batch test replaces call_judge with a fake, the Groq tests use a fake client).
 """
 
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -121,7 +122,7 @@ def test_auto_labelled_missing_and_duplicate_verdicts():
 def test_judge_batch_maps_verdicts_back_to_their_answers(monkeypatch):
     sent = []
 
-    def fake_call_judge(client, prompt):
+    def fake_call_judge(client, prompt, answer_ids):
         sent.append(prompt)
         verdict = BatchVerdict(
             answers=[AnswerAbstains(answer_id="a", abstains=True)],  # "b" left out
@@ -130,6 +131,7 @@ def test_judge_batch_maps_verdicts_back_to_their_answers(monkeypatch):
         return verdict, 123
 
     monkeypatch.setattr(judge_claims, "call_judge", fake_call_judge)
+    monkeypatch.setattr(judge_claims, "CLAIMS_PER_CALL", None)  # Gemini: all in one call
     answers = [
         _item("a", [_claim(1, [1])]),
         _item("b", [_claim(2, [2])]),
@@ -163,18 +165,55 @@ class _FakeGroq:
 
 def test_groq_reply_is_validated_against_the_verdict_schema():
     reply = (
-        '{"answers": [{"answer_id": "a", "abstains": false}], "verdicts": [{"claim_id": '
-        '"q#1", "label": "supported", "evidence_quote": "three", "reason": "ok"}]}'
+        '{"verdicts": [{"claim_id": "q#1", "label": "supported", "evidence_quote": "three", '
+        '"reason": "ok"}], "abstains": true}'
     )
     client = _FakeGroq(reply)
-    verdict, tokens = judge_claims._call_groq(client, "the prompt")
+    verdict, tokens = judge_claims._call_groq(client, "the prompt", "a")
     assert (verdict.verdicts[0].label, tokens) == ("supported", 321)
+    # Returned in the same shape as Gemini's batched verdict, under the answer's id.
+    assert verdict.answers == [AnswerAbstains(answer_id="a", abstains=True)]
     sent = client.requests[0]
-    assert sent["response_format"]["json_schema"]["schema"] == BatchVerdict.model_json_schema()
+    json_schema = sent["response_format"]["json_schema"]
+    assert json_schema["strict"] is True
+    assert json_schema["schema"]["additionalProperties"] is False
+    assert sent["max_completion_tokens"] == judge_claims.GROQ_MAX_OUTPUT_TOKENS
     assert sent["messages"][1]["content"] == "the prompt"
 
 
 def test_groq_reply_outside_the_schema_raises_instead_of_being_misread():
-    reply = '{"answers": [], "verdicts": [{"claim_id": "q#1", "label": "mostly supported"}]}'
+    reply = '{"verdicts": [{"claim_id": "q#1", "label": "mostly supported"}], "abstains": false}'
     with pytest.raises(ValidationError):
-        judge_claims._call_groq(_FakeGroq(reply), "the prompt")
+        judge_claims._call_groq(_FakeGroq(reply), "the prompt", "a")
+
+
+def test_long_answers_are_judged_in_claim_groups_and_merged(monkeypatch):
+    sent = []
+
+    def fake_call_judge(client, prompt, answer_ids):
+        ids = re.findall(r"id: (q#\d+)", prompt)
+        sent.append(ids)
+        verdicts = [_verdict(int(i.split("#")[1]), "no_claim") for i in ids]
+        # Each group sees the whole answer; only the first group's abstains counts.
+        abstains = [AnswerAbstains(answer_id="a", abstains=len(sent) == 1)]
+        return BatchVerdict(answers=abstains, verdicts=verdicts), 10
+
+    monkeypatch.setattr(judge_claims, "call_judge", fake_call_judge)
+    monkeypatch.setattr(judge_claims, "CLAIMS_PER_CALL", 6)
+    claims = [_claim(n, [1]) for n in range(1, 15)]  # 14 claims -> groups of 6, 6, 2
+    judged, tokens = judge_batch(None, [_item("a", claims)])
+    assert [len(ids) for ids in sent] == [6, 6, 2]
+    assert tokens == 30
+    abstains, results = judged["a"]
+    assert abstains is True
+    assert [r["label"] for r in results] == ["no_claim"] * 14  # every claim got its verdict
+
+
+def test_strict_schema_forbids_extra_fields_on_every_object():
+    schema = judge_claims.strict_json_schema(BatchVerdict.model_json_schema())
+    objects = [schema] + list(schema["$defs"].values())
+    assert {o["title"]: o["additionalProperties"] for o in objects} == {
+        "BatchVerdict": False,
+        "AnswerAbstains": False,
+        "ClaimVerdict": False,
+    }

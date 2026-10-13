@@ -60,6 +60,11 @@ JUDGE_MODEL = {"groq": "qwen/qwen3.8-27b", "gemini": GEMINI_MODEL}[JUDGE_PROVIDE
 # Gemini allows 20 requests/day, so 4 answers per call. Groq allows 1,000/day
 # but 8,000 tokens/minute, and the largest answer alone is ~5k: one per call.
 ANSWERS_PER_CALL = {"groq": 1, "gemini": 4}[JUDGE_PROVIDER]
+# Groq also caps Qwen's *output* at 1,000 tokens/minute, and a verdict takes
+# ~100 tokens per claim: a long answer's claims go in groups of 6, each call
+# with the whole answer and its passages. None = all of an answer's claims at once.
+CLAIMS_PER_CALL = {"groq": 6, "gemini": None}[JUDGE_PROVIDER]
+GROQ_MAX_OUTPUT_TOKENS = 1000
 
 # Gemini only. Failed attempts count toward the free tier's 20 requests/day
 # (2026-10-12: 2 successful calls + 18 failed 503s, then a daily 429), so retry
@@ -116,6 +121,15 @@ class AnswerAbstains(BaseModel):
 class BatchVerdict(BaseModel):
     answers: list[AnswerAbstains]
     verdicts: list[ClaimVerdict]
+
+
+class SingleAnswerVerdict(BaseModel):
+    """What Groq returns: it judges one answer per call, so no answer list. With
+    the answer list, Qwen deterministically stopped after it on some answers
+    (plagiarism_en, 2026-10-13) and never wrote the verdicts."""
+
+    verdicts: list[ClaimVerdict]
+    abstains: bool
 
 
 def build_prompt(items: list[dict]) -> str:
@@ -220,17 +234,34 @@ def merge_verdicts(
     return results
 
 
-def call_judge(client, prompt: str) -> tuple[BatchVerdict, int]:
-    """One judge call, to the provider JUDGE_PROVIDER names."""
+def call_judge(client, prompt: str, answer_ids: list[str]) -> tuple[BatchVerdict, int]:
+    """One judge call, to the provider JUDGE_PROVIDER names; answer_ids are the
+    answers in the prompt."""
     if JUDGE_PROVIDER == "groq":
-        return _call_groq(client, prompt)
+        (answer_id,) = answer_ids  # one answer per call on Groq
+        return _call_groq(client, prompt, answer_id)
     return _call_gemini(client, prompt)
 
 
-def _call_groq(client: Groq, prompt: str) -> tuple[BatchVerdict, int]:
-    """One Groq call. The reply is asked for in BatchVerdict's JSON schema, then
-    validated here (a reply that doesn't fit raises instead of being misread).
-    Waits out a per-minute limit; raises on the daily one."""
+def strict_json_schema(schema: dict) -> dict:
+    """The schema with "additionalProperties": false on every object, which
+    Groq's strict mode requires. Strict mode makes the model's output follow the
+    schema exactly (2026-10-13 without it: Qwen once left out "verdicts")."""
+    if isinstance(schema, dict):
+        fixed = {key: strict_json_schema(value) for key, value in schema.items()}
+        if fixed.get("type") == "object":
+            fixed["additionalProperties"] = False
+        return fixed
+    if isinstance(schema, list):
+        return [strict_json_schema(value) for value in schema]
+    return schema
+
+
+def _call_groq(client: Groq, prompt: str, answer_id: str) -> tuple[BatchVerdict, int]:
+    """One Groq call about one answer. The reply must follow SingleAnswerVerdict's
+    JSON schema (strict mode) and is validated here too, then returned as a
+    BatchVerdict like Gemini's. Waits out a per-minute limit; raises on the
+    daily one."""
     for attempt in range(1, PER_MINUTE_RETRIES + 2):
         try:
             response = client.chat.completions.create(
@@ -242,10 +273,12 @@ def _call_groq(client: Groq, prompt: str) -> tuple[BatchVerdict, int]:
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
-                        "name": "BatchVerdict",
-                        "schema": BatchVerdict.model_json_schema(),
+                        "name": "SingleAnswerVerdict",
+                        "schema": strict_json_schema(SingleAnswerVerdict.model_json_schema()),
+                        "strict": True,
                     },
                 },
+                max_completion_tokens=GROQ_MAX_OUTPUT_TOKENS,
                 temperature=0,
                 reasoning_format="hidden",  # Qwen thinks first; keep only the JSON
             )
@@ -256,7 +289,11 @@ def _call_groq(client: Groq, prompt: str) -> tuple[BatchVerdict, int]:
                 time.sleep(PER_MINUTE_WAIT_SECONDS)
                 continue
             raise
-    verdict = BatchVerdict.model_validate_json(response.choices[0].message.content)
+    single = SingleAnswerVerdict.model_validate_json(response.choices[0].message.content)
+    verdict = BatchVerdict(
+        answers=[AnswerAbstains(answer_id=answer_id, abstains=single.abstains)],
+        verdicts=single.verdicts,
+    )
     return verdict, response.usage.total_tokens if response.usage else 0
 
 
@@ -292,19 +329,36 @@ def _call_gemini(client: genai.Client, prompt: str) -> tuple[BatchVerdict, int]:
     return response.parsed, tokens or 0
 
 
+def claim_groups(items: list[dict]) -> list[list[dict]]:
+    """What each call sends: all the items at once, or -- with CLAIMS_PER_CALL --
+    each item's claims in groups of that size, every group with the item's full
+    question, answer and passages."""
+    if CLAIMS_PER_CALL is None:
+        return [items]
+    return [
+        [{**item, "claims": item["claims"][k : k + CLAIMS_PER_CALL]}]
+        for item in items
+        for k in range(0, len(item["claims"]), CLAIMS_PER_CALL)
+    ]
+
+
 def judge_batch(client, answers: list[dict]) -> tuple[dict[str, tuple], int]:
-    """Judge several answers in one call.
+    """Judge several answers (one call, or one per claim group).
 
     Each answer: {"id", "question", "answer", "passages", "claims"} (all its
     claims, auto-labelled ones included). Returns {answer id: (abstains,
-    per-claim results)} and the call's tokens. abstains is None if the judge
+    per-claim results)} and the calls' tokens. abstains is None if the judge
     skipped that answer; an answer with nothing to ask isn't sent.
     """
     items = [{**a, "claims": [c for c in a["claims"] if not c["auto_label"]]} for a in answers]
     items = [i for i in items if i["claims"]]
-    verdict, tokens = call_judge(client, build_prompt(items)) if items else (None, 0)
-    claim_verdicts = verdict.verdicts if verdict else []
-    abstains = {a.answer_id: a.abstains for a in verdict.answers} if verdict else {}
+    claim_verdicts, abstains, tokens = [], {}, 0
+    for group in claim_groups(items) if items else []:
+        verdict, group_tokens = call_judge(client, build_prompt(group), [i["id"] for i in group])
+        claim_verdicts += verdict.verdicts
+        for a in verdict.answers:
+            abstains.setdefault(a.answer_id, a.abstains)  # every group sees the whole answer
+        tokens += group_tokens
     judged = {}
     for a in answers:
         results = merge_verdicts(a["claims"], a["passages"], claim_verdicts)
