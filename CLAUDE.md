@@ -162,6 +162,32 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     scholarship_conditions_fr + mth1305_fr, missed refusal instructor_en (a pure refusal the
     judge said doesn't decline -- the judge's error). The v1 agreement is saved as
     agreement_run1_mistral_v1.json.
+  - **Step (3) done** (516df60): agreement.py reports label agreement (judge's own label),
+    final agreement (after the quote check) and quote validity, each vs. original and
+    adjudicated labels. NOTE: its smoke test computed v1-vs-adjudicated numbers (label 32/36,
+    3 lenient; final 30/36, 1 lenient; quote validity 80/118 = 68%) -- biased toward v1,
+    whose disagreements the adjudication resolved; v1 fails the gate either way.
+  - **Decided 2026-10-15, recorded before any v2 number exists:**
+    - Gate conditions (b) and (c) use the judge's **final** labels (after the quote check):
+      the report's numbers come from final labels, and the quote check catches lenient errors
+      (it turned 2 of v1's own-label lenient errors into unsupported). Own-label agreement and
+      quote validity are reported alongside, not gated.
+    - v2 disagreements on claims NOT yet adjudicated get a **blind** adjudication: shown as
+      "label A / label B" in random order, without saying which is the judge's (no judge quote
+      or reason shown). Already adjudicated claims keep their decision.
+    - Judge prompt: copy the evidence exactly as written (never translated, reformatted or
+      paraphrased); spans joined with "..." must come from the same passage; if no verbatim
+      quote shows the support, label the claim unsupported.
+    - Quote check: normalize whitespace, quote characters (all of ' " ‘ ’ “ ” « » to one) and
+      case; split on "..." / "…" and find each part separately (order not required), but all
+      parts in the same passage (one marker's texts) -- parts from different passages fail.
+      Why: in v1, many failed quotes had every part present but out of order or across a
+      marker's repeated texts. Open question asked before the re-run: also strip
+      leading/trailing punctuation of each part (4 v1 quotes end with "." where the passage's
+      sentence continues).
+    - The prompt change means calibration is re-run (gate (a)) before v2.
+    - **After v2 and any blind adjudication, judge work ENDS whatever the result**: report it
+      (README) and move to step 2 of the Ship plan (the fixes).
   - Remaining plan: (3) report label agreement and quote validity separately; (4) document the
     original gate, why it was unreachable and this change in the README; (5) re-judge run 1
     with mistral-large-2512 and apply the new gate. If it fails: mistral-large-4, zai-glm-5-3,
