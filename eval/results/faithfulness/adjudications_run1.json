@@ -1,0 +1,98 @@
+{
+  "run": 1,
+  "judge_model": "mistral-large-2512",
+  "created_at": "2026-10-15T16:51:51+00:00",
+  "claims": {
+    "academic_probation_en#2": {
+      "original": "unsupported",
+      "judge_raw": "no_claim",
+      "judge": "no_claim",
+      "decision": "no_claim",
+      "note": "lead-in fragment, the list items are judged separately"
+    },
+    "course_load_fr#3": {
+      "original": "unsupported",
+      "judge_raw": "supported",
+      "judge": "supported",
+      "decision": "supported",
+      "note": ""
+    },
+    "course_load_fr#8": {
+      "original": "supported",
+      "judge_raw": "unsupported",
+      "judge": "unsupported",
+      "decision": "supported",
+      "note": ""
+    },
+    "fulbright_fr#1": {
+      "original": "no_claim",
+      "judge_raw": "supported",
+      "judge": "unsupported",
+      "decision": "no_claim",
+      "note": "refusal; judge treated it as a fact"
+    },
+    "graduation_honors_en#2": {
+      "original": "unsupported",
+      "judge_raw": "supported",
+      "judge": "supported",
+      "decision": "supported",
+      "note": ""
+    },
+    "instructor_en#1": {
+      "original": "no_claim",
+      "judge_raw": "supported",
+      "judge": "supported",
+      "decision": "no_claim",
+      "note": "refusal; judge treated it as a fact"
+    },
+    "intl_scholarships_en#1": {
+      "original": "supported",
+      "judge_raw": "supported",
+      "judge": "unsupported",
+      "decision": "supported",
+      "note": ""
+    },
+    "intl_scholarships_en#4": {
+      "original": "unsupported",
+      "judge_raw": "supported",
+      "judge": "supported",
+      "decision": "unsupported",
+      "note": ""
+    },
+    "intl_scholarships_fr#13": {
+      "original": "supported",
+      "judge_raw": "supported",
+      "judge": "unsupported",
+      "decision": "supported",
+      "note": ""
+    },
+    "mth1305_en#2": {
+      "original": "supported",
+      "judge_raw": "supported",
+      "judge": "unsupported",
+      "decision": "supported",
+      "note": ""
+    },
+    "scholarship_conditions_en#10": {
+      "original": "supported",
+      "judge_raw": "supported",
+      "judge": "unsupported",
+      "decision": "supported",
+      "note": ""
+    },
+    "transfer_credits_fr#5": {
+      "original": "supported",
+      "judge_raw": "no_claim",
+      "judge": "no_claim",
+      "decision": "no_claim",
+      "note": ""
+    },
+    "w_grade_en#1": {
+      "original": "supported",
+      "judge_raw": "unsupported",
+      "judge": "unsupported",
+      "decision": "unsupported",
+      "note": "uses 'drop-add deadline' for the W cut-off; catalog treats drop/add as a separate, earlier date"
+    }
+  }
+}

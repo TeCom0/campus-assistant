@@ -1,0 +1,36 @@
+{
+  "run": 1,
+  "created_at": "2026-10-15T17:47:30+00:00",
+  "claims": {
+    "add_drop_fr#1": {
+      "label_A": "unsupported",
+      "label_B": "supported",
+      "decision": "unsupported",
+      "note": ""
+    },
+    "course_load_fr#1": {
+      "label_A": "unsupported",
+      "label_B": "supported",
+      "decision": "unsupported",
+      "note": ""
+    },
+    "csc3326_prereqs_en#3": {
+      "label_A": "supported",
+      "label_B": "unsupported",
+      "decision": "supported",
+      "note": ""
+    },
+    "intl_scholarships_fr#8": {
+      "label_A": "unsupported",
+      "label_B": "supported",
+      "decision": "unsupported",
+      "note": "Directly supported: New-student scholarships are merit-based, most awards are for the fall session, and the listed baccalaureate thresholds, GAT, interview, and essay criteria.Not supported by the provided passage: Continuing-student scholarship rules cited as [10], external scholarships cited as [8], and the claim that international students are eligible for the same scholarships as Moroccan students."
+    },
+    "scholarship_work_hours_fr#1": {
+      "label_A": "unsupported",
+      "label_B": "supported",
+      "decision": "supported",
+      "note": "Directly supported by the passages: Yes. Citations [11] and [12] appropriate: Yes. Unsupported factual claims: None identified. Contradictions: None. Overall judgment: The response is directly supported by the source passages, though it omits a potentially relevant exception described in [9]."
+    }
+  }
+}

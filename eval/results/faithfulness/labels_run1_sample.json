@@ -1,0 +1,200 @@
+{
+  "run": 1,
+  "name": "run1_sample",
+  "exported_at": "2026-10-11T17:25:18.527Z",
+  "claims": {
+    "acc2302_chain_en#7": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#2": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#3": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#5": {
+      "label": "supported"
+    },
+    "plagiarism_en#1": {
+      "label": "supported"
+    },
+    "add_drop_en#7": {
+      "label": "supported"
+    },
+    "add_drop_fr#1": {
+      "label": "supported"
+    },
+    "add_drop_fr#5": {
+      "label": "supported"
+    },
+    "add_drop_fr#6": {
+      "label": "supported"
+    },
+    "course_load_fr#1": {
+      "label": "supported"
+    },
+    "course_load_fr#3": {
+      "label": "unsupported"
+    },
+    "course_load_fr#8": {
+      "label": "supported"
+    },
+    "graduation_honors_en#2": {
+      "label": "unsupported"
+    },
+    "academic_probation_en#2": {
+      "label": "unsupported"
+    },
+    "academic_probation_en#4": {
+      "label": "supported"
+    },
+    "repeat_course_en#2": {
+      "label": "supported",
+      "note": "this inst supported : the earlier lower grade is dropped from the GPA calculation but remains on your transcript."
+    },
+    "repeat_course_en#4": {
+      "label": "supported"
+    },
+    "repeat_course_fr#4": {
+      "label": "supported",
+      "note": "tho not mentioned directly, it mentionds B- and less"
+    },
+    "repeat_course_fr#5": {
+      "label": "supported"
+    },
+    "w_grade_en#1": {
+      "label": "supported"
+    },
+    "w_grade_en#5": {
+      "label": "supported"
+    },
+    "w_grade_en#4": {
+      "label": "supported"
+    },
+    "w_grade_fr#1": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#2": {
+      "label": "unsupported"
+    },
+    "scholarship_conditions_en#10": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_en#2": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#1": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#4": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_en#3": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_fr#2": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#8": {
+      "label": "unsupported"
+    },
+    "intl_scholarships_fr#11": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#13": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#1": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#4": {
+      "label": "unsupported"
+    },
+    "intl_scholarships_en#8": {
+      "label": "supported"
+    },
+    "mth1305_en#2": {
+      "label": "supported"
+    },
+    "fulbright_fr#1": {
+      "label": "no_claim"
+    },
+    "instructor_en#1": {
+      "label": "no_claim"
+    },
+    "instructor_fr#1": {
+      "label": "no_claim"
+    }
+  },
+  "answers": {
+    "acc2302_chain_en": {
+      "abstains": false
+    },
+    "plagiarism_en": {
+      "abstains": false
+    },
+    "add_drop_en": {
+      "abstains": false
+    },
+    "add_drop_fr": {
+      "abstains": false
+    },
+    "course_load_fr": {
+      "abstains": false
+    },
+    "academic_probation_en": {
+      "abstains": false
+    },
+    "repeat_course_en": {
+      "abstains": false
+    },
+    "repeat_course_fr": {
+      "abstains": false
+    },
+    "w_grade_en": {
+      "abstains": false
+    },
+    "w_grade_fr": {
+      "abstains": false
+    },
+    "scholarship_conditions_en": {
+      "abstains": false
+    },
+    "scholarship_work_hours_en": {
+      "abstains": false
+    },
+    "scholarship_work_hours_fr": {
+      "abstains": false
+    },
+    "csc3326_prereqs_en": {
+      "abstains": false
+    },
+    "csc3326_prereqs_fr": {
+      "abstains": false
+    },
+    "intl_scholarships_en": {
+      "abstains": false
+    },
+    "mth1305_en": {
+      "abstains": false
+    },
+    "fulbright_fr": {
+      "abstains": true
+    },
+    "instructor_en": {
+      "abstains": true
+    },
+    "instructor_fr": {
+      "abstains": true
+    },
+    "transfer_credits_fr": {
+      "abstains": false
+    },
+    "graduation_honors_en": {
+      "abstains": false
+    },
+    "intl_scholarships_fr": {
+      "abstains": false
+    }
+  }
+}

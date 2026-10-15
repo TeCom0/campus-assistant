@@ -1,0 +1,135 @@
+{
+  "run": 1,
+  "reference": "labels_run1_sample.json",
+  "final": {
+    "n": 40,
+    "agree": 27,
+    "agreement": 0.675,
+    "ci95": [
+      0.52,
+      0.799
+    ],
+    "kappa": 0.223,
+    "confusion": {
+      "no_claim -> no_claim": 1,
+      "no_claim -> supported": 1,
+      "no_claim -> unsupported": 1,
+      "supported -> no_claim": 1,
+      "supported -> supported": 24,
+      "supported -> unsupported": 6,
+      "unsupported -> no_claim": 1,
+      "unsupported -> supported": 3,
+      "unsupported -> unsupported": 2
+    },
+    "lenient": [
+      "course_load_fr#3",
+      "graduation_honors_en#2",
+      "intl_scholarships_en#4"
+    ],
+    "strict": [
+      "course_load_fr#8",
+      "intl_scholarships_en#1",
+      "intl_scholarships_fr#13",
+      "mth1305_en#2",
+      "scholarship_conditions_en#10",
+      "w_grade_en#1"
+    ],
+    "disagreements": [
+      "academic_probation_en#2",
+      "course_load_fr#3",
+      "course_load_fr#8",
+      "fulbright_fr#1",
+      "graduation_honors_en#2",
+      "instructor_en#1",
+      "intl_scholarships_en#1",
+      "intl_scholarships_en#4",
+      "intl_scholarships_fr#13",
+      "mth1305_en#2",
+      "scholarship_conditions_en#10",
+      "transfer_credits_fr#5",
+      "w_grade_en#1"
+    ]
+  },
+  "before_quote_check": {
+    "n": 40,
+    "agree": 29,
+    "agreement": 0.725,
+    "ci95": [
+      0.572,
+      0.839
+    ],
+    "kappa": 0.109,
+    "confusion": {
+      "no_claim -> no_claim": 1,
+      "no_claim -> supported": 2,
+      "supported -> no_claim": 1,
+      "supported -> supported": 28,
+      "supported -> unsupported": 2,
+      "unsupported -> no_claim": 1,
+      "unsupported -> supported": 5
+    },
+    "lenient": [
+      "course_load_fr#3",
+      "graduation_honors_en#2",
+      "intl_scholarships_en#4",
+      "intl_scholarships_fr#8",
+      "scholarship_conditions_en#2"
+    ],
+    "strict": [
+      "course_load_fr#8",
+      "w_grade_en#1"
+    ],
+    "disagreements": [
+      "academic_probation_en#2",
+      "course_load_fr#3",
+      "course_load_fr#8",
+      "fulbright_fr#1",
+      "graduation_honors_en#2",
+      "instructor_en#1",
+      "intl_scholarships_en#4",
+      "intl_scholarships_fr#8",
+      "scholarship_conditions_en#2",
+      "transfer_credits_fr#5",
+      "w_grade_en#1"
+    ]
+  },
+  "abstains": {
+    "agree": 22,
+    "n": 23
+  },
+  "quick_pass_vs_reference": {
+    "n": 40,
+    "agree": 31,
+    "agreement": 0.775,
+    "ci95": [
+      0.625,
+      0.877
+    ],
+    "kappa": 0.0,
+    "confusion": {
+      "no_claim -> supported": 3,
+      "supported -> supported": 31,
+      "unsupported -> supported": 6
+    },
+    "lenient": [
+      "academic_probation_en#2",
+      "course_load_fr#3",
+      "graduation_honors_en#2",
+      "intl_scholarships_en#4",
+      "intl_scholarships_fr#8",
+      "scholarship_conditions_en#2"
+    ],
+    "strict": [],
+    "disagreements": [
+      "academic_probation_en#2",
+      "course_load_fr#3",
+      "fulbright_fr#1",
+      "graduation_honors_en#2",
+      "instructor_en#1",
+      "instructor_fr#1",
+      "intl_scholarships_en#4",
+      "intl_scholarships_fr#8",
+      "scholarship_conditions_en#2"
+    ]
+  }
+}

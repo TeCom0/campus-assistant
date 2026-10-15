@@ -1,0 +1,560 @@
+{
+  "run": 1,
+  "exported_at": "2026-10-11T17:06:58.428Z",
+  "claims": {
+    "transfer_credits_en#1": {
+      "label": "supported"
+    },
+    "plagiarism_fr#1": {
+      "label": "supported"
+    },
+    "plagiarism_fr#2": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#1": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#2": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#3": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#4": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#6": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#5": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#7": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#8": {
+      "label": "supported"
+    },
+    "acc2302_chain_en#9": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#1": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#2": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#3": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#4": {
+      "label": "supported"
+    },
+    "transfer_credits_fr#5": {
+      "label": "supported"
+    },
+    "plagiarism_en#1": {
+      "label": "supported"
+    },
+    "plagiarism_en#2": {
+      "label": "supported"
+    },
+    "plagiarism_en#3": {
+      "label": "supported"
+    },
+    "plagiarism_en#4": {
+      "label": "supported"
+    },
+    "add_drop_en#1": {
+      "label": "supported"
+    },
+    "add_drop_en#2": {
+      "label": "supported"
+    },
+    "add_drop_en#3": {
+      "label": "supported"
+    },
+    "add_drop_en#6": {
+      "label": "supported"
+    },
+    "add_drop_en#5": {
+      "label": "supported"
+    },
+    "add_drop_en#4": {
+      "label": "supported"
+    },
+    "add_drop_en#7": {
+      "label": "supported"
+    },
+    "add_drop_en#8": {
+      "label": "supported"
+    },
+    "add_drop_fr#1": {
+      "label": "supported"
+    },
+    "add_drop_fr#2": {
+      "label": "supported"
+    },
+    "add_drop_fr#3": {
+      "label": "supported"
+    },
+    "add_drop_fr#4": {
+      "label": "supported"
+    },
+    "add_drop_fr#5": {
+      "label": "supported"
+    },
+    "add_drop_fr#6": {
+      "label": "supported"
+    },
+    "add_drop_fr#8": {
+      "label": "supported"
+    },
+    "add_drop_fr#7": {
+      "label": "supported"
+    },
+    "add_drop_fr#9": {
+      "label": "supported"
+    },
+    "add_drop_fr#10": {
+      "label": "supported"
+    },
+    "excused_absences_en#1": {
+      "label": "supported"
+    },
+    "excused_absences_fr#1": {
+      "label": "supported"
+    },
+    "excused_absences_fr#2": {
+      "label": "unsupported"
+    },
+    "course_load_fr#1": {
+      "label": "supported"
+    },
+    "course_load_fr#2": {
+      "label": "supported"
+    },
+    "course_load_fr#3": {
+      "label": "supported"
+    },
+    "course_load_fr#4": {
+      "label": "supported"
+    },
+    "course_load_fr#5": {
+      "label": "supported"
+    },
+    "course_load_fr#6": {
+      "label": "supported"
+    },
+    "course_load_fr#7": {
+      "label": "supported"
+    },
+    "course_load_fr#8": {
+      "label": "supported"
+    },
+    "course_load_fr#9": {
+      "label": "supported"
+    },
+    "graduation_honors_en#1": {
+      "label": "supported"
+    },
+    "graduation_honors_en#2": {
+      "label": "supported"
+    },
+    "graduation_honors_fr#1": {
+      "label": "supported"
+    },
+    "academic_probation_en#1": {
+      "label": "supported"
+    },
+    "academic_probation_en#2": {
+      "label": "supported"
+    },
+    "academic_probation_en#3": {
+      "label": "supported"
+    },
+    "academic_probation_en#4": {
+      "label": "supported"
+    },
+    "academic_probation_en#5": {
+      "label": "supported"
+    },
+    "academic_probation_en#6": {
+      "label": "supported"
+    },
+    "repeat_course_en#1": {
+      "label": "supported"
+    },
+    "repeat_course_en#2": {
+      "label": "supported"
+    },
+    "repeat_course_en#3": {
+      "label": "supported"
+    },
+    "repeat_course_en#4": {
+      "label": "supported"
+    },
+    "repeat_course_fr#1": {
+      "label": "supported"
+    },
+    "repeat_course_fr#2": {
+      "label": "supported"
+    },
+    "repeat_course_fr#4": {
+      "label": "supported"
+    },
+    "repeat_course_fr#3": {
+      "label": "unsupported"
+    },
+    "repeat_course_fr#5": {
+      "label": "supported"
+    },
+    "w_grade_en#1": {
+      "label": "supported"
+    },
+    "w_grade_en#2": {
+      "label": "supported"
+    },
+    "w_grade_en#3": {
+      "label": "supported"
+    },
+    "w_grade_en#4": {
+      "label": "supported"
+    },
+    "w_grade_en#5": {
+      "label": "supported"
+    },
+    "w_grade_en#6": {
+      "label": "supported"
+    },
+    "w_grade_en#7": {
+      "label": "supported"
+    },
+    "w_grade_fr#1": {
+      "label": "supported"
+    },
+    "w_grade_fr#2": {
+      "label": "supported"
+    },
+    "w_grade_fr#3": {
+      "label": "supported"
+    },
+    "w_grade_fr#4": {
+      "label": "supported"
+    },
+    "w_grade_fr#5": {
+      "label": "supported"
+    },
+    "w_grade_fr#6": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#1": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#2": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#4": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#5": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#6": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#7": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#8": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#9": {
+      "label": "supported"
+    },
+    "scholarship_conditions_en#10": {
+      "label": "supported"
+    },
+    "scholarship_conditions_fr#1": {
+      "label": "supported"
+    },
+    "scholarship_conditions_fr#2": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_en#1": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_en#2": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_en#3": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#1": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#2": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#3": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#4": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#5": {
+      "label": "supported"
+    },
+    "scholarship_work_hours_fr#6": {
+      "label": "unsupported"
+    },
+    "acc2302_chain_fr#1": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#2": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#3": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#4": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#5": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#6": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#7": {
+      "label": "supported"
+    },
+    "acc2302_chain_fr#8": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_en#1": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_en#2": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_en#3": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_fr#1": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_fr#2": {
+      "label": "supported"
+    },
+    "csc3326_prereqs_fr#3": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#1": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#2": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#3": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#4": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#5": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#6": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#7": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#8": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#9": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#10": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#11": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#12": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#13": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#14": {
+      "label": "supported"
+    },
+    "intl_scholarships_fr#15": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#1": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#2": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#3": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#4": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#5": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#6": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#7": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#8": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#9": {
+      "label": "supported"
+    },
+    "intl_scholarships_en#10": {
+      "label": "supported"
+    },
+    "mth1305_en#1": {
+      "label": "supported"
+    },
+    "mth1305_en#2": {
+      "label": "supported"
+    },
+    "mth1305_fr#2": {
+      "label": "supported"
+    },
+    "fulbright_en#1": {
+      "label": "supported"
+    },
+    "fulbright_fr#2": {
+      "label": "unsupported"
+    },
+    "fulbright_fr#3": {
+      "label": "supported"
+    },
+    "fulbright_fr#1": {
+      "label": "supported"
+    },
+    "instructor_en#1": {
+      "label": "supported"
+    },
+    "instructor_en#2": {
+      "label": "supported"
+    },
+    "instructor_en#3": {
+      "label": "supported"
+    },
+    "instructor_fr#1": {
+      "label": "supported"
+    }
+  },
+  "answers": {
+    "transfer_credits_en": {
+      "abstains": false
+    },
+    "plagiarism_fr": {
+      "abstains": false
+    },
+    "acc2302_chain_en": {
+      "abstains": false
+    },
+    "transfer_credits_fr": {
+      "abstains": false
+    },
+    "plagiarism_en": {
+      "abstains": false
+    },
+    "add_drop_en": {
+      "abstains": false
+    },
+    "add_drop_fr": {
+      "abstains": false
+    },
+    "excused_absences_en": {
+      "abstains": false
+    },
+    "excused_absences_fr": {
+      "abstains": false
+    },
+    "course_load_fr": {
+      "abstains": false
+    },
+    "graduation_honors_en": {
+      "abstains": false
+    },
+    "graduation_honors_fr": {
+      "abstains": false
+    },
+    "academic_probation_en": {
+      "abstains": false
+    },
+    "repeat_course_en": {
+      "abstains": false
+    },
+    "repeat_course_fr": {
+      "abstains": false
+    },
+    "w_grade_en": {
+      "abstains": false
+    },
+    "w_grade_fr": {
+      "abstains": false
+    },
+    "scholarship_conditions_en": {
+      "abstains": false
+    },
+    "scholarship_conditions_fr": {
+      "abstains": true
+    },
+    "scholarship_work_hours_en": {
+      "abstains": false
+    },
+    "scholarship_work_hours_fr": {
+      "abstains": false
+    },
+    "acc2302_chain_fr": {
+      "abstains": false
+    },
+    "csc3326_prereqs_en": {
+      "abstains": false
+    },
+    "csc3326_prereqs_fr": {
+      "abstains": false
+    },
+    "intl_scholarships_fr": {
+      "abstains": false
+    },
+    "intl_scholarships_en": {
+      "abstains": false
+    },
+    "mth1305_en": {
+      "abstains": false
+    },
+    "mth1305_fr": {
+      "abstains": false
+    },
+    "fulbright_en": {
+      "abstains": true
+    },
+    "fulbright_fr": {
+      "abstains": true
+    },
+    "instructor_en": {
+      "abstains": true
+    },
+    "instructor_fr": {
+      "abstains": true
+    }
+  }
+}

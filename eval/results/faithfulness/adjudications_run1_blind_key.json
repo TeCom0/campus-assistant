@@ -1,0 +1,25 @@
+{
+  "seed": 20261015,
+  "claims": {
+    "add_drop_fr#1": {
+      "A": "judge",
+      "B": "reference"
+    },
+    "course_load_fr#1": {
+      "A": "judge",
+      "B": "reference"
+    },
+    "csc3326_prereqs_en#3": {
+      "A": "reference",
+      "B": "judge"
+    },
+    "intl_scholarships_fr#8": {
+      "A": "reference",
+      "B": "judge"
+    },
+    "scholarship_work_hours_fr#1": {
+      "A": "judge",
+      "B": "reference"
+    }
+  }
+}
