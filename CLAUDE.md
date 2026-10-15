@@ -108,7 +108,7 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
   zricethezav/gitleaks:v8.24.0 -c "git config --global --add safe.directory /repo && gitleaks
   git /repo --redact --no-banner -v"`. The GitHub name TeCom0 and the commit email stay
   (decided: Youness's personal account, unrelated to the club).
-- [ ] **1. Judge + baseline** -- **update 2026-10-15**: Mistral's free plan offered no Large
+- [x] **1. Judge + baseline** (done 2026-10-15: judge failed its gate, baseline reported with its agreement) -- **update 2026-10-15**: Mistral's free plan offered no Large
   model on our key (403 tier_not_allowed; Small/Medium at 0 requests/min), so Youness enabled
   pay-as-you-go ($10 credit). Judge = **mistral-large-2512** (ec4e089: exact id, sliding-window
   throttle for requests/s + tokens/min, bounded retry, per-call tokens + cost estimate).
@@ -198,12 +198,25 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     not adjudicated before -> adjudication_run1_blind.md / adjudications_run1_blind.json
     (key in adjudications_run1_blind_key.json -- Youness doesn't open it). Agreement NOT run
     yet, on purpose: no v2 number is seen before the blind decisions are in (agreement.py
-    refuses while they're incomplete). Next: Youness decides the 5 -> `--blind --check` ->
-    agreement -> gate -> if pass, judge run 2 -> report -> README results -> judge work ends.
-  - Remaining plan: (3) report label agreement and quote validity separately; (4) document the
-    original gate, why it was unreachable and this change in the README; (5) re-judge run 1
-    with mistral-large-2512 and apply the new gate. If it fails: mistral-large-4, zai-glm-5-3,
-    ministral-14b-2512, then GitHub Models / best-agreement judge.
+    refuses while they're incomplete).
+  - **v2 RESULT -- gate FAILED; judge work ENDED (as decided).** 36 scored sample claims:
+    final agreement vs adjudicated **27/36 = 75%** (CI 59-86%), kappa 0.39, lenient **2**,
+    strict 7 -> (a) 9/9 pass, (c) 2 lenient pass, **(b) 27 < 31 fail**. Vs original labels:
+    final 21/36 (lenient 4, strict 10). Own-label agreement: 31/36 vs adjudicated (lenient 4),
+    27/36 vs original. Quote validity 92/115 = 80% run-wide (v1: 68%), 24/32 in the sample.
+    Most strict errors are quote failures (cross-passage joins, judge's own words in the quote,
+    csc3326_prereqs_en#3's 3-word quote under the 4-word minimum) -> the baseline likely
+    overstates unfaithfulness. Blind round: 3 decisions kept Youness's original label, 2 went
+    to the judge. Even one flipped decision couldn't reach 31/36. Run 2 NOT judged.
+    Two blind notes (intl_scholarships_fr#8, scholarship_work_hours_fr#1) read like whole-answer
+    assessments rather than about the single claim -- flagged to Youness, nothing changed.
+  - **Baseline (run 1, judge v2; read with its 75% agreement)**: main 10/24 = 41.7% answers with
+    >= 1 unsupported cited claim (CI 24.5-61.2%; EN 4/12, FR 6/12; 2 crashes), regression 3/4,
+    unanswerable 0/4 (none cite). False refusals 2/28 (scholarship_conditions_fr,
+    mth1305_fr). Missed refusals reported 1/4 (instructor_en) but that's a JUDGE error (the
+    answer declines; hand label says so; judge said no in v1 and v2). 12/156 claims excluded.
+    report_runs_1.json + README "Answer faithfulness" section hold the numbers.
+  - Next: Ship plan step 2 (fixes), measured with this same pipeline and judge (same rules).
   Original plan (~1.5 sessions, 2-4 days of quotas): the judge must be **free**
   (paid Gemini dropped). Third family = **Mistral Large** on Mistral's free Experiment plan
   (Youness creates the account, SMS verification; check the model is included and whether

@@ -7,8 +7,9 @@ are the prerequisites for ACC 2302?"* — including the full prerequisite chain.
 
 An unofficial student project, not an official AUI service.
 
-**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6). Next: a faithfulness
-baseline, a public deployment for students, and a demo video.
+**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6), and a faithfulness
+baseline is measured (see Evaluation). Next: fixes for the main faithfulness problems, a public
+deployment for students, and a demo video.
 
 ---
 
@@ -88,7 +89,7 @@ flowchart LR
 | Embeddings | `intfloat/multilingual-e5-small` via sentence-transformers, local CPU |
 | Database | PostgreSQL 16 + pgvector; Postgres full-text search for keywords |
 | Frontend | React 19 + TypeScript, Vite, react-markdown |
-| Quality | pytest (50 tests), ruff, oxlint, retrieval evaluation set |
+| Quality | pytest (163 tests), ruff, oxlint, retrieval and answer-faithfulness evaluation sets |
 | Infra | Docker Compose (db + api + frontend), GitHub Actions CI |
 
 ## Design decisions worth knowing
@@ -165,7 +166,59 @@ stratified sample of run 1, labelled blind before the judge ran.
   Label agreement and quote validity are reported separately. The judge is re-run once under
   these rules, and the result is reported whatever it is.
 
-Results: pending (written after the re-run).
+**Result of the re-run: the judge did not pass.** Mistral Large 2512 under the rules above, on
+the 36 scored sample claims:
+
+| | vs. my original labels | vs. adjudicated labels |
+|---|---|---|
+| Label agreement (judge's own label) | 27/36 = 75% (95% CI 59–86%), κ −0.12 | 31/36 = 86% (71–94%), κ 0.48 |
+| **Final agreement** (after the quote check: **gated**) | 21/36 = 58% (42–73%), κ −0.09 | **27/36 = 75% (59–86%)**, κ 0.39 |
+| Lenient errors (final) | 4 | **2** |
+| Strict errors (final) | 10 | 7 |
+
+- **Gate:** calibration 9/9 ✓; at most 2 lenient errors ✓ (2); at least 31/36 final agreement ✗
+  (27/36).
+- **Quote validity:** 92/115 = 80% of the judge's "supported" quotes were found verbatim in the
+  claim's passages, across all of run 1 (75% in the sample). Under the earlier, looser prompt it
+  was 68%.
+- **Where the gap comes from:** most remaining disagreements are strict errors, the judge saying
+  "unsupported" where I say "supported". Five of the seven are quotes that fail the check:
+  - quotes joining two passages;
+  - the judge's own words inside a quote;
+  - a 3-word quote under the 4-word minimum.
+
+  So the faithfulness numbers below likely **overstate** the problem. The judge also misses some
+  real problems: 2 lenient errors.
+- **Blind adjudication:** the judge's 5 new disagreements were decided without knowing which
+  label was whose: 3 kept my original label, 2 went to the judge.
+- κ is near or below zero against the original labels even at 75% agreement. Almost every label
+  is "supported", so kappa punishes any disagreement heavily. Raw agreement with its interval is
+  the more useful number here.
+
+As decided in advance, judge work ends here, so run 2 was not judged. The baseline below uses
+this judge and must be read together with its 75% agreement.
+
+**Faithfulness baseline (run 1, 34 answers, judged by Mistral Large 2512):**
+
+| Group | Answers with ≥ 1 unsupported cited claim | Crashed |
+|---|---|---|
+| `main` (all) | 10/24 = 41.7% (95% CI 24.5–61.2%) | 2 |
+| `main` English | 4/12 = 33.3% | 1 |
+| `main` French | 6/12 = 50.0% | 1 |
+| Known past failures | 3/4 | 0 |
+| Unanswerable | 0/4 (none cite anything) | 0 |
+
+- **False refusals:** 2/28. The assistant declined two answerable questions (scholarship
+  conditions in French, and MTH 1305 in French).
+- **Missed refusals:** the report counts 1/4 (`instructor_en`), but that's a judge error. The
+  answer does decline ("I couldn't find any information…"), and my hand label says so. So the
+  assistant declined all 4 unanswerable questions.
+- **Excluded from scoring:** 12 of 156 claims (7 lead-ins, 5 refusals), all listed in the report.
+- **Crashes:** 2 answers hit the known forced-answer error and have no claims.
+- **Cost:** the judge runs on Mistral's pay-as-you-go API; judging all of run 1 cost about $0.06.
+
+These numbers set the starting point for the fixes (headings in chunks, undergraduate/graduate
+tagging, the forced-answer crash). The same pipeline will measure the result.
 
 ## Running it
 
@@ -252,9 +305,9 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 
 ## Known limitations
 
-- **Cited answers can still contain wrong details.** The model occasionally adds facts that its
-  cited passage doesn't support. Measuring this (an answer-faithfulness evaluation) comes before
-  fixing it.
+- **Cited answers can still contain wrong details.** In the baseline, 10 of 24 main answers
+  (42%) had at least one cited claim the judge found unsupported. The judge itself agrees with
+  hand labels on 75% of claims and tends to be too strict (see Evaluation).
 - **French questions over English documents.** All sources are English; 2 of the 4 French
   evaluation questions aren't retrieved by any method. Translating the query before retrieval is
   the likely fix.
