@@ -182,9 +182,12 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       case; split on "..." / "…" and find each part separately (order not required), but all
       parts in the same passage (one marker's texts) -- parts from different passages fail.
       Why: in v1, many failed quotes had every part present but out of order or across a
-      marker's repeated texts. Open question asked before the re-run: also strip
-      leading/trailing punctuation of each part (4 v1 quotes end with "." where the passage's
-      sentence continues).
+      marker's repeated texts. **Also decided (before any v2 number):** (i) leading and
+      trailing punctuation of each part is stripped -- edges only, never words (4 v1 quotes
+      ended with "." where the passage's sentence continues: plagiarism_en#4,
+      scholarship_conditions_en#2/#7/#8); (ii) a part counts as evidence only with >= 4 words
+      after normalization; shorter parts are ignored (neither help nor fail the quote), and a
+      quote needs at least one counting part -- so a quote of only tiny fragments fails.
     - The prompt change means calibration is re-run (gate (a)) before v2.
     - **After v2 and any blind adjudication, judge work ENDS whatever the result**: report it
       (README) and move to step 2 of the Ship plan (the fixes).
