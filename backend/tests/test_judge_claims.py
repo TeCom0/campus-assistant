@@ -20,6 +20,7 @@ from app.evaluation.judge_claims import (
     merge_verdicts,
     quote_found,
 )
+from app.evaluation.throttle import Throttle
 
 PASSAGE_TEXT = (
     "Instructors should be informed before the absence to agree with the student on a suitable "
@@ -217,3 +218,93 @@ def test_strict_schema_forbids_extra_fields_on_every_object():
         "AnswerAbstains": False,
         "ClaimVerdict": False,
     }
+
+
+class _FakeResponse:
+    def __init__(self, status_code: int, body: dict | None = None):
+        self.status_code = status_code
+        self.body = body
+
+    def json(self) -> dict:
+        return self.body
+
+    @property
+    def text(self) -> str:
+        return "error body"
+
+
+def _mistral_body(content: str, finish_reason: str = "stop") -> dict:
+    return {
+        "model": "mistral-large-2512",
+        "choices": [{"message": {"content": content}, "finish_reason": finish_reason}],
+        "usage": {"prompt_tokens": 1000, "completion_tokens": 200, "total_tokens": 1200},
+    }
+
+
+def _mistral_client(responses: list) -> tuple:
+    """A MistralClient whose HTTP session returns the given responses in order;
+    no real waiting (the throttle and the retries sleep on a fake clock)."""
+    sleeps = []
+    clock = [0.0]  # throttle waits move this fake clock forward
+
+    def advance(seconds: float) -> None:
+        clock[0] += seconds
+
+    throttle = Throttle(1, 250_000, clock=lambda: clock[0], sleep=advance)
+    client = judge_claims.MistralClient("key", throttle, sleep=sleeps.append)
+    requests_sent = []
+
+    def post(url, json, timeout):
+        requests_sent.append(json)
+        return responses.pop(0)
+
+    client.session = SimpleNamespace(post=post)
+    return client, requests_sent, sleeps
+
+
+VALID_REPLY = (
+    '{"verdicts": [{"claim_id": "q#1", "label": "supported", "evidence_quote": "three", '
+    '"reason": "ok"}], "abstains": false}'
+)
+
+
+def test_mistral_reply_is_validated_and_tokens_are_counted():
+    client, sent, _ = _mistral_client([_FakeResponse(200, _mistral_body(VALID_REPLY))])
+    verdict, tokens = judge_claims._call_mistral(client, "the prompt", "a")
+    assert (verdict.verdicts[0].label, tokens) == ("supported", 1200)
+    assert verdict.answers == [AnswerAbstains(answer_id="a", abstains=False)]
+    request = sent[0]
+    assert request["model"] == judge_claims.MISTRAL_MODEL
+    assert request["response_format"]["json_schema"]["strict"] is True
+    assert request["max_tokens"] == judge_claims.MISTRAL_MAX_OUTPUT_TOKENS
+    assert (client.input_tokens, client.output_tokens) == (1000, 200)
+    # 1000 in at $0.50/M + 200 out at $1.50/M = $0.0008
+    assert "$0.0008" in client.cost_summary()
+
+
+def test_mistral_retries_a_429_then_succeeds():
+    responses = [_FakeResponse(429), _FakeResponse(200, _mistral_body(VALID_REPLY))]
+    client, sent, sleeps = _mistral_client(responses)
+    judge_claims._call_mistral(client, "the prompt", "a")
+    assert (len(sent), sleeps) == (2, [15])
+
+
+def test_mistral_stops_after_the_retries():
+    client, sent, sleeps = _mistral_client([_FakeResponse(503) for _ in range(4)])
+    with pytest.raises(judge_claims.MistralUnavailable):
+        judge_claims._call_mistral(client, "the prompt", "a")
+    assert (len(sent), sleeps) == (4, [15, 30, 60])  # bounded: 1 try + 3 retries
+
+
+def test_mistral_reply_cut_off_by_max_tokens_raises():
+    body = _mistral_body('{"verdicts": [', finish_reason="length")
+    client, _, _ = _mistral_client([_FakeResponse(200, body)])
+    with pytest.raises(ValueError, match="max_tokens"):
+        judge_claims._call_mistral(client, "the prompt", "a")
+
+
+def test_mistral_client_errors_are_not_retried_and_show_the_message():
+    client, sent, sleeps = _mistral_client([_FakeResponse(400)])
+    with pytest.raises(RuntimeError, match="HTTP 400: error body"):
+        judge_claims._call_mistral(client, "the prompt", "a")
+    assert (len(sent), sleeps) == (1, [])

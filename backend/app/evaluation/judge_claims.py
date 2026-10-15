@@ -2,11 +2,11 @@
 split_claims.py as supported / unsupported / no_claim against the passages it
 is checked against.
 
-The judge (JUDGE_PROVIDER) is Qwen on Groq, or Gemini: either way a different
-model family from gpt-oss, which wrote the answers (a model judging its own
-family's output tends to be lenient). Answers are judged ANSWERS_PER_CALL at a
-time, each in its own block: one per call on Groq (8k tokens/minute), four on
-Gemini (20 requests/day). The output must fit a JSON schema (BatchVerdict) and
+The judge (JUDGE_PROVIDER) is Mistral Large, Qwen on Groq, or Gemini: in each
+case a different model family from gpt-oss, which wrote the answers (a model
+judging its own family's output tends to be lenient). Answers are judged
+ANSWERS_PER_CALL at a time, each in its own block: one per call on Mistral and
+Groq, four on Gemini (20 requests/day). The output must fit a JSON schema and
 is validated, not parsed out of free text. Strict: partly supported is
 unsupported. A "supported" verdict must quote its evidence verbatim, and code
 checks the quote really is in that claim's passages; if not, the claim counts
@@ -32,6 +32,7 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Literal
 
+import requests
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types as genai_types
@@ -39,7 +40,7 @@ from groq import Groq
 from groq import RateLimitError as GroqRateLimitError
 from pydantic import BaseModel
 
-from app.config import GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY
+from app.config import GEMINI_API_KEY, GEMINI_MODEL, GROQ_API_KEY, MISTRAL_API_KEY
 from app.evaluation.generate_faithfulness_answers import (
     EVAL_DIR,
     PER_MINUTE_RETRIES,
@@ -48,23 +49,54 @@ from app.evaluation.generate_faithfulness_answers import (
     is_per_minute_limit,
 )
 from app.evaluation.hand_labels import labels_complete, reference_labels_path
+from app.evaluation.throttle import Throttle
 
 CALIBRATION_PATH = EVAL_DIR / "judge_calibration.json"
 HAND_LABELLED_RUNS = {1}
 
-# Which judge: "groq" (Qwen, Alibaba's family -- still not the generator's) or
-# "gemini". Switched to Groq on 2026-10-13: Gemini's free tier answered 503
-# "high demand" to ~28 of ~30 calls over three days.
-JUDGE_PROVIDER = "groq"
-JUDGE_MODEL = {"groq": "qwen/qwen3.8-27b", "gemini": GEMINI_MODEL}[JUDGE_PROVIDER]
+# Which judge: "mistral", "groq" (Qwen, Alibaba's family -- still not the
+# generator's) or "gemini". Gemini's free tier answered 503 "high demand" to ~28
+# of ~30 calls (2026-10-11..13); Qwen agreed with the hand labels only 25/40.
+# Mistral since 2026-10-15 (pay-as-you-go: the free plan had no Large model).
+JUDGE_PROVIDER = "mistral"
+# An exact model id, never a "-latest" alias: an alias can move to another model
+# between two runs, and the results must say which model judged them.
+MISTRAL_MODEL = "mistral-large-2512"
+JUDGE_MODEL = {
+    "mistral": MISTRAL_MODEL,
+    "groq": "qwen/qwen3.8-27b",
+    "gemini": GEMINI_MODEL,
+}[JUDGE_PROVIDER]
 # Gemini allows 20 requests/day, so 4 answers per call. Groq allows 1,000/day
 # but 8,000 tokens/minute, and the largest answer alone is ~5k: one per call.
-ANSWERS_PER_CALL = {"groq": 1, "gemini": 4}[JUDGE_PROVIDER]
+# Mistral: one per call too, so a failed call costs one answer, not four.
+ANSWERS_PER_CALL = {"mistral": 1, "groq": 1, "gemini": 4}[JUDGE_PROVIDER]
 # Groq also caps Qwen's *output* at 1,000 tokens/minute, and a verdict takes
 # ~100 tokens per claim: a long answer's claims go in groups of 6, each call
 # with the whole answer and its passages. None = all of an answer's claims at once.
-CLAIMS_PER_CALL = {"groq": 6, "gemini": None}[JUDGE_PROVIDER]
+CLAIMS_PER_CALL = {"mistral": None, "groq": 6, "gemini": None}[JUDGE_PROVIDER]
 GROQ_MAX_OUTPUT_TOKENS = 1000
+
+# Mistral limits for mistral-large-2512 on this account, the stricter of the
+# console's Limits page (1 request/s, 250k tokens/min) and the API's response
+# headers (15 requests/min, 400k tokens/min), both seen 2026-10-15.
+MISTRAL_REQUESTS_PER_SECOND = 15 / 60
+MISTRAL_TOKENS_PER_MINUTE = 250_000
+# ~100 tokens per claim verdict; the longest answer has ~15 claims.
+MISTRAL_MAX_OUTPUT_TOKENS = 4000
+# No tokenizer installed: estimate prompt tokens at 4 characters each (only
+# used to decide how long to wait; the reply's real count replaces it).
+CHARS_PER_TOKEN = 4
+# Retries on 429 (rate limited) and 5xx (overloaded), waiting 15, 30, 60 s;
+# then the run stops and a re-run resumes.
+MISTRAL_RETRIES = 3
+MISTRAL_RETRY_WAIT_SECONDS = 15
+MISTRAL_TIMEOUT_SECONDS = 180
+# USD per million tokens, from mistral.ai/pricing ("Mistral Large costs $0.5 /M
+# tokens in and $1.5 /M tokens out"), checked 2026-10-15. Only for the cost
+# estimate printed after a run; the console's billing page is the real number.
+MISTRAL_USD_PER_M_INPUT = 0.50
+MISTRAL_USD_PER_M_OUTPUT = 1.50
 
 # Gemini only. Failed attempts count toward the free tier's 20 requests/day
 # (2026-10-12: 2 successful calls + 18 failed 503s, then a daily 429), so retry
@@ -237,6 +269,9 @@ def merge_verdicts(
 def call_judge(client, prompt: str, answer_ids: list[str]) -> tuple[BatchVerdict, int]:
     """One judge call, to the provider JUDGE_PROVIDER names; answer_ids are the
     answers in the prompt."""
+    if JUDGE_PROVIDER == "mistral":
+        (answer_id,) = answer_ids  # one answer per call on Mistral
+        return _call_mistral(client, prompt, answer_id)
     if JUDGE_PROVIDER == "groq":
         (answer_id,) = answer_ids  # one answer per call on Groq
         return _call_groq(client, prompt, answer_id)
@@ -329,6 +364,113 @@ def _call_gemini(client: genai.Client, prompt: str) -> tuple[BatchVerdict, int]:
     return response.parsed, tokens or 0
 
 
+class MistralUnavailable(Exception):
+    """Still rate limited or overloaded after the retries: the run stops here."""
+
+
+class MistralClient:
+    """Mistral's chat endpoint over plain HTTP (requests -- one endpoint doesn't
+    need an SDK), plus the throttle and the token counts for the cost estimate."""
+
+    URL = "https://api.mistral.ai/v1/chat/completions"
+
+    def __init__(self, api_key: str, throttle: Throttle, sleep=time.sleep):
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Bearer {api_key}"
+        self.throttle = throttle
+        self.sleep = sleep
+        self.calls = 0
+        self.input_tokens = 0
+        self.output_tokens = 0
+        self.served_models: set[str] = set()  # as the API reports them
+
+    def post(self, payload: dict) -> dict:
+        """One request, throttled; retries 429/5xx/timeouts, then raises
+        MistralUnavailable. Any other error (bad request, wrong key) raises at once."""
+        estimate = (
+            sum(len(m["content"]) for m in payload["messages"]) // CHARS_PER_TOKEN
+            + payload["max_tokens"]
+        )
+        for attempt in range(1, MISTRAL_RETRIES + 2):
+            call = self.throttle.wait_for_slot(estimate)
+            try:
+                response = self.session.post(
+                    self.URL, json=payload, timeout=MISTRAL_TIMEOUT_SECONDS
+                )
+                problem = (
+                    f"HTTP {response.status_code}"
+                    if response.status_code == 429 or response.status_code >= 500
+                    else None
+                )
+            except (requests.Timeout, requests.ConnectionError) as e:
+                problem = type(e).__name__
+            if problem is None:
+                break
+            if attempt > MISTRAL_RETRIES:
+                raise MistralUnavailable(f"{problem} after {MISTRAL_RETRIES} retries")
+            wait = MISTRAL_RETRY_WAIT_SECONDS * 2 ** (attempt - 1)
+            print(f"  Mistral {problem}, waiting {wait}s")
+            self.sleep(wait)
+        if response.status_code != 200:  # Mistral's message says what was wrong
+            raise RuntimeError(f"Mistral HTTP {response.status_code}: {response.text[:500]}")
+        body = response.json()
+        usage = body["usage"]
+        self.throttle.record_actual(call, usage["total_tokens"])
+        self.calls += 1
+        self.input_tokens += usage["prompt_tokens"]
+        self.output_tokens += usage["completion_tokens"]
+        self.served_models.add(body["model"])
+        print(
+            f"  mistral call: {usage['prompt_tokens']} in + {usage['completion_tokens']} out tokens"
+        )
+        return body
+
+    def cost_summary(self) -> str:
+        cost = (
+            self.input_tokens * MISTRAL_USD_PER_M_INPUT
+            + self.output_tokens * MISTRAL_USD_PER_M_OUTPUT
+        ) / 1_000_000
+        return (
+            f"Mistral usage: {self.calls} calls, {self.input_tokens} in + "
+            f"{self.output_tokens} out tokens, served by {sorted(self.served_models)}; "
+            f"estimated cost ${cost:.4f} (at ${MISTRAL_USD_PER_M_INPUT}/M in, "
+            f"${MISTRAL_USD_PER_M_OUTPUT}/M out)"
+        )
+
+
+def _call_mistral(client: MistralClient, prompt: str, answer_id: str) -> tuple[BatchVerdict, int]:
+    """One Mistral call about one answer, in Groq's shape: the reply must follow
+    SingleAnswerVerdict's JSON schema (strict mode) and is validated here too."""
+    body = client.post(
+        {
+            "model": JUDGE_MODEL,
+            "messages": [
+                {"role": "system", "content": JUDGE_INSTRUCTIONS},
+                {"role": "user", "content": prompt},
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "SingleAnswerVerdict",
+                    "schema": strict_json_schema(SingleAnswerVerdict.model_json_schema()),
+                    "strict": True,
+                },
+            },
+            "max_tokens": MISTRAL_MAX_OUTPUT_TOKENS,
+            "temperature": 0,
+        }
+    )
+    choice = body["choices"][0]
+    if choice["finish_reason"] == "length":  # cut off: the JSON is incomplete
+        raise ValueError(f"judge reply hit max_tokens ({MISTRAL_MAX_OUTPUT_TOKENS})")
+    single = SingleAnswerVerdict.model_validate_json(choice["message"]["content"])
+    verdict = BatchVerdict(
+        answers=[AnswerAbstains(answer_id=answer_id, abstains=single.abstains)],
+        verdicts=single.verdicts,
+    )
+    return verdict, body["usage"]["total_tokens"]
+
+
 def claim_groups(items: list[dict]) -> list[list[dict]]:
     """What each call sends: all the items at once, or -- with CLAIMS_PER_CALL --
     each item's claims in groups of that size, every group with the item's full
@@ -367,6 +509,11 @@ def judge_batch(client, answers: list[dict]) -> tuple[dict[str, tuple], int]:
 
 
 def _client():
+    if JUDGE_PROVIDER == "mistral":
+        if not MISTRAL_API_KEY:
+            raise SystemExit("MISTRAL_API_KEY is not set (check .env)")
+        throttle = Throttle(MISTRAL_REQUESTS_PER_SECOND, MISTRAL_TOKENS_PER_MINUTE)
+        return MistralClient(MISTRAL_API_KEY, throttle)
     if JUDGE_PROVIDER == "groq":
         if not GROQ_API_KEY:
             raise SystemExit("GROQ_API_KEY is not set (check .env)")
@@ -399,6 +546,8 @@ def run_calibration() -> tuple[int, int]:
             print(f"       claim:  {claim['text']}")
             print(f"       reason: {r.get('reason')}")
     print(f"\nCalibration: {agree}/{total} labels as expected.")
+    if isinstance(client, MistralClient):
+        print(client.cost_summary())
     return agree, total
 
 
@@ -435,8 +584,15 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
         batch_ids = [a["id"] for a in batch]
         try:
             judged, tokens = judge_batch(client, batch)
-        except (genai_errors.ClientError, genai_errors.ServerError, GroqRateLimitError) as e:
-            if isinstance(e, GroqRateLimitError) or e.code in (429, 503):
+        except (
+            genai_errors.ClientError,
+            genai_errors.ServerError,
+            GroqRateLimitError,
+            MistralUnavailable,
+        ) as e:
+            if isinstance(e, (GroqRateLimitError, MistralUnavailable)) or e.code in (429, 503):
+                if isinstance(client, MistralClient):
+                    print(client.cost_summary())
                 print(
                     f"\n{JUDGE_PROVIDER} unavailable at {batch_ids[0]} (daily limit, or still "
                     f"limited/overloaded after the retries); stopping. Re-run to resume.\n{e}"
@@ -461,6 +617,8 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
         # Counts only, no labels: keeps the terminal from showing verdicts by accident.
         n_claims = sum(len(judged[i][1]) for i in batch_ids)
         print(f"batch of {len(batch_ids)} answers: {n_claims} claims judged, {tokens} tokens")
+    if isinstance(client, MistralClient):
+        print(client.cost_summary())
     return True
 
 

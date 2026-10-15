@@ -36,6 +36,8 @@ DATABASE_URL = (
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "groq")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# Used only by the faithfulness judge (app/evaluation/judge_claims.py), not the app.
+MISTRAL_API_KEY = os.environ.get("MISTRAL_API_KEY", "")
 
 # openai/gpt-oss-20b: Groq's recommended replacement for the now-deprecated
 # (2026-08-16) llama-3.1-8b-instant.
