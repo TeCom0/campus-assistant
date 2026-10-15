@@ -217,8 +217,41 @@ this judge and must be read together with its 75% agreement.
 - **Crashes:** 2 answers hit the known forced-answer error and have no claims.
 - **Cost:** the judge runs on Mistral's pay-as-you-go API; judging all of run 1 cost about $0.06.
 
-These numbers set the starting point for the fixes (headings in chunks, undergraduate/graduate
-tagging, the forced-answer crash). The same pipeline will measure the result.
+**Why answers fail.** Each of the 18 failures (14 unsupported cited claims in the 10 failing
+`main` answers, 2 false refusals, 2 crashes) was given one cause. The causes were proposed by an
+AI assistant and reviewed by the author, who accepted all 18
+(`eval/results/faithfulness/error_analysis_run1.md`):
+
+| Cause | Failures |
+|---|---|
+| Judge artifact (the claim *is* supported; the quote check failed it) | 5 |
+| French retrieval (the right passage was never retrieved) | 4 |
+| Citation placement (the fact is in a retrieved passage, not the cited one) | 2 |
+| Embellishment (a gloss or hedge no passage gives) | 2 |
+| Forced-final-answer crash | 2 |
+| Graduate rules presented as general | 1 |
+| Heading or number cut off by a chunk boundary | 1 |
+| Uncitable tool result (`query_courses` "no description") | 1 |
+
+Set the judge artifacts aside and **7 of 24 `main` answers fail by hand**, against the judge's 10.
+This hand count only re-checks what the judge called unsupported; it can't recover the judge's
+lenient errors. Of the 5 artifacts:
+- 3 are quotes that join two passages on claims that rightly cite both, which the one-passage
+  quote rule fails;
+- 1 is the PDF's "and/ or" spacing;
+- 1 is a 3-word quote under the 4-word minimum.
+
+Those rules stay fixed, so that before and after fixes are judged identically. The hand count
+is reported alongside to correct for them.
+
+**AI assistance in the labels.**
+- The 13 first-round adjudication decisions are the author's. The disagreement listing they were
+  made from was written by the AI assistant, and on 6 of them the author asked for its opinion
+  before deciding. Those 6 are marked `ai_assisted` in `adjudications_run1.json`.
+- In the blind round, the assistant built the A/B page and gave no opinions.
+- The original 40 hand labels were made before any AI opinion on them.
+
+These numbers set the starting point for the fixes. The same pipeline measures the result.
 
 ## Running it
 

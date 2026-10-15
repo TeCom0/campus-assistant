@@ -8,91 +8,105 @@
       "judge_raw": "no_claim",
       "judge": "no_claim",
       "decision": "no_claim",
-      "note": "lead-in fragment, the list items are judged separately"
+      "note": "lead-in fragment, the list items are judged separately",
+      "ai_assisted": "the AI assistant flagged the first decision as a likely slip (lead-in -> no_claim)"
     },
     "course_load_fr#3": {
       "original": "unsupported",
       "judge_raw": "supported",
       "judge": "supported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "course_load_fr#8": {
       "original": "supported",
       "judge_raw": "unsupported",
       "judge": "unsupported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "fulbright_fr#1": {
       "original": "no_claim",
       "judge_raw": "supported",
       "judge": "unsupported",
       "decision": "no_claim",
-      "note": "refusal; judge treated it as a fact"
+      "note": "refusal; judge treated it as a fact",
+      "ai_assisted": "the AI assistant explained the refusal rule (-> no_claim), naming this claim"
     },
     "graduation_honors_en#2": {
       "original": "unsupported",
       "judge_raw": "supported",
       "judge": "supported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "instructor_en#1": {
       "original": "no_claim",
       "judge_raw": "supported",
       "judge": "supported",
       "decision": "no_claim",
-      "note": "refusal; judge treated it as a fact"
+      "note": "refusal; judge treated it as a fact",
+      "ai_assisted": "asked the AI assistant's opinion (it said: refusal -> no_claim) before deciding"
     },
     "intl_scholarships_en#1": {
       "original": "supported",
       "judge_raw": "supported",
       "judge": "unsupported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "intl_scholarships_en#4": {
       "original": "unsupported",
       "judge_raw": "supported",
       "judge": "supported",
       "decision": "unsupported",
-      "note": ""
+      "note": "",
+      "ai_assisted": "asked the AI assistant's opinion (it said: unsupported) before deciding"
     },
     "intl_scholarships_fr#13": {
       "original": "supported",
       "judge_raw": "supported",
       "judge": "unsupported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "mth1305_en#2": {
       "original": "supported",
       "judge_raw": "supported",
       "judge": "unsupported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "scholarship_conditions_en#10": {
       "original": "supported",
       "judge_raw": "supported",
       "judge": "unsupported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "transfer_credits_fr#5": {
       "original": "supported",
       "judge_raw": "no_claim",
       "judge": "no_claim",
       "decision": "no_claim",
-      "note": ""
+      "note": "",
+      "ai_assisted": "asked the AI assistant's opinion (it said: advice -> no_claim) before deciding"
     },
     "w_grade_en#1": {
       "original": "supported",
       "judge_raw": "unsupported",
       "judge": "unsupported",
       "decision": "unsupported",
-      "note": "uses 'drop-add deadline' for the W cut-off; catalog treats drop/add as a separate, earlier date"
+      "note": "uses 'drop-add deadline' for the W cut-off; catalog treats drop/add as a separate, earlier date",
+      "ai_assisted": "asked the AI assistant's opinion (it said: unsupported) before deciding"
     }
-  }
+  },
+  "ai_assistance": "All 13 decisions were made by the author. The disagreement listing they were made from was written by the AI assistant (incl. remarks on some judge quotes); ai_assisted says where the author also asked for or received its opinion."
 }
