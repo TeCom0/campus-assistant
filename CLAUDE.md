@@ -114,9 +114,35 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
   throttle for requests/s + tokens/min, bounded retry, per-call tokens + cost estimate).
   API headers say 15 requests/min and 400k tokens/min (the console said 1/s and 250k; the
   stricter of each is used). **Calibration 9/9** (incl. the graduate "B- or lower" case Qwen
-  missed), 2 calls, ~$0.002. Next: judge run 1 -> agreement vs. the 40-claim sample (gate:
-  >= 32/40 AND <= 2 lenient). Fallback order if it fails: mistral-large-4, zai-glm-5-3,
-  ministral-14b-2512, then GitHub Models / best-agreement judge.
+  missed), 2 calls, ~$0.002.
+  **Run 1 vs. the original gate: FAILED** -- 27/40 (68%, CI 52-80%), kappa 0.223, 3 lenient,
+  6 strict (4 of them quote_not_found), 29/40 before the quote check; 32 calls, ~$0.06.
+  **Gate changed 2026-10-15, recorded BEFORE any re-run or any agreement against adjudicated
+  labels was computed.** Why: the original gate (>= 32/40) was above human reliability --
+  Youness's own two passes (quick pass vs. careful sample) agree on only 31/40 of the same
+  claims -- and several disagreements were definition problems (refusals, lead-in fragments,
+  advice), not judge errors.
+  - Adjudication (1b97637): the 13 disagreements were decided by Youness in
+    eval/results/faithfulness/adjudications_run1.json (original / judge_raw / judge / decision
+    / note). labels_run1_sample.json is untouched and stays the original reference. The
+    adjudication was NOT blind (judge label + quote visible), so it may lean toward the judge:
+    always report agreement against both the original and the adjudicated labels.
+    Decisions: 8 kept the original label (incl. the 4 quote_not_found cases: raw supported =
+    adjudicated supported), 4 sided with the judge, 1 (academic_probation_en#2) -> no_claim.
+  - **New gate** for the judge (all must hold):
+    (a) calibration 9/9 (unchanged from the original gate);
+    (b) label agreement with the **adjudicated** labels >= **77.5%** (= Youness's 31/40
+        self-agreement as a rate), computed on the claims left after step (2)'s filter;
+    (c) at most **2 lenient errors** (judge supported, adjudicated unsupported) on those claims.
+    Always reported next to it, not part of the pass/fail: agreement against the original
+    labels, kappa, Youness's self-agreement recomputed on the same filtered claims, and quote
+    validity as its own number (step 3).
+  - Remaining plan: (2) filter refusals and non-claim fragments (e.g. lead-ins ending in ":")
+    in code before judging and exclude them from faithfulness scoring (abstention is measured
+    separately); (3) report label agreement and quote validity separately; (4) document the
+    original gate, why it was unreachable and this change in the README; (5) re-judge run 1
+    with mistral-large-2512 and apply the new gate. If it fails: mistral-large-4, zai-glm-5-3,
+    ministral-14b-2512, then GitHub Models / best-agreement judge.
   Original plan (~1.5 sessions, 2-4 days of quotas): the judge must be **free**
   (paid Gemini dropped). Third family = **Mistral Large** on Mistral's free Experiment plan
   (Youness creates the account, SMS verification; check the model is included and whether

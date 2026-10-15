@@ -5,7 +5,8 @@ Writes two files for a run:
   question, the full answer, the claim, the full text of every passage it is
   checked against, the human label (and note), the judge's label, quote and
   reason, and whether the quote check passed.
-- adjudications_runN.json: the decisions, filled in by hand ("decision": one of
+- adjudications_runN.json: both judge labels (judge_raw before the quote check,
+  judge after it) and the decisions, filled in by hand ("decision": one of
   supported / unsupported / no_claim, plus an optional note). Never overwritten
   once it exists, so re-running can't lose decisions.
 
@@ -145,7 +146,8 @@ def decisions_template(run: int, judge_model: str, items: list[dict]) -> dict:
         "claims": {
             item["claim_id"]: {
                 "original": item["human_label"],
-                "judge": item["judge_final"],
+                "judge_raw": item["judge_label"],  # before the quote check
+                "judge": item["judge_final"],  # after it: what agreement uses
                 "decision": None,
                 "note": "",
             }

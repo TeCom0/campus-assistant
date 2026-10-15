@@ -68,7 +68,8 @@ def test_template_has_no_decisions_and_check_reports_them():
     items = build_items(REFERENCE, JUDGE, CLAIMS, ANSWERS)
     decisions = decisions_template(1, "judge-model", items)
     assert decisions["claims"]["q#2"] == {
-        "original": "no_claim", "judge": "unsupported", "decision": None, "note": "",
+        "original": "no_claim", "judge_raw": "supported", "judge": "unsupported",
+        "decision": None, "note": "",
     }  # fmt: skip
     assert len(check_decisions(decisions)) == 2
     decisions["claims"]["q#2"]["decision"] = "no_claim"
