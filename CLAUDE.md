@@ -143,7 +143,8 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
   (chmod 600), load the DB, UI disclaimer, smoke test on the live URL.
 - [ ] **5. Final README + CLAUDE.md cleanup** (2-3 h): results, live link, limitations, Future
   work; CLAUDE.md stays public, cleaned of stale and personal notes.
-- [ ] **6. Secrets check + go public** (1-2 h): gitleaks over the full history; review what
+- [ ] **6. Secrets check + go public** (1-2 h): fix the pytest hang when Postgres is
+  unreachable first (see open issues); gitleaks over the full history; review what
   becomes public (CLAUDE.md, Actions logs); make public; add the CI badge.
 - [ ] **7. Demo video** of the deployed version.
 
@@ -541,6 +542,17 @@ jobs on every push to main and every PR.
   depends on the OS version; pin `ubuntu-24.04` if a run breaks around then.
 
 **Open issues / decisions to remember:**
+- *pytest hangs when Postgres is unreachable* (found 2026-10-15, **fix before the repo goes
+  public**, Ship plan step 6): with Docker Desktop stopped, `pytest` stalled at "collecting ..."
+  (no output after 280 s) instead of skipping the DB tests; with the db container up the suite
+  ran in 22 s. Cause (read, not yet tested): tests/test_query_courses.py's `_db_available()`
+  runs at collection time and calls `get_connection()` -> `psycopg.connect(DATABASE_URL,
+  autocommit=True)` in app/db/connection.py, which has no `connect_timeout`, so a connection
+  that never completes blocks the whole collection (connection refused would raise
+  OperationalError at once; the stall suggests something still accepts or holds the port with
+  Docker down). Fix: a short `connect_timeout` for the availability check (and likely a
+  sensible default in get_connection), plus a test that an unreachable host skips within
+  seconds.
 - *GitHub* (set up 2026-10-08): private repo **TeCom0/campus-assistant**
   (https://github.com/TeCom0/campus-assistant). TeCom0 is Youness's *personal* GitHub account;
   the commits' author identity is TeCom0 <tecomclub@gmail.com>. Default branch `main` (renamed from `master` before the first push). GitHub CLI
