@@ -67,22 +67,41 @@ def test_batch_prompt_keeps_each_answers_passages_in_its_own_block():
     assert "PASSAGES (of answer b only):" in block_b and "q#2" in block_b and "q#2" not in block_a
 
 
-def test_quote_found_ignores_line_breaks_case_and_typographic_quotes():
-    texts = [PASSAGE_TEXT]
-    assert quote_found("a maximum of three of these absences per semester", texts)
-    assert quote_found("A maximum of three ... may be authorized.", texts)
-    assert quote_found(
-        "Instructors should be informed before the absence",
-        ["Instructors should be informed before the absence"],
-    )
-    assert quote_found("the student’s record", ["the student's record"])
+def test_quote_found_ignores_line_breaks_case_and_quote_characters():
+    passage = [PASSAGE_TEXT]  # one passage, one text
+    assert quote_found("a maximum of three of these absences per semester", [passage])
+    assert quote_found("A maximum of three ... may be authorized.", [passage])
+    assert quote_found("the student’s record", [["the student's record"]])
+    # Any quote character matches any other (run 1 add_drop_en#3: 'x' vs "x").
+    assert quote_found("under 'alternate courses.'", [['under "alternate courses." the']])
+    assert quote_found("le cours «MTH 1305»", [["le cours “MTH 1305”"]])
 
 
-def test_quote_found_rejects_invented_or_out_of_order_text():
-    texts = [PASSAGE_TEXT]
-    assert not quote_found("A maximum of five of these absences", texts)
-    assert not quote_found("may be authorized ... Instructors should", texts)
-    assert not quote_found("", texts)
+def test_quote_parts_are_found_separately_in_any_order_within_one_passage():
+    passage = [PASSAGE_TEXT]
+    assert quote_found("may be authorized ... Instructors should", [passage])
+    # A marker returned twice has two texts: still one passage.
+    assert quote_found("first part ... second part", [["the first part", "a second part"]])
+
+
+def test_quote_parts_from_different_passages_fail():
+    passages = [["the first part only"], ["the second part only"]]
+    assert quote_found("first part", passages)
+    assert not quote_found("first part ... second part", passages)
+
+
+def test_quote_found_rejects_invented_or_empty_text():
+    passage = [PASSAGE_TEXT]
+    assert not quote_found("A maximum of five of these absences", [passage])
+    assert not quote_found("A maximum of three ... five absences", [passage])  # one part invented
+    assert not quote_found("", [passage])
+
+
+def test_a_quote_stitched_from_two_cited_passages_makes_the_claim_unsupported():
+    claims = [_claim(1, [1, 2])]  # cites both [1] and [2]
+    stitched = "A maximum of three of these absences ... Repeated courses count once."
+    result = merge_verdicts(claims, PASSAGES, [_verdict(1, "supported", stitched)])[0]
+    assert (result["label"], result["flag"]) == ("unsupported", "quote_not_found")
 
 
 def test_supported_with_a_verifiable_quote_stays_supported():
@@ -329,3 +348,15 @@ def test_excluded_claims_are_not_judged_but_their_answer_still_gets_a_decline_ve
     abstains, results = judged["r"]
     assert abstains is True
     assert (results[0]["label"], results[0]["flag"]) == (None, "excluded")
+
+
+def test_judge_instructions_require_a_verbatim_quote_from_one_passage():
+    rules = judge_claims.JUDGE_INSTRUCTIONS
+    assert "EXACTLY as written" in rules and "never translated" in rules
+    assert "never join text from different passages" in rules
+    assert "If you cannot copy a span verbatim from one passage" in rules
+    assert "the claim is unsupported" in " ".join(rules.split())
+    # ...and they are what the Mistral judge is sent, as the system message.
+    client, sent, _ = _mistral_client([_FakeResponse(200, _mistral_body(VALID_REPLY))])
+    judge_claims._call_mistral(client, "the prompt", "a")
+    assert sent[0]["messages"][0] == {"role": "system", "content": rules}

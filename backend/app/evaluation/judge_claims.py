@@ -127,9 +127,12 @@ school, one program) but the claim presents as general, or as applying to a diff
 advisor"), filler, a question, an introductory fragment ("You can transfer:"), or a statement \
 about the assistant's own search ("I couldn't find ...").
 
-evidence_quote: for supported, copy the shortest span that shows the support VERBATIM from one \
-of the claim's passages, in the passage's own language (at most about 300 characters; you may \
-join two spans with "..."). For unsupported and no_claim, use "".
+evidence_quote: for supported, copy the shortest span that shows the support EXACTLY as written \
+in one of the claim's passages: character for character, in the passage's own language, never \
+translated, reformatted, shortened into your own words or paraphrased (at most about 300 \
+characters). You may join spans of the SAME passage with "..."; never join text from different \
+passages. If you cannot copy a span verbatim from one passage that shows the support, the claim \
+is unsupported. For unsupported and no_claim, use "".
 reason: one short sentence; for unsupported, say what is missing or wrong.
 abstains (one entry per answer block, by its answer id): true if that answer as a whole says \
 it can't answer because the information isn't available; false otherwise.
@@ -190,9 +193,11 @@ def build_prompt(items: list[dict]) -> str:
     return "\n".join(lines).strip()
 
 
+# Every quote character becomes ' (a passage's "x" quoted as 'x' still matches),
+# every dash -, every special space a space; Markdown bold is dropped.
 _QUOTE_CHARS = str.maketrans(
-    {"’": "'", "‘": "'", "“": '"', "”": '"', "«": '"', "»": '"', "–": "-", "—": "-", "‑": "-",
-     " ": " ", " ": " ", "*": None}
+    {"’": "'", "‘": "'", '"': "'", "“": "'", "”": "'", "«": "'", "»": "'",
+     "–": "-", "—": "-", "‑": "-", " ": " ", " ": " ", "*": None}
 )  # fmt: skip
 
 
@@ -202,20 +207,21 @@ def normalize_for_quote(text: str) -> str:
     return " ".join(text.translate(_QUOTE_CHARS).split()).lower()
 
 
-def quote_found(quote: str, texts: list[str]) -> bool:
-    """Every part of the quote ("a ... b") appears, in order, in one of the texts."""
+def quote_found(quote: str, passages: list[list[str]]) -> bool:
+    """Every part of the quote ("a ... b") is found in the same passage.
+
+    passages: each passage's texts (a marker returned again with more text has
+    several). Each part is looked for on its own, in any of that passage's
+    texts and in any order -- but all parts in ONE passage: a quote stitched
+    together from two passages fails.
+    """
     parts = [normalize_for_quote(p) for p in re.split(r"\.\.\.|…", quote)]
     parts = [p for p in parts if p]
     if not parts:
         return False
-    for text in texts:
-        haystack, position = normalize_for_quote(text), 0
-        for part in parts:
-            position = haystack.find(part, position)
-            if position < 0:
-                break
-            position += len(part)
-        else:
+    for texts in passages:
+        haystacks = [normalize_for_quote(t) for t in texts]
+        if all(any(part in h for h in haystacks) for part in parts):
             return True
     return False
 
@@ -225,7 +231,6 @@ def merge_verdicts(
 ) -> list[dict]:
     """One result per claim: the judge's label, the quote check, the final label."""
     texts_by_marker = {p["marker"]: p["texts"] for p in passages}
-    all_texts = [t for p in passages for t in p["texts"]]
     by_id: dict[str, ClaimVerdict] = {}
     for v in verdicts:
         by_id.setdefault(v.claim_id, v)  # a duplicate verdict: the first one counts
@@ -250,13 +255,14 @@ def merge_verdicts(
         if v is None:
             results.append({**result, "judge_label": None, "label": None, "flag": "no_verdict"})
             continue
-        texts = (
-            [t for m in c["markers"] for t in texts_by_marker.get(m, [])]
+        # The passages it's checked against: its markers', or all for an uncited claim.
+        checked = (
+            [texts_by_marker[m] for m in c["markers"] if m in texts_by_marker]
             if c["markers"]
-            else all_texts
+            else [p["texts"] for p in passages]
         )
         label, flag = v.label, None
-        if v.label == "supported" and not quote_found(v.evidence_quote, texts):
+        if v.label == "supported" and not quote_found(v.evidence_quote, checked):
             label, flag = "unsupported", "quote_not_found"
         results.append(
             {
