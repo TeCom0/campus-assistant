@@ -123,8 +123,49 @@ that answers it (`eval/retrieval_eval_set.json`):
 
 Run it with `python -m app.evaluation.run_retrieval_eval` (in `backend/`, database seeded).
 
-Not measured yet: whether each cited claim is actually supported by its cited passage. That's the
-next evaluation to add (see Known limitations).
+### Answer faithfulness: are cited claims supported by their passages?
+
+**Method.** 34 questions (17 topics, each asked in English and French: 26 `main`, 4 known past
+failures, 4 unanswerable) are answered by the real agent. Each answer is split into claims in
+code (`split_claims.py`), and each claim is checked against the passages its citation points to.
+Refusals ("I couldn't find…") and short list lead-ins ("The main options are:") are excluded from
+scoring, because they state nothing about the university. Whether an answer *should* have declined
+is checked separately, per answer, as false refusals and missed refusals. An LLM judge from a
+different model family than the generator labels each claim supported, unsupported or no_claim.
+For "supported", the judge must quote its evidence, and code checks that the quote really is in
+one of the claim's passages; if not, the claim counts as unsupported.
+
+**Can the judge be trusted?** Its labels are compared with my own hand labels on a 40-claim
+stratified sample of run 1, labelled blind before the judge ran.
+
+- *Original gate:* calibration 9/9 on hand-made cases, at least 32/40 agreement, and at most 2
+  "lenient" errors (judge says supported, human says unsupported: the dangerous direction).
+  - Gemini Flash (free tier): unusable (503 errors, 20 requests/day).
+  - Qwen 3.8 27B: 25/40.
+  - Mistral Large 2512: 27/40 (68%, kappa 0.22), 3 lenient errors.
+- *Why that gate was unreachable:* my own two labelling passes on the same claims agree on only
+  31/40. A judge can't be required to agree with me more than I agree with myself. Several
+  disagreements were definition problems (refusals, lead-in fragments, advice), not judge
+  errors.
+- *What changed.* All of it was recorded in the project notes before the judge was re-run.
+  - Refusals and lead-ins are excluded, which leaves 36 sample claims. My self-agreement on
+    those is 31/36.
+  - I adjudicated the 13 disagreements. That adjudication saw the judge's labels, so it may lean
+    toward the judge. Agreement with my **original** labels is always reported next to the
+    adjudicated one, and any new disagreements get a **blind** adjudication: two unnamed labels,
+    in random order.
+  - The judge prompt now requires a verbatim quote, and an unquotable claim must be labelled
+    unsupported. The quote check normalizes quote characters, whitespace and case, and accepts
+    "a … b" quotes only if every part is in the same passage.
+- *New gate,* on the judge's final labels (after the quote check):
+  - calibration 9/9;
+  - at least **31/36** agreement with the adjudicated labels, i.e. my own self-agreement;
+  - at most **2 lenient errors**.
+
+  Label agreement and quote validity are reported separately. The judge is re-run once under
+  these rules, and the result is reported whatever it is.
+
+Results: pending (written after the re-run).
 
 ## Running it
 
