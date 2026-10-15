@@ -233,6 +233,66 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
   undergraduate/graduate tags in chunks, citation placement -- confirm from the analysis),
   generate runs 3 + 4 (~1 Groq day each), judge, compare with the baseline (counts per cause
   too: 24 main answers per run only shows large effects).
+  **Status at end of session 2026-10-15 -- START HERE NEXT SESSION.**
+  - *Baseline to beat* (run 1, judge mistral-large-2512 v2 rules, which FAILED its gate:
+    27/36 final agreement vs adjudicated, needed 31/36; 2 lenient, 7 strict; quote validity
+    80%): main **10/24 = 41.7%** answers with >= 1 unsupported cited claim (CI 24.5-61.2%;
+    EN 4/12, FR 6/12), 2 crashes, regression 3/4, unanswerable all declined (report's 1
+    missed refusal = judge error on instructor_en), false refusals 2/28. Details: step 1 above.
+  - *Error analysis done* (c201754, 2ce98bb): app/evaluation/error_analysis.py ->
+    error_analysis_run1.md + error_causes_run1.json; all 18 failures (14 unsupported cited
+    claims in 10 main answers, 2 false refusals, 2 crashes) got a cause proposed by Claude and
+    **confirmed by Youness (all 18 unchanged)**: judge_artifact 5, french_retrieval 4,
+    citation_placement 2, embellishment 2, crash 2, grad_undergrad 1, heading_split 1,
+    uncitable_tool 1. **By hand 7/24 main answers fail** (plagiarism_en, add_drop_en,
+    csc3326_prereqs_en fail only via judge artifacts: one-passage quote rule on claims citing
+    two passages x3, PDF "and/ or" spacing, 3-word quote). Judge rules stay FROZEN for
+    comparability; report the hand count alongside. README: causes "proposed by AI assistant,
+    reviewed by the author"; adjudications_run1.json marks 6 `ai_assisted` decisions.
+  - *Plan: three fixes, one step each (explain -> code + tests -> commit), in this order:*
+    - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced
+      path (graph.py `_agent_node`, after MAX_TOOL_ROUNDS) catch Groq's 400 "Tool choice is
+      none, but model called a tool", retry once with "tools unavailable, answer in plain
+      text", then fall back to a code-built answer ("couldn't finish; these sources may
+      help" + sources) instead of an error. Tests with a fake model: fail once -> answer
+      after 2 calls; fail twice -> fallback, no error event; other errors still raise.
+      Measure: crashes per run -> 0; fallbacks flagged and counted separately.
+    - **B. French retrieval** (4 failures incl. scholarship_conditions_fr false refusal):
+      every search also runs an English version; both queries' vector + keyword lists fused
+      by the existing RRF (k=60), still top 5. Proposed: required `query_en` argument on
+      search_documents (no extra LLM call). Tests with stubbed searches: English-only hit is
+      returned; a hit from both appears once with one marker; query_en == query searches
+      once. Measure with the retrieval eval (add hand-written English versions of its 4
+      French questions).
+    - **C. Section context in chunks** (heading_split 1 + grad_undergrad 1 + the known
+      repeat-policy case): chunk.py tracks the section -- level from the catalog's part
+      headings (AL AKHAWAYN UNDERGRADUATE STUDIES / AL AKHAWAYN GRADUATE STUDIES; the
+      graduate_scholarships page = graduate), nearest heading = a conservative standalone-line
+      rule (<= 10 words, Title/upper case, no final period, not the page header) -- and starts
+      each chunk with "Section: <level> > <heading>" + stores section/level metadata (2 new
+      columns). Also: overlap extends back to the start of the sentence crossing the boundary
+      (capped) -- the "9 semesters" cut (catalog lines 2633-2634) is a boundary problem, not
+      a heading one. Needs re-chunk, re-embed, re-load (clear the table: chunk count changes).
+      **The retrieval eval set references chunks by chunk_index** -> first convert its 12
+      expected chunks to text anchors, then map them to the new indices. Tests: heading
+      detection on real positive/negative lines, level, prefix, the "9" staying with its
+      sentence.
+    - Not addressed (Future work unless results say otherwise): citation_placement 2,
+      embellishment 2, uncitable_tool 1.
+    - *Measurement:* after all three, generate run 3 (one Groq day), split, judge with the
+      identical frozen rules, report, error analysis with confirmed causes; run 4 the next
+      Groq day for variance; re-run the retrieval eval. Compare headline, by-hand failing
+      answers, per-cause counts, crashes, false refusals.
+  - **Decisions pending (Youness gives them next session):**
+    1. Fix B: where `query_en` comes from -- (1, Claude's recommendation) required tool
+       argument written by the agent; (2) separate LLM translation call; (3) local MT model
+       (opus-mt-fr-en). And does "the original question" mean the agent's search query or
+       the student's question verbatim (verbatim would also counter query padding)?
+    2. Judge run 2 with the frozen judge as a second baseline (~$0.06; doubles main answers
+       to 48)?
+    3. One combined after-run (runs 3 + 4) vs one run per fix?
+    4. Were the two odd blind-round notes (intl_scholarships_fr#8, scholarship_work_hours_fr#1)
+       written with an AI tool? If so, mark them ai_assisted too.
 - [ ] **3. Rate limit + daily cap + access code** (~1 session; write it while step 2 waits on
   quotas): per-IP limit (real client IP from the proxy header), global daily cap stored in
   Postgres, shared access code checked server-side, friendly message on a Groq 429, UI prompt,
@@ -271,7 +331,11 @@ run 2 generated and split; baseline report script (5c2b1af). Session 2026-10-13:
 Gemini stayed unusable; a Qwen-on-Groq judge (8/9 calibration) judged run 1 but agreed with
 the 40 hand labels only 25/40 (kappa 0.20) -- not trustworthy. Session 2026-10-15: the
 paid-Gemini plan was dropped (the judge must be free); the **Ship plan** above is the
-order of work from here. If Gemini is ever used again, the name Google serves is
+order of work from here. Later the same day (long session): Mistral Large 2512 judge
+(pay-as-you-go), refusal/lead-in exclusion, adjudication (first round + blind round), gate
+changed and recorded before re-running, v2 judge FAILED its gate (27/36), judge work ended,
+run-1 baseline + README section, error analysis with 18 confirmed causes -> Ship plan step 1
+done, step 2 planned (see "Status at end of session 2026-10-15" under step 2). If Gemini is ever used again, the name Google serves is
 `gemini-3.6-flash` (config.py's 3.5 is routed to it). The Qwen results are kept as *_qwen* files in
 eval/results/faithfulness/ (judgements_run1_qwen.jsonl, judgements_run2_qwen_partial.jsonl,
 agreement_run1_qwen.json, report_runs_1_qwen.json) for a judge-vs-judge comparison.
