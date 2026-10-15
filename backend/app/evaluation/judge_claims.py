@@ -182,6 +182,8 @@ def build_prompt(items: list[dict]) -> str:
             text = "\n--- (same marker, returned again with more text) ---\n".join(p["texts"])
             lines.append(f"\n[{p['marker']}] (source: {p['source']}, pages: {p['pages']})\n{text}")
         lines.append(f"\nCLAIMS (of answer {item['id']}):")
+        if not item["claims"]:
+            lines.append("(none to check: return no verdicts, only abstains for this answer)")
         for c in item["claims"]:
             scope = ", ".join(f"[{m}]" for m in c["markers"]) if c["markers"] else "all passages"
             lines.append(f"- id: {c['claim_id']} | check against: {scope} | claim: {c['text']}")
@@ -231,6 +233,9 @@ def merge_verdicts(
     results = []
     for c in claims:
         result = {"claim_id": c["claim_id"], "kind": c["kind"], "markers": c["markers"]}
+        if c.get("exclude"):  # a refusal or a lead-in: not judged, not scored
+            results.append({**result, "judge_label": None, "label": None, "flag": "excluded"})
+            continue
         if c["auto_label"]:
             results.append(
                 {
@@ -480,20 +485,27 @@ def claim_groups(items: list[dict]) -> list[list[dict]]:
     return [
         [{**item, "claims": item["claims"][k : k + CLAIMS_PER_CALL]}]
         for item in items
-        for k in range(0, len(item["claims"]), CLAIMS_PER_CALL)
+        # max(..., 1): an item with no claims still gets one (decline-only) call
+        for k in range(0, max(len(item["claims"]), 1), CLAIMS_PER_CALL)
     ]
+
+
+def claims_to_judge(claims: list[dict]) -> list[dict]:
+    """The claims the judge is asked about: not auto-labelled, not excluded."""
+    return [c for c in claims if not c["auto_label"] and not c.get("exclude")]
 
 
 def judge_batch(client, answers: list[dict]) -> tuple[dict[str, tuple], int]:
     """Judge several answers (one call, or one per claim group).
 
     Each answer: {"id", "question", "answer", "passages", "claims"} (all its
-    claims, auto-labelled ones included). Returns {answer id: (abstains,
-    per-claim results)} and the calls' tokens. abstains is None if the judge
-    skipped that answer; an answer with nothing to ask isn't sent.
+    claims, auto-labelled and excluded ones included). Returns {answer id:
+    (abstains, per-claim results)} and the calls' tokens. abstains is None if
+    the judge skipped that answer. An answer with no claim to judge (all
+    excluded or auto-labelled) is still sent, with no claims, so its "does it
+    decline?" verdict exists: false and missed refusals are counted from it.
     """
-    items = [{**a, "claims": [c for c in a["claims"] if not c["auto_label"]]} for a in answers]
-    items = [i for i in items if i["claims"]]
+    items = [{**a, "claims": claims_to_judge(a["claims"])} for a in answers]
     claim_verdicts, abstains, tokens = [], {}, 0
     for group in claim_groups(items) if items else []:
         verdict, group_tokens = call_judge(client, build_prompt(group), [i["id"] for i in group])
@@ -572,9 +584,7 @@ def run_judge(run: int, ids: list[str] | None, dry_run: bool) -> bool:
     todo = [{**answers[i], "claims": claims_by_id[i]} for i in selected if i not in done]
     batches = [todo[k : k + ANSWERS_PER_CALL] for k in range(0, len(todo), ANSWERS_PER_CALL)]
     if dry_run:
-        first = [
-            {**a, "claims": [c for c in a["claims"] if not c["auto_label"]]} for a in batches[0]
-        ]
+        first = [{**a, "claims": claims_to_judge(a["claims"])} for a in batches[0]]
         print(JUDGE_INSTRUCTIONS, "\n\n" + "=" * 80 + "\n")
         print(build_prompt(first))
         return True

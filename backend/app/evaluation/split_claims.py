@@ -30,6 +30,16 @@ Headings, table header rows and source lines aren't claims. Filler and advice
 ("check with an advisor") can't be told apart from facts reliably in code;
 the judge and the hand labels mark those "no_claim" instead.
 
+Two kinds of sentence state nothing about the university and are excluded
+from faithfulness scoring (field `exclude`; never judged, never counted):
+  refusal   "I couldn't find ..." / "Je ne dispose pas ..." -- whether the
+            answer should have declined is checked per answer instead
+            (report.py: false and missed refusals)
+  lead_in   a short "The main options are:" introducing a list
+Both rules are deliberately tight (see exclusion_reason): keeping a fragment
+only adds a no_claim for the judge, but dropping a fact could hide an
+unsupported claim. Exclusion adds a field; claim ids never change.
+
 Usage (from backend/):
     python -m app.evaluation.split_claims --run 1
 """
@@ -89,6 +99,23 @@ ABBREVIATIONS = {
     "e.g.", "i.e.", "etc.", "vs.", "no.", "dr.", "mr.", "mrs.", "ms.", "st.",
     "p.", "pp.", "ex.", "cf.", "approx.", "min.", "max.", "art.",
 }  # fmt: skip
+
+# Exclusions (see the module docstring). A refusal must START the sentence --
+# after at most an apology and a "based on ...," clause -- so a sentence that
+# speculates first and refuses at the end ("Il est possible que ... mais je ne
+# dispose pas de sources", run 1 fulbright_fr#2) is still judged.
+REFUSAL_RE = re.compile(
+    r"^(?:I'm sorry,? but |je suis désolée?,? mais )?(?:based on [^,]+, )?"
+    r"(?:I (?:could not|couldn't|can't|cannot|did not|didn't|was unable to) find"
+    r"|I (?:don't|do not) have"
+    r"|je n'ai (?:pas )?trouvé|je ne dispose (?:pas|d'aucune)|je ne sais pas)\b",
+    re.IGNORECASE,
+)
+LEAD_IN_MAX_WORDS = 6
+# A digit (course codes included) makes a lead-in a fact ("ACC 2301 requires one of:").
+DIGIT_RE = re.compile(r"\d")
+# Typographic apostrophes and narrow/non-breaking spaces, as the model writes them.
+_TYPOGRAPHY = str.maketrans({"’": "'", " ": " ", " ": " "})
 
 
 @dataclass
@@ -204,6 +231,24 @@ def _has_content(sentence: str) -> bool:
     return bool(re.search(r"\w", CITATION_MARKER_RE.sub("", sentence)))
 
 
+def exclusion_reason(sentence: str) -> str | None:
+    """ "refusal", "lead_in", or None for a claim to judge. Neither kind may carry
+    its own [N] marker: a cited sentence claims something about its passage."""
+    text = sentence.translate(_TYPOGRAPHY).strip()
+    if CITATION_MARKER_RE.search(text):
+        return None
+    if REFUSAL_RE.search(text):
+        return "refusal"
+    plain = _without_emphasis(text)
+    if (
+        plain.endswith(":")
+        and len(plain[:-1].split()) <= LEAD_IN_MAX_WORDS
+        and not DIGIT_RE.search(plain)
+    ):
+        return "lead_in"
+    return None
+
+
 def extract_claims(answer: str, passage_markers: set[int]) -> list[dict]:
     """Claims in `answer`, each with the markers it is checked against.
 
@@ -252,7 +297,11 @@ def extract_claims(answer: str, passage_markers: set[int]) -> list[dict]:
         markers = claim["markers"]
         claim["markers"] = sorted(markers)
         claim["invalid_markers"] = sorted(markers - passage_markers)
-        claim["auto_label"] = "unsupported" if markers and not markers & passage_markers else None
+        claim["exclude"] = exclusion_reason(claim["text"])
+        # An excluded sentence asserts nothing, so an invalid inherited marker
+        # doesn't make it unsupported either.
+        invalid_only = markers and not markers & passage_markers
+        claim["auto_label"] = "unsupported" if invalid_only and not claim["exclude"] else None
     return claims
 
 
@@ -292,8 +341,10 @@ def split_run(run: int) -> list[dict]:
             f.write(json.dumps(claim, ensure_ascii=False) + "\n")
     totals = Counter(c["kind"] for c in all_claims)
     auto = sum(1 for c in all_claims if c["auto_label"])
+    excluded = Counter(c["exclude"] for c in all_claims if c["exclude"])
     print(f"\n{len(all_claims)} claims from {len(answers)} answers -> {out_path.name}")
     print(f"by kind: {dict(sorted(totals.items()))}; invalid citations (auto-unsupported): {auto}")
+    print(f"excluded from scoring: {dict(sorted(excluded.items()))}")
     return all_claims
 
 

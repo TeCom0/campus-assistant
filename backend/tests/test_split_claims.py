@@ -4,7 +4,14 @@ The first three answers are real agent answers from the first faithfulness
 run (2026-10-11); the rest are synthetic cases for each rule.
 """
 
-from app.evaluation.split_claims import extract_claims, parse_blocks, split_sentences
+import pytest
+
+from app.evaluation.split_claims import (
+    exclusion_reason,
+    extract_claims,
+    parse_blocks,
+    split_sentences,
+)
 
 TRANSFER_EN = (
     "The maximum number of credits that can be transferred to Al Akhawayn University for an "
@@ -242,3 +249,66 @@ def test_a_cited_fact_is_not_mistaken_for_an_attribution():
     assert _kinds("Les règles du catalogue fixent la limite à 68 crédits [1].", {1}) == [
         ("own", [1])
     ]
+
+
+# Exclusions: real sentences from runs 1 and 2.
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        (
+            "I’m sorry, but I couldn’t find any information in the available AUI documents "
+            "that lists the instructor for CSC 3326 for the next semester."
+        ),  # instructor_en, run 1
+        (
+            "I’m sorry, but based on the documents available to me, I can’t find any "
+            "specific information about applying for a Fulbright scholarship."
+        ),  # fulbright_en, run 2
+        "Je n’ai trouvé aucune information concernant les conditions de maintien d’une bourse.",
+        "Je suis désolé, mais je ne dispose d’aucune information concernant les conditions.",
+        "Je ne dispose pas d’information sur l’instructeur qui enseignera le cours CSC 3326.",
+    ],
+)
+def test_refusals_are_excluded(sentence):
+    assert exclusion_reason(sentence) == "refusal"
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    ["Ainsi :", "The main options are:", "Vous pouvez transférer :", "**This includes:**",
+     "Voici un aperçu des principales options :"],  # the last: exactly 6 words
+)  # fmt: skip
+def test_short_lead_ins_are_excluded(sentence):
+    assert exclusion_reason(sentence) == "lead_in"
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        # Speculation first, refusal last: the AUI-office part is an uncited claim (run 1).
+        (
+            "Il est possible que ce type de bourse soit géré directement par le programme "
+            "Fulbright ou par l’Office des programmes internationaux de l’AUI, mais je ne "
+            "dispose pas de sources documentaires précises à ce sujet."
+        ),
+        # Says something about the catalog, with a citation (run 2).
+        (
+            "**MTH 1305** – referenced in the catalog but its description and prerequisites "
+            "are not provided in the available documents[1]."
+        ),
+        # A lead-in that states a fact: kept for the judge.
+        "ACC 2301 itself has a prerequisite that is an *alternative* among three math courses:",
+        "ACC 2301 requires one of:",  # short, but has a course code
+        "To keep an Al Akhawayn scholarship, a student must:",  # 8 words: over the limit
+        "You need one of these [3]:",  # has its own marker
+        "Students may drop a course until the 40th class day.",
+    ],
+)
+def test_facts_are_never_excluded(sentence):
+    assert exclusion_reason(sentence) is None
+
+
+def test_exclusion_is_a_field_and_clears_the_auto_label():
+    claims = extract_claims("The main options are:\n\n- One [7].\n- Two [7].", passage_markers={1})
+    lead_in = claims[0]
+    assert (lead_in["exclude"], lead_in["auto_label"]) == ("lead_in", None)
+    assert [c["auto_label"] for c in claims[1:]] == ["unsupported", "unsupported"]  # [7] invalid

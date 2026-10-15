@@ -137,9 +137,25 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     Always reported next to it, not part of the pass/fail: agreement against the original
     labels, kappa, Youness's self-agreement recomputed on the same filtered claims, and quote
     validity as its own number (step 3).
-  - Remaining plan: (2) filter refusals and non-claim fragments (e.g. lead-ins ending in ":")
-    in code before judging and exclude them from faithfulness scoring (abstention is measured
-    separately); (3) report label agreement and quote validity separately; (4) document the
+  - **Step (2) done**: split_claims.exclusion_reason() sets `exclude` on each claim --
+    `refusal` (no own marker, sentence STARTS with a first-person "couldn't find / don't
+    have / je n'ai pas trouvé / je ne dispose pas", after at most an apology and a "based
+    on ...," clause; so fulbright_fr#2's speculation-then-refusal is still judged) or
+    `lead_in` (ends with ":", <= 6 words, no digit, no own marker). Tight on purpose: keeping
+    a fragment only adds a no_claim, dropping a fact could hide an unsupported claim. Claim
+    ids unchanged (re-split verified identical except the new field). Excluded: run 1 7
+    lead-ins + 5 refusals, run 2 7 + 6; sample 40 -> 36 (gate: >= 28/36). Excluded claims
+    aren't sent to the judge; an answer with nothing left to judge still gets a
+    decline-only call (fixes the missing abstains of all-auto-labelled answers like run 1's
+    mth1305_fr). report.py checks each answer's decline verdict against expected_behavior:
+    **false refusals** (declined, should answer) and **missed refusals** (answered, should
+    decline) with ids, plus answers with no verdict, and lists every excluded claim.
+    agreement.py drops excluded claims on both sides and lists them; self-agreement on the
+    36: 31/36. Smoke test on the OLD (pre-filter) judgements: false refusals
+    scholarship_conditions_fr + mth1305_fr, missed refusal instructor_en (a pure refusal the
+    judge said doesn't decline -- the judge's error). The v1 agreement is saved as
+    agreement_run1_mistral_v1.json.
+  - Remaining plan: (3) report label agreement and quote validity separately; (4) document the
     original gate, why it was unreachable and this change in the README; (5) re-judge run 1
     with mistral-large-2512 and apply the new gate. If it fails: mistral-large-4, zai-glm-5-3,
     ministral-14b-2512, then GitHub Models / best-agreement judge.

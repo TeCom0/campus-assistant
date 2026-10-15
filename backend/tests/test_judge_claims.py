@@ -140,7 +140,8 @@ def test_judge_batch_maps_verdicts_back_to_their_answers(monkeypatch):
     ]
     judged, tokens = judge_batch(None, answers)
     assert (len(sent), tokens) == (1, 123)  # one call for the whole batch
-    assert "auto_only" not in sent[0]  # nothing to ask about it
+    # Nothing to judge in "auto_only", but it's still sent: its abstains is needed.
+    assert "ANSWER auto_only" in sent[0] and "claim 3" not in sent[0]
     assert judged["a"][0] is True and judged["a"][1][0]["label"] == "no_claim"
     assert judged["b"][0] is None  # the judge gave no abstains for "b"
     assert judged["b"][1][0]["label"] == "supported"
@@ -308,3 +309,23 @@ def test_mistral_client_errors_are_not_retried_and_show_the_message():
     with pytest.raises(RuntimeError, match="HTTP 400: error body"):
         judge_claims._call_mistral(client, "the prompt", "a")
     assert (len(sent), sleeps) == (1, [])
+
+
+def test_excluded_claims_are_not_judged_but_their_answer_still_gets_a_decline_verdict(
+    monkeypatch,
+):
+    sent = []
+
+    def fake_call_judge(client, prompt, answer_ids):
+        sent.append(prompt)
+        return BatchVerdict(answers=[AnswerAbstains(answer_id="r", abstains=True)], verdicts=[]), 9
+
+    monkeypatch.setattr(judge_claims, "call_judge", fake_call_judge)
+    monkeypatch.setattr(judge_claims, "CLAIMS_PER_CALL", 6)  # Groq-style groups
+    refusal = {**_claim(1, []), "exclude": "refusal"}
+    judged, _ = judge_batch(None, [_item("r", [refusal])])
+    assert len(sent) == 1  # one decline-only call, despite having no claim to judge
+    assert "claim 1" not in sent[0] and "none to check" in sent[0]
+    abstains, results = judged["r"]
+    assert abstains is True
+    assert (results[0]["label"], results[0]["flag"]) == (None, "excluded")

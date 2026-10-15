@@ -16,8 +16,14 @@ answers have no claims, so they're reported next to the headline, not in it.
 Answers citing nothing are counted too: they can't have an unsupported cited
 claim, so a model that stopped citing would otherwise look perfect.
 
-For `unanswerable` questions the right behaviour is to decline: the report
-shows how often it did, and how often answerable questions were declined.
+Declines are checked per answer against the question's expected_behavior
+("answer" / "abstain"), using the judge's "does the answer decline?" verdict:
+  false refusal   declined a question it should have answered
+  missed refusal  answered a question it should have declined
+Refusal sentences and short lead-ins ("The main options are:") are excluded
+from faithfulness scoring (split_claims.exclusion_reason); these two counts
+are what keeps an excluded refusal from hiding an error, and every excluded
+claim is listed in the output.
 
 Usage (from backend/):
     python -m app.evaluation.report --runs 1 2
@@ -40,15 +46,23 @@ def _load_jsonl(path) -> list[dict]:
 
 
 def final_labels(claims: list[dict], judgements: list[dict]) -> dict[str, str | None]:
-    """claim_id -> final label; None if the claim still needs a judge."""
+    """claim_id -> final label for every scored (not excluded) claim; None if
+    the claim still needs a judge."""
     judged = {c["claim_id"]: c["label"] for j in judgements for c in j["claims"]}
-    return {c["claim_id"]: c["auto_label"] or judged.get(c["claim_id"]) for c in claims}
+    return {
+        c["claim_id"]: c["auto_label"] or judged.get(c["claim_id"])
+        for c in claims
+        if not c.get("exclude")
+    }
 
 
 def summarize_answer(
     answer: dict, question: dict, claims: list[dict], labels: dict, abstains: bool | None
 ) -> dict:
     """One answer's numbers; claims are this answer's claims only."""
+    excluded = [c for c in claims if c.get("exclude")]
+    claims = [c for c in claims if not c.get("exclude")]
+    answered = answer["error"] is None
 
     def unsupported(kinds) -> int:
         return sum(
@@ -61,8 +75,15 @@ def summarize_answer(
         "language": question["language"],
         "set": question["set"],
         "expected_behavior": question["expected_behavior"],
-        "error": answer["error"] is not None,
+        "error": not answered,
         "abstains": abstains,
+        "false_refusal": answered
+        and question["expected_behavior"] == "answer"
+        and abstains is True,
+        "missed_refusal": (
+            answered and question["expected_behavior"] == "abstain" and abstains is False
+        ),
+        "excluded_claims": len(excluded),
         "cited_claims": sum(1 for c in claims if c["kind"] in CITED_KINDS),
         "unsupported_cited": unsupported(CITED_KINDS),
         "unsupported_own": unsupported(("own",)),
@@ -90,6 +111,13 @@ def group_stats(answers: list[dict]) -> dict:
         "with_unsupported_uncited": sum(1 for a in answered if a["unsupported_uncited"] > 0),
         "citing_nothing": sum(1 for a in answered if a["cited_claims"] == 0),
         "declined": declined,
+        "should_answer": sum(1 for a in answered if a["expected_behavior"] == "answer"),
+        "false_refusals": [a["id"] for a in answered if a["false_refusal"]],
+        "should_abstain": sum(1 for a in answered if a["expected_behavior"] == "abstain"),
+        "missed_refusals": [a["id"] for a in answered if a["missed_refusal"]],
+        # No "does it decline?" verdict: neither check can run on these.
+        "no_decline_verdict": [a["id"] for a in answered if a["abstains"] is None],
+        "excluded_claims": sum(a["excluded_claims"] for a in answered),
         "cited_claims": sum(a["cited_claims"] for a in answered),
         "unsupported_cited_claims": sum(a["unsupported_cited"] for a in answered),
     }
@@ -107,8 +135,9 @@ def grouped(answers: list[dict]) -> dict[str, dict]:
     return {name: group_stats(group) for name, group in groups.items()}
 
 
-def load_run(run: int, questions: dict[str, dict]) -> list[dict]:
-    """Answer summaries for one run; refuses if any answered question is unjudged."""
+def load_run(run: int, questions: dict[str, dict]) -> tuple[list[dict], list[dict]]:
+    """Answer summaries for one run, and its excluded claims; refuses if any
+    scored claim is unjudged."""
     answers = _load_jsonl(RESULTS_DIR / f"answers_run{run}.jsonl")
     claims = _load_jsonl(RESULTS_DIR / f"claims_run{run}.jsonl")
     judgements_path = RESULTS_DIR / f"judgements_run{run}.jsonl"
@@ -125,12 +154,18 @@ def load_run(run: int, questions: dict[str, dict]) -> list[dict]:
     claims_by_answer = defaultdict(list)
     for c in claims:
         claims_by_answer[c["id"]].append(c)
-    return [
+    summaries = [
         summarize_answer(
             a, questions[a["id"]], claims_by_answer[a["id"]], labels, abstains.get(a["id"])
         )
         for a in answers
     ]
+    excluded = [
+        {"claim_id": c["claim_id"], "exclude": c["exclude"], "text": c["text"]}
+        for c in claims
+        if c.get("exclude")
+    ]
+    return summaries, excluded
 
 
 def print_table(title: str, stats: dict[str, dict]) -> None:
@@ -150,6 +185,32 @@ def print_table(title: str, stats: dict[str, dict]) -> None:
         )
 
 
+def print_refusal_checks(title: str, stats: dict[str, dict]) -> None:
+    """False and missed refusals over all of a run's answered questions."""
+    groups = [stats[name] for name in ("main", "regression", "unanswerable")]
+    false_refusals = [i for g in groups for i in g["false_refusals"]]
+    missed_refusals = [i for g in groups for i in g["missed_refusals"]]
+    no_verdict = [i for g in groups for i in g["no_decline_verdict"]]
+    should_answer = sum(g["should_answer"] for g in groups)
+    should_abstain = sum(g["should_abstain"] for g in groups)
+    print(f"\n{title} -- declines vs. expected behaviour:")
+    print(
+        f"  false refusals (declined, should answer):   "
+        f"{len(false_refusals)}/{should_answer}  {false_refusals}"
+    )
+    print(
+        f"  missed refusals (answered, should decline): "
+        f"{len(missed_refusals)}/{should_abstain}  {missed_refusals}"
+    )
+    print(f"  no decline verdict: {len(no_verdict)}  {no_verdict}")
+
+
+def print_excluded(title: str, excluded: list[dict]) -> None:
+    print(f"\n{title} -- {len(excluded)} claims excluded from scoring:")
+    for c in excluded:
+        print(f"  {c['exclude']:<8} {c['claim_id']:<28} {c['text']!r}")
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -157,15 +218,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     questions = {q["id"]: q for q in json.loads(EVAL_SET_PATH.read_text(encoding="utf-8"))}
-    by_run = {run: load_run(run, questions) for run in args.runs}
+    loaded = {run: load_run(run, questions) for run in args.runs}
+    by_run = {run: answers for run, (answers, _) in loaded.items()}
 
-    report = {"runs": args.runs, "by_run": {}, "combined": None}
+    report = {"runs": args.runs, "by_run": {}, "combined": None, "excluded": {}}
     for run, answers in by_run.items():
         report["by_run"][run] = grouped(answers)
         print_table(f"Run {run}", report["by_run"][run])
+        print_refusal_checks(f"Run {run}", report["by_run"][run])
+        report["excluded"][run] = loaded[run][1]
+        print_excluded(f"Run {run}", loaded[run][1])
     if len(by_run) > 1:
         report["combined"] = grouped([a for answers in by_run.values() for a in answers])
         print_table(f"Runs {' + '.join(map(str, args.runs))} combined", report["combined"])
+        print_refusal_checks(f"Runs {' + '.join(map(str, args.runs))}", report["combined"])
     print(
         "\nunfaithful = answers with >=1 unsupported cited claim; own only = the same, counting "
         "only claims with their own marker;\nuncited = answers with >=1 unsupported uncited "
