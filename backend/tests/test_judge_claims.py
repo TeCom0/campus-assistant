@@ -19,6 +19,7 @@ from app.evaluation.judge_claims import (
     judge_batch,
     merge_verdicts,
     quote_found,
+    quote_parts,
 )
 from app.evaluation.throttle import Throttle
 
@@ -71,30 +72,125 @@ def test_quote_found_ignores_line_breaks_case_and_quote_characters():
     passage = [PASSAGE_TEXT]  # one passage, one text
     assert quote_found("a maximum of three of these absences per semester", [passage])
     assert quote_found("A maximum of three ... may be authorized.", [passage])
-    assert quote_found("the student’s record", [["the student's record"]])
+    assert quote_found("this is the student’s record", [["This is the student's record."]])
     # Any quote character matches any other (run 1 add_drop_en#3: 'x' vs "x").
-    assert quote_found("under 'alternate courses.'", [['under "alternate courses." the']])
-    assert quote_found("le cours «MTH 1305»", [["le cours “MTH 1305”"]])
+    assert quote_found(
+        "the course registration form under 'alternate courses.'",
+        [['the course registration form under "alternate courses. " the']],
+    )
+    assert quote_found(
+        "vous devez suivre le cours «MTH 1305»", [["Vous devez suivre le cours “MTH 1305”."]]
+    )
 
 
 def test_quote_parts_are_found_separately_in_any_order_within_one_passage():
     passage = [PASSAGE_TEXT]
-    assert quote_found("may be authorized ... Instructors should", [passage])
+    assert quote_found(
+        "absences per semester may be authorized ... Instructors should be informed", [passage]
+    )
     # A marker returned twice has two texts: still one passage.
-    assert quote_found("first part ... second part", [["the first part", "a second part"]])
+    two_texts = [["the first part of the rule", "the second part of the rule"]]
+    assert quote_found("first part of the rule ... second part of the rule", two_texts)
 
 
 def test_quote_parts_from_different_passages_fail():
-    passages = [["the first part only"], ["the second part only"]]
-    assert quote_found("first part", passages)
-    assert not quote_found("first part ... second part", passages)
+    passages = [["the first part of the rule"], ["the second part of the rule"]]
+    assert quote_found("first part of the rule", passages)
+    assert not quote_found("first part of the rule ... second part of the rule", passages)
 
 
 def test_quote_found_rejects_invented_or_empty_text():
     passage = [PASSAGE_TEXT]
     assert not quote_found("A maximum of five of these absences", [passage])
-    assert not quote_found("A maximum of three ... five absences", [passage])  # one part invented
+    assert not quote_found("A maximum of three ... five absences are allowed", [passage])
     assert not quote_found("", [passage])
+
+
+# The four v1 quotes that ended with "." where the passage's sentence goes on
+# (passage wording copied from the run-1 passages).
+PLAGIARISM = (
+    "Faculty members are expected to make their practices\nclear to their students, and unit "
+    "heads to their staff.\nIn addition, it is the general policy of the university that "
+    "willfully ignoring the principle of academic\nhonesty—once taught—and the formalities "
+    "regarding citation for one’s discipline, will result in\nheavy penalties, including failure "
+    "in a course, suspension from the university, or expulsion."
+)
+PROBATION = (
+    "If the SGPA falls between 3.00 and 3.49, the student will be placed on scholarship "
+    "probation. If the student obtains “W” or “WP” or “WF” in all courses at the end of any "
+    "semester, s/he will be automatically placed on scholarship suspension for the following "
+    "semester as described in the table below:"
+)
+WORK_HOURS = (
+    "Graduate scholarship students benefiting from tuition waiver or more must provide services "
+    "to Al Akhawayn by holding unpaid part-time jobs as assigned by the Financial Aid Office in "
+    "different departments or schools at Al Akhawayn. They are required to work 10 hours\nper "
+    "week (160 hours per semester) as part of their scholarship package."
+)
+
+
+@pytest.mark.parametrize(
+    ("claim_id", "quote", "passage"),
+    [
+        (
+            "plagiarism_en#4",
+            (
+                "Faculty members are expected to make their practices clear to their students, and "
+                "unit heads to their staff... willfully ignoring the principle of academic honesty... "
+                "will result in heavy penalties."
+            ),
+            PLAGIARISM,
+        ),
+        (
+            "scholarship_conditions_en#2",  # its last two parts
+            (
+                "Graduate scholarship students benefiting from tuition waiver or more must provide "
+                "services to Al Akhawayn by holding unpaid part-time jobs... 10 hours per week (160 "
+                "hours per semester)."
+            ),
+            WORK_HOURS,
+        ),
+        (
+            "scholarship_conditions_en#7",
+            (
+                "If the SGPA falls between 3.00 and 3.49, the student will be placed on scholarship "
+                'probation... If the student obtains "W" or "WP" or "WF" in all courses at the end of '
+                "any semester, s/he will be automatically placed on scholarship suspension."
+            ),
+            PROBATION,
+        ),
+        (
+            "scholarship_conditions_en#8",
+            (
+                "Graduate scholarship students benefiting from tuition waiver or more must provide "
+                "services to Al Akhawayn by holding unpaid part-time jobs as assigned by the Financial "
+                "Aid Office in different departments or schools at Al Akhawayn. They are required to "
+                "work 10 hours per week (160 hours per semester)."
+            ),
+            WORK_HOURS,
+        ),
+    ],
+)
+def test_punctuation_added_at_a_parts_edge_is_ignored(claim_id, quote, passage):
+    assert quote_found(quote, [[passage]]), claim_id
+
+
+def test_edge_punctuation_is_stripped_but_never_words():
+    assert quote_parts("(160 hours per semester).") == ["160 hours per semester"]
+    # A changed word still fails, punctuation or not.
+    assert not quote_found("placed on scholarship suspension immediately.", [[PROBATION]])
+
+
+def test_short_fragments_are_not_evidence():
+    # Each part matches somewhere, but none has 4 words: not evidence.
+    assert not quote_found("the student ... will be ... placed on", [[PROBATION]])
+    assert not quote_found("3.49", [[PROBATION]])
+    # A short part beside a real one is ignored: neither helps nor fails the quote
+    # ("Yes" here comes from the answer, not the passage).
+    assert quote_found("Yes... the student will be placed on scholarship probation", [[PROBATION]])
+    assert quote_parts("Yes ... placed on scholarship probation") == [
+        "placed on scholarship probation"
+    ]
 
 
 def test_a_quote_stitched_from_two_cited_passages_makes_the_claim_unsupported():
@@ -124,7 +220,7 @@ def test_quote_from_a_passage_the_claim_did_not_cite_makes_it_unsupported():
 
 def test_uncited_claims_are_checked_against_all_passages():
     claims = [_claim(1, [], "uncited")]
-    verdict = [_verdict(1, "supported", "count once")]
+    verdict = [_verdict(1, "supported", "Repeated courses count once")]
     assert merge_verdicts(claims, PASSAGES, verdict)[0]["label"] == "supported"
 
 
@@ -146,7 +242,10 @@ def test_judge_batch_maps_verdicts_back_to_their_answers(monkeypatch):
         sent.append(prompt)
         verdict = BatchVerdict(
             answers=[AnswerAbstains(answer_id="a", abstains=True)],  # "b" left out
-            verdicts=[_verdict(1, "no_claim"), _verdict(2, "supported", "count once")],
+            verdicts=[
+                _verdict(1, "no_claim"),
+                _verdict(2, "supported", "Repeated courses count once"),
+            ],
         )
         return verdict, 123
 

@@ -207,16 +207,31 @@ def normalize_for_quote(text: str) -> str:
     return " ".join(text.translate(_QUOTE_CHARS).split()).lower()
 
 
+# A quote part shorter than this isn't evidence: "Yes" or "3 SCH" matches too easily.
+MIN_QUOTE_PART_WORDS = 4
+# Punctuation at the edges of a part: "penalties." for "penalties, including ...".
+_EDGE_PUNCTUATION_RE = re.compile(r"^[\W_]+|[\W_]+$")
+
+
+def quote_parts(quote: str) -> list[str]:
+    """The quote's evidence: its "..." / "…" parts, normalized, without edge
+    punctuation (never words), keeping only parts of MIN_QUOTE_PART_WORDS+."""
+    parts = [
+        _EDGE_PUNCTUATION_RE.sub("", normalize_for_quote(p)) for p in re.split(r"\.\.\.|…", quote)
+    ]
+    return [p for p in parts if len(p.split()) >= MIN_QUOTE_PART_WORDS]
+
+
 def quote_found(quote: str, passages: list[list[str]]) -> bool:
-    """Every part of the quote ("a ... b") is found in the same passage.
+    """Every evidence part of the quote (quote_parts) is found in the same passage.
 
     passages: each passage's texts (a marker returned again with more text has
     several). Each part is looked for on its own, in any of that passage's
     texts and in any order -- but all parts in ONE passage: a quote stitched
-    together from two passages fails.
+    together from two passages fails. Shorter parts are ignored; a quote with
+    no part long enough fails.
     """
-    parts = [normalize_for_quote(p) for p in re.split(r"\.\.\.|…", quote)]
-    parts = [p for p in parts if p]
+    parts = quote_parts(quote)
     if not parts:
         return False
     for texts in passages:
