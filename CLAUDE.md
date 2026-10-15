@@ -131,9 +131,16 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     adjudicated supported), 4 sided with the judge, 1 (academic_probation_en#2) -> no_claim.
   - **New gate** for the judge (all must hold):
     (a) calibration 9/9 (unchanged from the original gate);
-    (b) label agreement with the **adjudicated** labels >= **77.5%** (= Youness's 31/40
-        self-agreement as a rate), computed on the claims left after step (2)'s filter;
+    (b) agreement with the **adjudicated** labels >= **31/36 (86%)** on the 36 sample claims
+        left after step (2)'s filter;
     (c) at most **2 lenient errors** (judge supported, adjudicated unsupported) on those claims.
+    History of (b): first recorded as 77.5% = Youness's 31/40 self-agreement on the
+    unfiltered 40. After the filter (step 2) his self-agreement on the same 36 claims is
+    31/36 = 86% -- the 4 excluded claims were among the ones his two passes disagreed on.
+    Changed 2026-10-15 to 31/36 (Youness's decision) because the gate's principle is
+    "agreement at least equal to Youness's self-agreement on the same claims"; it is also
+    the stricter of the two, and was chosen before any re-run or any adjudicated agreement
+    number existed.
     Always reported next to it, not part of the pass/fail: agreement against the original
     labels, kappa, Youness's self-agreement recomputed on the same filtered claims, and quote
     validity as its own number (step 3).
@@ -144,7 +151,7 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     `lead_in` (ends with ":", <= 6 words, no digit, no own marker). Tight on purpose: keeping
     a fragment only adds a no_claim, dropping a fact could hide an unsupported claim. Claim
     ids unchanged (re-split verified identical except the new field). Excluded: run 1 7
-    lead-ins + 5 refusals, run 2 7 + 6; sample 40 -> 36 (gate: >= 28/36). Excluded claims
+    lead-ins + 5 refusals, run 2 7 + 6; sample 40 -> 36 (gate: >= 31/36, see (b)). Excluded claims
     aren't sent to the judge; an answer with nothing left to judge still gets a
     decline-only call (fixes the missing abstains of all-auto-labelled answers like run 1's
     mth1305_fr). report.py checks each answer's decline verdict against expected_behavior:
