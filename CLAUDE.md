@@ -108,7 +108,16 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
   zricethezav/gitleaks:v8.24.0 -c "git config --global --add safe.directory /repo && gitleaks
   git /repo --redact --no-banner -v"`. The GitHub name TeCom0 and the commit email stay
   (decided: Youness's personal account, unrelated to the club).
-- [ ] **1. Judge + baseline** (~1.5 sessions, 2-4 days of quotas): the judge must be **free**
+- [ ] **1. Judge + baseline** -- **update 2026-10-15**: Mistral's free plan offered no Large
+  model on our key (403 tier_not_allowed; Small/Medium at 0 requests/min), so Youness enabled
+  pay-as-you-go ($10 credit). Judge = **mistral-large-2512** (ec4e089: exact id, sliding-window
+  throttle for requests/s + tokens/min, bounded retry, per-call tokens + cost estimate).
+  API headers say 15 requests/min and 400k tokens/min (the console said 1/s and 250k; the
+  stricter of each is used). **Calibration 9/9** (incl. the graduate "B- or lower" case Qwen
+  missed), 2 calls, ~$0.002. Next: judge run 1 -> agreement vs. the 40-claim sample (gate:
+  >= 32/40 AND <= 2 lenient). Fallback order if it fails: mistral-large-4, zai-glm-5-3,
+  ministral-14b-2512, then GitHub Models / best-agreement judge.
+  Original plan (~1.5 sessions, 2-4 days of quotas): the judge must be **free**
   (paid Gemini dropped). Third family = **Mistral Large** on Mistral's free Experiment plan
   (Youness creates the account, SMS verification; check the model is included and whether
   prompts may be used for training -- only public catalog text and generated answers are sent).
