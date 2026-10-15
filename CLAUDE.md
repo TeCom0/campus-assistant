@@ -191,6 +191,15 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     - The prompt change means calibration is re-run (gate (a)) before v2.
     - **After v2 and any blind adjudication, judge work ENDS whatever the result**: report it
       (README) and move to step 2 of the Ship plan (the fixes).
+  - **v2 run (2026-10-15)**: calibration 9/9 after the prompt change and again after the
+    quote-part rules (c24ce2e). v1 files renamed (judgements_run1_mistral_v1.jsonl,
+    agreement_run1_mistral_v1*.json); run 1 re-judged: 32 calls, ~$0.064, no retries.
+    Blind round (c4b4f5c, `adjudication --run 1 --blind`): **5** v2 disagreements on claims
+    not adjudicated before -> adjudication_run1_blind.md / adjudications_run1_blind.json
+    (key in adjudications_run1_blind_key.json -- Youness doesn't open it). Agreement NOT run
+    yet, on purpose: no v2 number is seen before the blind decisions are in (agreement.py
+    refuses while they're incomplete). Next: Youness decides the 5 -> `--blind --check` ->
+    agreement -> gate -> if pass, judge run 2 -> report -> README results -> judge work ends.
   - Remaining plan: (3) report label agreement and quote validity separately; (4) document the
     original gate, why it was unreachable and this change in the README; (5) re-judge run 1
     with mistral-large-2512 and apply the new gate. If it fails: mistral-large-4, zai-glm-5-3,
