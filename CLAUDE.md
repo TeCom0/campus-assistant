@@ -96,11 +96,18 @@ the README reports the baseline and after-fix faithfulness numbers with the judg
 agreement next to them; a full-history secrets scan is clean; the repo is public; a demo video
 of the deployed version exists. Anything not listed here goes to "Future work" in the README.
 
-- [ ] **0. Prep** (~1 h): revert the paid-Gemini judge switch [done]; record this plan [done];
-  host = **Azure for Students** (decided); domain = free: a Namecheap domain from the GitHub
-  Student Pack, DuckDNS as fallback (Youness claims it). Early secrets scan with gitleaks
-  (a quick pattern check on 2026-10-15 found no Groq/Google-shaped keys in history; only
-  .env.example was ever tracked).
+- [x] **0. Prep** (done 2026-10-15): paid-Gemini judge switch reverted; this plan recorded;
+  host = **Azure for Students** (account set up); MISTRAL_API_KEY in .env. Domain = free: a
+  Namecheap domain from the GitHub Student Pack (Youness claims it later, needed by step 4),
+  DuckDNS as fallback. **Early secrets scan: clean** -- gitleaks v8.24.0 (Docker image, no
+  install) found no leaks in all 90 commits nor in the uncommitted eval/results/. Positive
+  control: the same scan on .env flags all 3 keys (generic-api-key rule), so the scanner does
+  catch our key formats. Command, from Git Bash (MSYS_NO_PATHCONV stops path mangling;
+  safe.directory because the mounted repo has a different owner):
+  `MSYS_NO_PATHCONV=1 docker run --rm -v "C:/dev/campus-assistant:/repo:ro" --entrypoint sh
+  zricethezav/gitleaks:v8.24.0 -c "git config --global --add safe.directory /repo && gitleaks
+  git /repo --redact --no-banner -v"`. The GitHub name TeCom0 and the commit email stay
+  (decided: Youness's personal account, unrelated to the club).
 - [ ] **1. Judge + baseline** (~1.5 sessions, 2-4 days of quotas): the judge must be **free**
   (paid Gemini dropped). Third family = **Mistral Large** on Mistral's free Experiment plan
   (Youness creates the account, SMS verification; check the model is included and whether
@@ -128,7 +135,7 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
 - [ ] **5. Final README + CLAUDE.md cleanup** (2-3 h): results, live link, limitations, Future
   work; CLAUDE.md stays public, cleaned of stale and personal notes.
 - [ ] **6. Secrets check + go public** (1-2 h): gitleaks over the full history; review what
-  becomes public (commit email, CLAUDE.md, Actions logs); make public; add the CI badge.
+  becomes public (CLAUDE.md, Actions logs); make public; add the CI badge.
 - [ ] **7. Demo video** of the deployed version.
 
 Future work (not part of the finish line): usage logging; query translation for the French
