@@ -11,9 +11,20 @@ label), and the two error directions separately:
            hides exactly the errors the evaluation exists to find
   strict   judge "unsupported", human "supported"
 
-Also: what the quote check changed (judge's own label vs. final label), the
-"does the answer decline?" agreement, and how the quick full pass compares
-with the careful sample on the same claims.
+Measured separately:
+
+  label agreement  the judge's own label vs. the human's: its judgement
+  quote validity   of the judge's "supported" verdicts in the whole run, how
+                   many quotes really are in the passages: its evidence
+  final agreement  after the quote check (a "supported" whose quote isn't
+                   found becomes "unsupported"): what report.py uses
+
+each against the original reference labels and, once they exist, the
+adjudicated ones (the original plus the decisions in adjudications_runN.json;
+not blind, so both are always shown). Also: the "does the answer decline?"
+agreement, and the human's self-agreement (quick full pass vs. careful sample)
+on the same claims. Claims excluded from scoring (refusals, lead-ins) are left
+out on both sides.
 
 Usage (from backend/):
     python -m app.evaluation.agreement --run 1
@@ -25,6 +36,7 @@ import math
 import sys
 from collections import Counter
 
+from app.evaluation.adjudication import adjudications_path
 from app.evaluation.generate_faithfulness_answers import RESULTS_DIR
 from app.evaluation.hand_labels import labels_path, reference_is_sample
 
@@ -74,6 +86,36 @@ def unjudged(human: dict[str, str], judge: dict[str, str]) -> list[str]:
     return sorted(set(human) - set(judge))
 
 
+def apply_adjudications(human: dict[str, str], decisions: dict) -> dict[str, str]:
+    """The reference labels with each adjudicated claim's decision instead."""
+    return {
+        cid: decisions["claims"][cid]["decision"] if cid in decisions["claims"] else label
+        for cid, label in human.items()
+    }
+
+
+def quote_validity(results: list[dict]) -> dict:
+    """Of the judge's "supported" verdicts, how many quotes were found verbatim."""
+    supported = [r for r in results if r["judge_label"] == "supported"]
+    found = sum(1 for r in supported if r["flag"] != "quote_not_found")
+    low, high = wilson_interval(found, len(supported))
+    return {
+        "supported_verdicts": len(supported),
+        "quote_found": found,
+        "rate": round(found / len(supported), 3) if supported else None,
+        "ci95": [round(low, 3), round(high, 3)],
+    }
+
+
+def _line(name: str, stats: dict) -> str:
+    low, high = stats["ci95"]
+    return (
+        f"  {name:<18} {stats['agree']:>2}/{stats['n']} = {100 * stats['agreement']:3.0f}% "
+        f"({100 * low:.0f}-{100 * high:.0f}%)  kappa {stats['kappa']:>6}  "
+        f"lenient {len(stats['lenient'])}  strict {len(stats['strict'])}"
+    )
+
+
 def _load_jsonl(path) -> list[dict]:
     with path.open(encoding="utf-8") as f:
         return [json.loads(line) for line in f if line.strip()]
@@ -104,31 +146,48 @@ def run(run_number: int) -> dict:
         )
     claim_text = {cid: c["text"] for cid, c in claims.items()}
 
-    final = compare(human, judge_final)
-    before_quote_check = compare(human, judge_own)
+    references = {"original": human}
+    decisions_path = adjudications_path(run_number)
+    if decisions_path.exists():
+        decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
+        references["adjudicated"] = apply_adjudications(human, decisions)
+    label = {name: compare(ref, judge_own) for name, ref in references.items()}
+    final = {name: compare(ref, judge_final) for name, ref in references.items()}
+    scored = [r for cid, r in results.items() if not claims[cid].get("exclude")]
+    quotes = {
+        "run": quote_validity(scored),
+        "sample": quote_validity([results[cid] for cid in human]),
+    }
     human_abstains = {a: v["abstains"] for a, v in reference["answers"].items()}
     judge_abstains = {j["id"]: j["abstains"] for j in judgements if j["id"] in human_abstains}
     abstains_agree = sum(human_abstains[a] == judge_abstains.get(a) for a in human_abstains)
 
     print(
-        f"Reference: {labels_path(run_number, sample).name} ({final['n']} claims; "
+        f"Reference: {labels_path(run_number, sample).name} ({len(human)} claims; "
         f"{len(excluded)} excluded from scoring and not compared)"
     )
     for cid in excluded:
         print(f"  excluded ({claims[cid]['exclude']}): {cid}  {claim_text[cid]!r}")
-    low, high = final["ci95"]
-    print(
-        f"\nAgreement: {final['agree']}/{final['n']} = {100 * final['agreement']:.0f}% "
-        f"(95% CI {100 * low:.0f}-{100 * high:.0f}%), Cohen's kappa {final['kappa']}"
-    )
-    print(f"  lenient (judge supported, you unsupported): {len(final['lenient'])}")
-    print(f"  strict  (judge unsupported, you supported): {len(final['strict'])}")
-    print("  you -> judge:", final["confusion"])
-    print(
-        f"Before the quote check: {before_quote_check['agree']}/{before_quote_check['n']} "
-        f"(quote_not_found flags in the sample: "
-        f"{sum(1 for i in human if results.get(i, {}).get('flag') == 'quote_not_found')})"
-    )
+    if "adjudicated" in references:
+        changed = sum(references["adjudicated"][c] != human[c] for c in human)
+        print(f"Adjudicated: {decisions_path.name} ({changed} labels differ from the original)")
+    else:
+        print(f"Adjudicated: none yet ({decisions_path.name} doesn't exist)")
+
+    print("\nLabel agreement (the judge's own label):")
+    for name, stats in label.items():
+        print(_line(f"vs. {name}", stats))
+    print("Final agreement (after the quote check, as the report uses):")
+    for name, stats in final.items():
+        print(_line(f"vs. {name}", stats))
+    for scope, q in quotes.items():
+        if q["supported_verdicts"]:
+            low, high = q["ci95"]
+            print(
+                f"Quote validity ({scope}): {q['quote_found']}/{q['supported_verdicts']} "
+                f"'supported' quotes found verbatim = {100 * q['rate']:.0f}% "
+                f"({100 * low:.0f}-{100 * high:.0f}%)"
+            )
     print(f"'Does the answer decline?': {abstains_agree}/{len(human_abstains)} agree")
 
     quick_path = labels_path(run_number, sample=False)
@@ -137,19 +196,19 @@ def run(run_number: int) -> dict:
         quick_labels = json.loads(quick_path.read_text(encoding="utf-8"))["claims"]
         # Your self-agreement, on the same (non-excluded) claims as the judge.
         quick = compare(human, {cid: v["label"] for cid, v in quick_labels.items()})
-        print(
-            f"Quick full pass vs. careful sample, same claims: {quick['agree']}/{quick['n']} "
-            f"agree (judge vs. careful sample: {final['agree']}/{final['n']})"
-        )
+        print(f"Your self-agreement (quick pass vs. careful sample): {quick['agree']}/{quick['n']}")
 
-    print("\nDisagreements:")
-    for cid in final["disagreements"]:
+    shown = "adjudicated" if "adjudicated" in references else "original"
+    shown_labels = references[shown]
+    print(f"\nDisagreements (final label vs. {shown} labels):")
+    for cid in final[shown]["disagreements"]:
         r = results[cid]
         print(
-            f"\n- {cid}: you {human[cid]}, judge {r['label']}"
+            f"\n- {cid}: you {shown_labels[cid]}, judge {r['judge_label']} -> {r['label']}"
             + (f" [{r['flag']}]" if r["flag"] else "")
         )
         print(f"  claim:  {claim_text.get(cid, '')}")
+        print(f"  quote:  {r.get('evidence_quote') or '(none)'}")
         print(f"  judge:  {r.get('reason', '')}")
         if notes.get(cid):
             print(f"  your note: {notes[cid]}")
@@ -157,11 +216,13 @@ def run(run_number: int) -> dict:
     summary = {
         "run": run_number,
         "reference": labels_path(run_number, sample).name,
+        "adjudications": decisions_path.name if "adjudicated" in references else None,
         "excluded": {cid: claims[cid]["exclude"] for cid in excluded},
-        "final": final,
-        "before_quote_check": before_quote_check,
+        "label_agreement": label,
+        "final_agreement": final,
+        "quote_validity": quotes,
         "abstains": {"agree": abstains_agree, "n": len(human_abstains)},
-        "quick_pass_vs_reference": quick,
+        "self_agreement": quick,
     }
     out = RESULTS_DIR / f"agreement_run{run_number}.json"
     out.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

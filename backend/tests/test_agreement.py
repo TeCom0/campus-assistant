@@ -2,7 +2,14 @@
 
 import pytest
 
-from app.evaluation.agreement import cohens_kappa, compare, unjudged, wilson_interval
+from app.evaluation.agreement import (
+    apply_adjudications,
+    cohens_kappa,
+    compare,
+    quote_validity,
+    unjudged,
+    wilson_interval,
+)
 
 
 def test_kappa_is_one_for_perfect_agreement_and_zero_at_chance():
@@ -43,3 +50,26 @@ def test_unjudged_lists_reference_claims_the_judge_has_not_labelled():
     assert unjudged(human, {"a#1": "supported"}) == ["a#2", "b#1"]
     # Extra judge labels (claims outside the sample) don't matter.
     assert unjudged(human, {**human, "c#1": "supported"}) == []
+
+
+def test_adjudicated_labels_replace_only_the_decided_claims():
+    human = {"a#1": "unsupported", "a#2": "supported", "a#3": "supported"}
+    decisions = {"claims": {"a#1": {"decision": "supported"}, "x#9": {"decision": "no_claim"}}}
+    # x#9 isn't in the reference (e.g. excluded from scoring): ignored, not added.
+    assert apply_adjudications(human, decisions) == {
+        "a#1": "supported",
+        "a#2": "supported",
+        "a#3": "supported",
+    }
+
+
+def test_quote_validity_counts_only_the_judges_supported_verdicts():
+    results = [
+        {"judge_label": "supported", "flag": None},
+        {"judge_label": "supported", "flag": "quote_not_found"},
+        {"judge_label": "supported", "flag": None},
+        {"judge_label": "unsupported", "flag": None},  # no quote to check
+    ]
+    q = quote_validity(results)
+    assert (q["supported_verdicts"], q["quote_found"], q["rate"]) == (3, 2, 0.667)
+    assert quote_validity([])["rate"] is None
