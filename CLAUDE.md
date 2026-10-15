@@ -4,7 +4,9 @@
 A multilingual (English/French) AI assistant for Al Akhawayn University students. It answers questions
 about academic policies, the course catalog, and scholarships, always citing its sources, and uses an
 agent to query structured data (e.g. "what are the prerequisites for ACC 2302?"). The goal is to deploy
-it to real students through TeCom (the student tech club) and measure real usage.
+it publicly for real students and publish the repo. It is an unofficial student project, not an
+official AUI service (the UI must say so). AUI has confirmed they are fine with the project, so
+the catalog text can stay in the public repo.
 
 It is also a portfolio project for AI Software Engineer internship applications, so it must
 demonstrate: RAG, AI agents, hybrid search, REST APIs, a TypeScript frontend, tests, Docker, CI/CD,
@@ -83,8 +85,56 @@ and evaluation.
 - [done ] Phase 4: LangGraph agent with tools (docs search + SQL)
 - [done ] Phase 5: React + TypeScript chat UI with streaming
 - [done ] Phase 6: tests, Docker Compose for full stack, GitHub Actions CI
-- [wip  ] Phase 7: README, architecture diagram, demo video, deployment for student pilot
-  (README + diagram done)
+- [wip  ] Phase 7: README, architecture diagram, faithfulness baseline, deployment, demo video
+  (README + diagram done) -- finished through the Ship plan below
+
+## Ship plan (agreed 2026-10-15) -- the finish line
+
+Supersedes "Next steps (agreed 2026-10-11)" below where they differ. Done = the live HTTPS URL
+shows the unofficial-project disclaimer, requires the access code and enforces the daily cap;
+the README reports the baseline and after-fix faithfulness numbers with the judge's measured
+agreement next to them; a full-history secrets scan is clean; the repo is public; a demo video
+of the deployed version exists. Anything not listed here goes to "Future work" in the README.
+
+- [ ] **0. Prep** (~1 h): revert the paid-Gemini judge switch [done]; record this plan [done];
+  host = **Azure for Students** (decided); domain = free: a Namecheap domain from the GitHub
+  Student Pack, DuckDNS as fallback (Youness claims it). Early secrets scan with gitleaks
+  (a quick pattern check on 2026-10-15 found no Groq/Google-shaped keys in history; only
+  .env.example was ever tracked).
+- [ ] **1. Judge + baseline** (~1.5 sessions, 2-4 days of quotas): the judge must be **free**
+  (paid Gemini dropped). Third family = **Mistral Large** on Mistral's free Experiment plan
+  (Youness creates the account, SMS verification; check the model is included and whether
+  prompts may be used for training -- only public catalog text and generated answers are sent).
+  Add a "mistral" provider to judge_claims.py: throttle to its ~1 request/second, resumable
+  runs (already per-answer). **Gate (decided): calibration 9/9 AND >= 32/40 agreement with the
+  careful sample AND <= 2 lenient errors.** If no judge passes, use the best-agreeing judge
+  (Qwen so far: 25/40) and show its agreement next to every number -- not gpt-oss-120b by
+  default (8/9 on calibration, same family as the generator). Then: judge run 1 -> agreement
+  -> run 2 -> report -> threshold for going live -> commit eval/results/. Youness's original
+  sample labels stay the reference; any adjudication goes in a separate file.
+- [ ] **2. Fix 2-3 issues, re-evaluate** (~2 sessions, 3-4 days): tag each unsupported claim
+  with a cause (together), fix the 2-3 biggest (likely: forced-answer crash, headings +
+  undergraduate/graduate tags in chunks, citation placement -- confirm from the analysis),
+  generate runs 3 + 4 (~1 Groq day each), judge, compare with the baseline (counts per cause
+  too: 24 main answers per run only shows large effects).
+- [ ] **3. Rate limit + daily cap + access code** (~1 session; write it while step 2 waits on
+  quotas): per-IP limit (real client IP from the proxy header), global daily cap stored in
+  Postgres, shared access code checked server-side, friendly message on a Groq 429, UI prompt,
+  tests. All evaluation runs finish before go-live: the app and the eval share gpt-oss-20b's
+  200k tokens/day.
+- [ ] **4. Deploy** (1-2 sessions): Azure VM, same docker-compose.yml, Caddy in front
+  (automatic Let's Encrypt HTTPS, one origin with the API under /api), .env only on the server
+  (chmod 600), load the DB, UI disclaimer, smoke test on the live URL.
+- [ ] **5. Final README + CLAUDE.md cleanup** (2-3 h): results, live link, limitations, Future
+  work; CLAUDE.md stays public, cleaned of stale and personal notes.
+- [ ] **6. Secrets check + go public** (1-2 h): gitleaks over the full history; review what
+  becomes public (commit email, CLAUDE.md, Actions logs); make public; add the CI badge.
+- [ ] **7. Demo video** of the deployed version.
+
+Future work (not part of the finish line): usage logging; query translation for the French
+retrieval gap; search-query padding; citable query_courses "no description" result (unless
+picked in step 2); linking `[2, 4]` markers; ingestion endpoint; re-judging with paid Gemini;
+more hand labels; pinning `ubuntu-24.04` in CI.
 
 ## Current status
 
@@ -102,14 +152,10 @@ Session 2026-10-12: judge calibration 9/9 but Gemini 503s stopped run-1 judging 
 batches; fixed the judge chain so it can't report agreement on partial results (f1a3915);
 run 2 generated and split; baseline report script (5c2b1af). Session 2026-10-13: free
 Gemini stayed unusable; a Qwen-on-Groq judge (8/9 calibration) judged run 1 but agreed with
-the 40 hand labels only 25/40 (kappa 0.20) -- not trustworthy. **Youness is setting up paid
-Gemini** (AI Studio -> Projects -> "Set up billing", Prepay $5, no auto-reload; est. ~$0.50
-for both runs). **Start the next session, once billing is on**, from backend\: set
-`JUDGE_PROVIDER = "gemini"` in judge_claims.py and pin the Gemini judge model to
-`gemini-3.6-flash` (the name Google actually serves; config.py's 3.5 is routed to it); with
-the 20/day limit gone, decide ANSWERS_PER_CALL (4 = as calibrated) ; `--calibration` (must
-be 9/9) -> `--run 1` -> `agreement --run 1` -> `--run 2` -> `report --runs 1 2` -> pilot
-threshold -> commit eval/results/. The Qwen results are kept as *_qwen* files in
+the 40 hand labels only 25/40 (kappa 0.20) -- not trustworthy. Session 2026-10-15: the
+paid-Gemini plan was dropped (the judge must be free); the **Ship plan** above is the
+order of work from here. If Gemini is ever used again, the name Google serves is
+`gemini-3.6-flash` (config.py's 3.5 is routed to it). The Qwen results are kept as *_qwen* files in
 eval/results/faithfulness/ (judgements_run1_qwen.jsonl, judgements_run2_qwen_partial.jsonl,
 agreement_run1_qwen.json, report_runs_1_qwen.json) for a judge-vs-judge comparison.
 Optional before or after: adjudicate the judge/human disagreements (Qwen had 15; e.g.
@@ -417,15 +463,13 @@ on 2026-10-06, three on 2026-10-08) and verified in the UI. The Phase 5 code wal
    the judge run, quota `GenerateRequestsPerDayPerProjectPerModel-FreeTier`, value 20; failed
    503 attempts appear to count too) = ~5-10 student questions/day.
    The evaluation shares the same quota (a full run ~150k tokens): don't run it on pilot days.
-3. **Deployment for the student pilot**, then the demo video against the deployed version.
-   Decided: a VPS running the same docker-compose.yml; frontend and API on one origin with the
-   API under /api (no CORS, VITE_API_URL="/api"); .env only on the server (chmod 600);
-   access code; privacy-preserving usage logging (question, language, tools, latency; no IPs or
-   identities; a notice in the UI). Still to do: compare Azure for Students ($100 credit, no
-   card; how long $100 lasts for a VM with enough RAM -- the API needs ~1-1.5 GB) against
-   Hetzner, with current prices; a visible UI disclaimer that this is an unofficial student
-   project, not an AUI service. Youness is checking with TeCom about a domain and getting
-   permission before going live.
+3. **Deployment**, then the demo video against the deployed version (details: Ship plan,
+   steps 4 and 7). Decided: a VM running the same docker-compose.yml; frontend and API on one
+   origin with the API under /api (no CORS, VITE_API_URL="/api"); .env only on the server
+   (chmod 600); access code; a visible UI disclaimer that this is an unofficial student
+   project, not an AUI service. Host decided 2026-10-15: Azure for Students ($100 credit, no
+   card; the API needs ~1-1.5 GB RAM -- size the VM from that). Usage logging moved to future
+   work.
 
 **Phase 7 progress (2026-10-09):** README written (26995cd): what it does, stack, design
 decisions, evaluation numbers, setup from a fresh clone (the DB starts empty: 5 ingestion
@@ -482,9 +526,8 @@ jobs on every push to main and every PR.
 
 **Open issues / decisions to remember:**
 - *GitHub* (set up 2026-10-08): private repo **TeCom0/campus-assistant**
-  (https://github.com/TeCom0/campus-assistant). TeCom0 is Youness's *personal* GitHub account
-  (not a club account), and the commits' author identity TeCom0 <tecomclub@gmail.com> was kept
-  deliberately. Default branch `main` (renamed from `master` before the first push). GitHub CLI
+  (https://github.com/TeCom0/campus-assistant). TeCom0 is Youness's *personal* GitHub account;
+  the commits' author identity is TeCom0 <tecomclub@gmail.com>. Default branch `main` (renamed from `master` before the first push). GitHub CLI
   installed via winget (`C:\Program Files\GitHub CLI\gh.exe`), logged in as TeCom0 with the
   `workflow` scope (needed to push a GitHub Actions file in Phase 6); `gh auth setup-git` makes
   plain `git push` use that login. Push after every commit. Windows PowerShell 5.1 mangles

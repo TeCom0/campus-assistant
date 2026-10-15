@@ -5,10 +5,10 @@ questions about academic policies, the course catalog and scholarships, **cites 
 answer comes from**, and uses an agent with tools to look up structured course data, e.g. *"What
 are the prerequisites for ACC 2302?"* — including the full prerequisite chain.
 
-Built to be piloted with real students through TeCom, AUI's student tech club.
+An unofficial student project, not an official AUI service.
 
-**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6). Next: a demo video
-and the student pilot deployment.
+**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6). Next: a faithfulness
+baseline, a public deployment for students, and a demo video.
 
 ---
 
@@ -221,7 +221,7 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   description"), which can push the right passage down the ranking.
 - **Free-tier LLM limits.** Groq's daily token limit caps usage; history is capped at 10 messages
   to keep requests small.
-- **No authentication or rate limiting yet**, needed before a public pilot.
+- **No authentication or rate limiting yet**, needed before a public deployment.
 
 ## Data
 
