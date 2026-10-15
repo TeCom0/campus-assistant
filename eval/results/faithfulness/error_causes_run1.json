@@ -1,0 +1,115 @@
+{
+  "run": 1,
+  "judge": "mistral-large-2512 (v2 rules)",
+  "note": "proposed = Claude's reading of error_analysis_run1.md; confirmed = Youness's decision (one of the causes in error_analysis.py).",
+  "causes": {
+    "plagiarism_fr#2": {
+      "proposed": "citation_placement",
+      "why": "'failure in a course' is in retrieved passage [4] (pp. 107-108) but the sentence cites [2], which only says 'possible expulsion'.",
+      "confirmed": null,
+      "note": ""
+    },
+    "plagiarism_en#3": {
+      "proposed": "judge_artifact",
+      "why": "Supported verbatim by [2] ('heavy penalties, including failure in a course, suspension from the university, or expulsion'); the claim cites [1,2], and the judge's quote joined [1] and [2], which the one-passage rule fails.",
+      "confirmed": null,
+      "note": ""
+    },
+    "add_drop_en#1": {
+      "proposed": "judge_artifact",
+      "why": "A 9-word lead-in ('...follow the official registration procedure:'); judge said supported. The quote failed only because the PDF text has 'and/ or' (space after the slash) where the quote has 'and/or'.",
+      "confirmed": null,
+      "note": ""
+    },
+    "add_drop_en#6": {
+      "proposed": "judge_artifact",
+      "why": "Both facts are in [4] ('not official until all applicable tuition and fees have been paid'; 'not reflected on the academic record'). Same 'and/ or' PDF spacing broke the quote.",
+      "confirmed": null,
+      "note": ""
+    },
+    "add_drop_fr#3": {
+      "proposed": "french_retrieval",
+      "why": "3 padded French searches; the cited [4] is the catalog's TABLE OF CONTENTS (p. 5), not the add/drop policy (p. 103), so the steps ('portail', 'Drop') are invented around TOC headings.",
+      "confirmed": null,
+      "note": ""
+    },
+    "add_drop_fr#7": {
+      "proposed": "french_retrieval",
+      "why": "Same answer: cites the table of contents [4] for drop deadlines; the add/drop policy chunk was never retrieved.",
+      "confirmed": null,
+      "note": ""
+    },
+    "course_load_en": {
+      "proposed": "crash",
+      "why": "Forced-final-answer 400: 'Tool choice is none, but model called a tool'.",
+      "confirmed": null,
+      "note": ""
+    },
+    "course_load_fr#6": {
+      "proposed": "french_retrieval",
+      "why": "'5 cours' for a regular student is TRUE in the catalog (p. 116 Course Load Policy: 'A normal course load per semester is five courses'), but no French search retrieved that chunk; it cites [14], the scholarship six-course recommendation.",
+      "confirmed": null,
+      "note": ""
+    },
+    "academic_probation_fr": {
+      "proposed": "crash",
+      "why": "Forced-final-answer 400, same as course_load_en.",
+      "confirmed": null,
+      "note": ""
+    },
+    "w_grade_fr#6": {
+      "proposed": "embellishment",
+      "why": "'peuvent varier légèrement d'une année à l'autre' is in neither [1] nor [3]; the judge's quote even invented an English version of it.",
+      "confirmed": null,
+      "note": ""
+    },
+    "scholarship_conditions_en#1": {
+      "proposed": "grad_undergrad",
+      "why": "Row labelled 'All scholarships (under-graduate & graduate)', but its conditions come from [1], the GRADUATE scholarships page (non-transferable, program change), mixed with an undergraduate-section line from [2].",
+      "confirmed": null,
+      "note": ""
+    },
+    "scholarship_conditions_en#2": {
+      "proposed": "judge_artifact",
+      "why": "Labelled 'Graduate (Master's)' and every fact is in [3] (graduate renewal policy) or [1] (graduate work hours) -- correctly attributed. Failed only because the quote joins [1] and [3].",
+      "confirmed": null,
+      "note": ""
+    },
+    "scholarship_conditions_en#3": {
+      "proposed": "heading_split",
+      "why": "Chunk [5] starts mid-sentence: '...semesters for undergraduates and 4 semesters for graduates' -- the undergraduate number was cut into the previous chunk, so the model guessed 'typically 8' (the catalog says nine, p. 67) and added 'often 3.0 or higher'.",
+      "confirmed": null,
+      "note": ""
+    },
+    "scholarship_conditions_fr": {
+      "proposed": "french_retrieval",
+      "why": "3 French searches ('conditions pour conserver une bourse') returned loans, course lists and MBA pages -- none of the renewal-policy chunks the English question found -- so it declined.",
+      "confirmed": null,
+      "note": ""
+    },
+    "scholarship_work_hours_fr#3": {
+      "proposed": "citation_placement",
+      "why": "'up to 10 hours/week from the 2nd semester' is in [11], but '(160 heures par semestre)' is only in [12] (graduate page); the sentence cites [11] alone.",
+      "confirmed": null,
+      "note": ""
+    },
+    "csc3326_prereqs_en#3": {
+      "proposed": "judge_artifact",
+      "why": "'Junior classification' is verbatim in [1]; the judge's quote 'and Junior classification' is 3 words, under the 4-word minimum, so it doesn't count as evidence.",
+      "confirmed": null,
+      "note": ""
+    },
+    "csc3326_prereqs_fr#3": {
+      "proposed": "embellishment",
+      "why": "'Junior' is in [1], but the gloss 'c'est-à-dire être au troisième semestre de votre programme' is not in any passage (and likely wrong).",
+      "confirmed": null,
+      "note": ""
+    },
+    "mth1305_fr": {
+      "proposed": "uncitable_tool",
+      "why": "Only query_courses was called; it returned the 'no description' note (no marker), the model cited a [1] no tool returned and declined, never searching -- the catalog's p. 155 has 'MTH 1305 Mathematics for Business'.",
+      "confirmed": null,
+      "note": ""
+    }
+  }
+}
