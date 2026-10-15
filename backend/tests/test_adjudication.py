@@ -3,10 +3,12 @@ disagreements, the right passages, and decisions that are never overwritten."""
 
 from app.evaluation import adjudication
 from app.evaluation.adjudication import (
+    blind_items,
     build_items,
     check_decisions,
     checked_against,
     decisions_template,
+    render_blind_markdown,
     render_markdown,
 )
 
@@ -87,3 +89,36 @@ def test_existing_decisions_are_never_overwritten(tmp_path, monkeypatch):
         (tmp_path / name).write_text("", encoding="utf-8")
     adjudication.write_files(1)
     assert out.read_text(encoding="utf-8") == '{"claims": {"q#2": {"decision": "no_claim"}}}'
+
+
+def test_blind_items_cover_only_new_disagreements_with_a_correct_key():
+    current = {"q#1": "supported", "q#2": "no_claim", "q#3": "supported", "q#4": "unsupported"}
+    judge = {
+        "q#1": _result("supported"),  # agrees
+        "q#2": _result("unsupported"),  # disagrees, but already adjudicated
+        "q#3": _result("unsupported"),  # new disagreement
+        "q#4": _result("supported"),  # new disagreement
+    }
+    items, key = blind_items(current, judge, already={"q#2"})
+    assert [i["claim_id"] for i in items] == ["q#3", "q#4"]
+    for item in items:
+        labels = {key[item["claim_id"]][side]: item[side] for side in ("A", "B")}
+        assert labels == {"reference": current[item["claim_id"]],
+                          "judge": judge[item["claim_id"]]["label"]}  # fmt: skip
+
+
+def test_blind_order_is_random_but_reproducible():
+    current = {f"q#{n}": "supported" for n in range(20)}
+    judge = {cid: _result("unsupported") for cid in current}
+    _, key = blind_items(current, judge, already=set(), seed=1)
+    assert {k["A"] for k in key.values()} == {"reference", "judge"}  # both orders occur
+    assert blind_items(current, judge, already=set(), seed=1)[1] == key
+
+
+def test_blind_page_shows_neither_the_judges_quote_nor_its_reason():
+    claims = {"q#3": {"id": "q", "text": "claim three", "kind": "own", "markers": [2]}}
+    items = [{"claim_id": "q#3", "A": "unsupported", "B": "supported"}]
+    md = render_blind_markdown(1, items, claims, ANSWERS)
+    assert "**Label A:** unsupported | **Label B:** supported" in md
+    assert "Longer, with more." in md  # the passage is there
+    assert "quote" not in md.lower() and "reason" not in md.lower()

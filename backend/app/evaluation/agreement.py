@@ -36,7 +36,7 @@ import math
 import sys
 from collections import Counter
 
-from app.evaluation.adjudication import adjudications_path
+from app.evaluation.adjudication import adjudications_path, blind_paths, check_decisions
 from app.evaluation.generate_faithfulness_answers import RESULTS_DIR
 from app.evaluation.hand_labels import labels_path, reference_is_sample
 
@@ -148,8 +148,17 @@ def run(run_number: int) -> dict:
 
     references = {"original": human}
     decisions_path = adjudications_path(run_number)
+    blind_path = blind_paths(run_number)[1]
     if decisions_path.exists():
         decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
+        if blind_path.exists():  # the blind round's decisions add to the first round's
+            blind = json.loads(blind_path.read_text(encoding="utf-8"))
+            if check_decisions(blind):
+                raise SystemExit(
+                    f"{blind_path.name} isn't finished; check: python -m "
+                    f"app.evaluation.adjudication --run {run_number} --blind --check"
+                )
+            decisions = {"claims": {**decisions["claims"], **blind["claims"]}}
         references["adjudicated"] = apply_adjudications(human, decisions)
     label = {name: compare(ref, judge_own) for name, ref in references.items()}
     final = {name: compare(ref, judge_final) for name, ref in references.items()}
@@ -170,7 +179,8 @@ def run(run_number: int) -> dict:
         print(f"  excluded ({claims[cid]['exclude']}): {cid}  {claim_text[cid]!r}")
     if "adjudicated" in references:
         changed = sum(references["adjudicated"][c] != human[c] for c in human)
-        print(f"Adjudicated: {decisions_path.name} ({changed} labels differ from the original)")
+        files = decisions_path.name + (f" + {blind_path.name}" if blind_path.exists() else "")
+        print(f"Adjudicated: {files} ({changed} labels differ from the original)")
     else:
         print(f"Adjudicated: none yet ({decisions_path.name} doesn't exist)")
 
