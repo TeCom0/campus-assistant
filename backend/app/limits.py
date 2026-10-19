@@ -49,8 +49,23 @@ MESSAGES = {
 }
 
 
+# Shown as the notice's heading in the UI, above the message.
+TITLES = {
+    "daily_cap": {"en": "Daily demo limit reached", "fr": "Limite quotidienne de la démo atteinte"},
+    "per_ip": {
+        "en": "Too many questions in a short time",
+        "fr": "Trop de questions en peu de temps",
+    },
+    "busy": {"en": "The assistant is busy", "fr": "L'assistant est très sollicité"},
+}
+
+
 def message(kind: str, language: str | None) -> str:
     return MESSAGES[kind]["fr" if language == "fr" else "en"]
+
+
+def title(kind: str, language: str | None) -> str:
+    return TITLES[kind]["fr" if language == "fr" else "en"]
 
 
 def client_ip(request: Request, trust_proxy_headers: bool = TRUST_PROXY_HEADERS) -> str:

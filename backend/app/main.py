@@ -22,7 +22,7 @@ from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
 from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
 from app.db.connection import get_connection, init_schema
-from app.limits import Decision, check_and_record, client_ip, hash_ip, message
+from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.sources import link_target, with_display_info
 
 
@@ -98,7 +98,11 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
     if not decision.allowed:
         return JSONResponse(
             status_code=429,
-            content={"kind": decision.kind, "message": message(decision.kind, language)},
+            content={
+                "kind": decision.kind,
+                "title": title(decision.kind, language),
+                "message": message(decision.kind, language),
+            },
             headers={"Retry-After": str(decision.retry_after_seconds)},
         )
 
@@ -155,7 +159,13 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
             # anything else (tokens/day) only tomorrow.
             print(f"[chat] Groq rate limit: {e!r}")
             kind = "busy" if "per minute" in str(e) else "daily_cap"
-            yield _sse("error", {"message": message(kind, language), "kind": "limit"})
+            limit_event = {
+                "kind": "limit",
+                "limit": kind,
+                "title": title(kind, language),
+                "message": message(kind, language),
+            }
+            yield _sse("error", limit_event)
 
         except Exception as e:  # noqa: BLE001 -- deliberately broad: any failure
             # mid-stream must still close the SSE stream with an error event,

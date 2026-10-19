@@ -1,6 +1,6 @@
-import type { ChatEvent, HistoryMessage } from "./types";
+import type { ChatEvent, HistoryMessage, LimitKind } from "./types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
+export const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
 // Splits a buffer of SSE text into complete events plus any trailing partial
 // frame. SSE frames are separated by a blank line; a network chunk can end
@@ -30,8 +30,17 @@ export function parseSse(buffer: string): { events: ChatEvent[]; rest: string } 
 }
 
 // The demo refused the question (HTTP 429: daily cap or per-IP limit). The
-// server's message is friendly and already in the question's language.
-export class LimitError extends Error {}
+// server's title and message are friendly and already in the question's language.
+export class LimitError extends Error {
+  title: string;
+  kind: LimitKind;
+
+  constructor(message: string, title: string, kind: LimitKind) {
+    super(message);
+    this.title = title;
+    this.kind = kind;
+  }
+}
 
 // POST /chat and call onEvent for each event as it arrives. EventSource can't
 // be used here: it only supports GET, and /chat needs a POST with a JSON body.
@@ -47,7 +56,11 @@ export async function streamChat(
   });
   if (response.status === 429) {
     const body = await response.json().catch(() => ({}));
-    throw new LimitError(body.message ?? "The demo limit was reached. Please try again later.");
+    throw new LimitError(
+      body.message ?? "The demo limit was reached. Please try again later.",
+      body.title ?? "Demo limit reached",
+      body.kind ?? "daily_cap",
+    );
   }
   if (!response.ok || !response.body) {
     throw new Error(`Chat request failed with HTTP ${response.status}`);

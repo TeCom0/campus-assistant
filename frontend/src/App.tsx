@@ -1,83 +1,44 @@
-import { useState, type FormEvent } from "react";
-import Markdown, { type Components } from "react-markdown";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import { LimitError, streamChat } from "./chatStream";
-import type { Citation, HistoryMessage } from "./types";
+import { AssistantTurn } from "./components/AssistantTurn";
+import { Composer } from "./components/Composer";
+import { EmptyState } from "./components/EmptyState";
+import { TopBar } from "./components/TopBar";
+import { replayExample, savedExample, type ExampleQuestion } from "./examples";
+import type { AssistantMessage, Message } from "./messages";
+import { useTheme } from "./theme";
+import type { ChatEvent, HistoryMessage } from "./types";
 
-interface UserMessage {
-  role: "user";
-  text: string;
-}
+const CONNECTION_LOST = "The connection to the assistant dropped. Check your connection and try again.";
+// The server's error event says only that something went wrong (details stay in its log).
+const STOPPED_EARLY = "The answer stopped before it finished, so the text above may be incomplete.";
 
-interface AssistantMessage {
-  role: "assistant";
-  text: string;
-  labels: string[];
-  citations: Citation[];
-  // "limited": the demo's daily cap, the per-IP limit or the LLM provider's
-  // limit -- shown as a friendly notice, not as a broken answer. Like
-  // "interrupted", it isn't sent back as history (only "done" is).
-  status: "streaming" | "done" | "interrupted" | "limited";
-  error?: string;
-}
-
-type Message = UserMessage | AssistantMessage;
-
-// Footnote ids include the message index: markers restart at [1] in every
-// answer, so "source-1" alone would repeat and every link would jump to the
-// first answer's footnote.
-function sourceId(messageIndex: number, marker: number | string) {
-  return `source-${messageIndex}-${marker}`;
-}
-
-// Rewrites each "[3]" that has a received citation into a Markdown link to its
-// footnote ("[\[3\]](#source-2-3)"; the escaped brackets keep "[3]" as the
-// visible text). Markers with no citation stay plain text, so the model can't
-// create a link to a source that doesn't exist.
-function linkCitationMarkers(text: string, citations: Citation[], messageIndex: number) {
-  const knownMarkers = new Set(citations.map((c) => c.marker));
-  return text.replace(/\[(\d+)\]/g, (marker, number: string) =>
-    knownMarkers.has(Number(number))
-      ? `[\\[${number}\\]](#${sourceId(messageIndex, number)})`
-      : marker,
-  );
-}
-
-// Footnote links render as superscripts; any other link in an answer opens in
-// a new tab. No raw HTML: react-markdown escapes it unless a plugin allows it.
-const markdownComponents: Components = {
-  a: ({ href, children }) =>
-    href?.startsWith("#source-") ? (
-      <sup>
-        <a href={href}>{children}</a>
-      </sup>
-    ) : (
-      <a href={href} target="_blank" rel="noreferrer">
-        {children}
-      </a>
-    ),
-};
-
-function AnswerText({
-  text,
-  citations,
-  messageIndex,
-}: {
-  text: string;
-  citations: Citation[];
-  messageIndex: number;
-}) {
-  return (
-    <Markdown components={markdownComponents}>
-      {linkCitationMarkers(text, citations, messageIndex)}
-    </Markdown>
-  );
-}
+// Within this distance of the bottom, new text keeps the page scrolled down;
+// a visitor who scrolled up to read stays where they are.
+const STICK_TO_BOTTOM_PX = 140;
 
 export default function App() {
+  const [theme, toggleTheme] = useTheme();
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
+  const stickToBottom = useRef(true);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const fromBottom = document.documentElement.scrollHeight - window.innerHeight - window.scrollY;
+      stickToBottom.current = fromBottom < STICK_TO_BOTTOM_PX;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (stickToBottom.current) {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" });
+    }
+  }, [messages]);
 
   // Applies a change to the most recent assistant message, immutably.
   function updateLastAssistant(change: (m: AssistantMessage) => AssistantMessage) {
@@ -89,114 +50,121 @@ export default function App() {
     });
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    const trimmed = question.trim();
-    if (!trimmed || busy) return;
+  // One handler for live and replayed answers, so both look and behave the same.
+  function handleEvent(ev: ChatEvent) {
+    if (ev.type === "token") {
+      updateLastAssistant((m) => ({ ...m, text: m.text + ev.text }));
+    } else if (ev.type === "tool_call") {
+      updateLastAssistant((m) => ({ ...m, steps: [...m.steps, { tool: ev.tool, label: ev.label }] }));
+    } else if (ev.type === "citations") {
+      updateLastAssistant((m) => ({ ...m, citations: ev.citations }));
+    } else if (ev.type === "done") {
+      updateLastAssistant((m) => ({ ...m, status: "done" }));
+    } else if (ev.type === "error") {
+      const limited = ev.kind === "limit";
+      updateLastAssistant((m) => ({
+        ...m,
+        status: limited ? "limited" : "interrupted",
+        error: limited ? ev.message : STOPPED_EARLY,
+        errorTitle: ev.title,
+      }));
+    }
+  }
 
-    // Prior turns sent as history. Interrupted answers are left out: they are
-    // partial and would mislead the model about what was actually answered.
-    const history: HistoryMessage[] = messages.flatMap((m): HistoryMessage[] => {
+  async function ask(text: string, historyFrom: Message[], exampleId?: string) {
+    // Prior turns sent as history. Interrupted and limited answers are left
+    // out: they are partial or empty and would mislead the model.
+    const history: HistoryMessage[] = historyFrom.flatMap((m): HistoryMessage[] => {
       if (m.role === "user") return [{ role: "user", content: m.text }];
       return m.status === "done" && m.text ? [{ role: "assistant", content: m.text }] : [];
     });
+    const saved = exampleId ? savedExample(exampleId) : undefined;
 
+    stickToBottom.current = true;
     setBusy(true);
-    setQuestion("");
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text: trimmed },
-      { role: "assistant", text: "", labels: [], citations: [], status: "streaming" },
+    setMessages([
+      ...historyFrom,
+      { role: "user", text },
+      { role: "assistant", text: "", steps: [], citations: [], status: "streaming", example: !!saved },
     ]);
 
     let finished = false;
+    const onEvent = (ev: ChatEvent) => {
+      if (ev.type === "done" || ev.type === "error") finished = true;
+      handleEvent(ev);
+    };
     try {
-      await streamChat(trimmed, history, (ev) => {
-        if (ev.type === "token") {
-          updateLastAssistant((m) => ({ ...m, text: m.text + ev.text }));
-        } else if (ev.type === "tool_call") {
-          updateLastAssistant((m) => ({ ...m, labels: [...m.labels, ev.label] }));
-        } else if (ev.type === "citations") {
-          updateLastAssistant((m) => ({ ...m, citations: ev.citations }));
-        } else if (ev.type === "done") {
-          finished = true;
-          updateLastAssistant((m) => ({ ...m, status: "done" }));
-        } else if (ev.type === "error") {
-          finished = true;
-          const status = ev.kind === "limit" ? "limited" : "interrupted";
-          updateLastAssistant((m) => ({ ...m, status, error: ev.message }));
-        }
-      });
+      if (saved) await replayExample(saved, onEvent);
+      else await streamChat(text, history, onEvent);
     } catch (err) {
       finished = true;
-      const message = err instanceof Error ? err.message : "Connection failed";
-      const status = err instanceof LimitError ? "limited" : "interrupted";
-      updateLastAssistant((m) => ({ ...m, status, error: message }));
+      if (err instanceof LimitError) {
+        updateLastAssistant((m) => ({ ...m, status: "limited", error: err.message, errorTitle: err.title }));
+      } else {
+        updateLastAssistant((m) => ({ ...m, status: "interrupted", error: CONNECTION_LOST }));
+      }
     } finally {
       if (!finished) {
-        updateLastAssistant((m) => ({
-          ...m,
-          status: "interrupted",
-          error: "The answer ended unexpectedly.",
-        }));
+        updateLastAssistant((m) => ({ ...m, status: "interrupted", error: CONNECTION_LOST }));
       }
       setBusy(false);
     }
   }
 
+  function submitTyped() {
+    const text = question.trim();
+    if (!text || busy) return;
+    setQuestion("");
+    void ask(text, messages);
+  }
+
+  function askExample(example: ExampleQuestion) {
+    if (busy) return;
+    void ask(example.question, messages, example.id);
+  }
+
+  // Asks the last question again, replacing the failed answer.
+  function retryLast() {
+    const lastUser = messages.length - 2;
+    const failed = messages[lastUser];
+    if (busy || failed?.role !== "user") return;
+    void ask(failed.text, messages.slice(0, lastUser));
+  }
+
   return (
-    <main className="chat">
-      <h1>AUI Assistant</h1>
-
-      <div className="messages">
-        {messages.map((m, i) =>
-          m.role === "user" ? (
-            <div key={i} className="message user">
-              {m.text}
-            </div>
-          ) : (
-            <div key={i} className="message assistant">
-              {m.labels.map((label, j) => (
-                <div key={j} className="tool-label">
-                  {label}
-                </div>
-              ))}
-              <div className="answer">
-                <AnswerText text={m.text} citations={m.citations} messageIndex={i} />
-                {m.status === "streaming" && <span className="cursor">▍</span>}
-              </div>
-              {m.status === "interrupted" && (
-                <div className="interrupted">Answer interrupted: {m.error}</div>
-              )}
-              {m.status === "limited" && <div className="limit-notice">{m.error}</div>}
-              {m.citations.length > 0 && (
-                // Only cited sources arrive, so markers can skip numbers ([2], [4]).
-                // value= makes each footnote show its marker, not its list position.
-                <ol className="sources">
-                  {m.citations.map((c) => (
-                    <li key={c.marker} id={sourceId(i, c.marker)} value={c.marker}>
-                      {c.source}
-                      {c.pages && c.pages.length > 0 ? `, p. ${c.pages.join(", ")}` : ""}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-          ),
+    <div className="app">
+      <TopBar theme={theme} onToggleTheme={toggleTheme} />
+      <main className="main">
+        {messages.length === 0 ? (
+          <EmptyState onAsk={askExample} />
+        ) : (
+          <div className="thread">
+            {messages.map((m, i) =>
+              m.role === "user" ? (
+                <p key={i} className="question">
+                  {m.text}
+                </p>
+              ) : (
+                <AssistantTurn
+                  key={i}
+                  message={m}
+                  messageIndex={i}
+                  isLast={i === messages.length - 1}
+                  onRetry={retryLast}
+                  onAskExample={askExample}
+                />
+              ),
+            )}
+          </div>
         )}
-      </div>
-
-      <form onSubmit={handleSubmit} className="composer">
-        <input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask about AUI policies, courses, or scholarships"
-          disabled={busy}
-        />
-        <button type="submit" disabled={busy || !question.trim()}>
-          Send
-        </button>
-      </form>
-    </main>
+      </main>
+      <Composer
+        value={question}
+        onChange={setQuestion}
+        onSubmit={submitTyped}
+        busy={busy}
+        placeholder={messages.length === 0 ? "Ask a question in English or French" : "Ask a follow-up question"}
+      />
+    </div>
   );
 }

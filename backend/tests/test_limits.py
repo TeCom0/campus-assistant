@@ -148,6 +148,7 @@ def test_a_refused_question_gets_a_429_and_never_reaches_the_agent(
     assert response.headers["retry-after"] == "600"
     assert response.json()["kind"] == kind
     assert fragment in response.json()["message"]
+    assert response.json()["title"]
 
 
 @pytest.mark.parametrize(
@@ -172,4 +173,5 @@ def test_a_groq_rate_limit_mid_answer_ends_with_a_friendly_limit_event(
 
     assert "event: error" in body
     assert '"kind": "limit"' in body
+    assert '"title":' in body
     assert fragment in body
