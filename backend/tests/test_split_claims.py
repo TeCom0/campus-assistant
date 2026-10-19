@@ -9,6 +9,7 @@ import pytest
 from app.evaluation.split_claims import (
     exclusion_reason,
     extract_claims,
+    no_claims_reason,
     parse_blocks,
     split_sentences,
 )
@@ -312,3 +313,14 @@ def test_exclusion_is_a_field_and_clears_the_auto_label():
     lead_in = claims[0]
     assert (lead_in["exclude"], lead_in["auto_label"]) == ("lead_in", None)
     assert [c["auto_label"] for c in claims[1:]] == ["unsupported", "unsupported"]  # [7] invalid
+
+
+def test_fallback_and_crashed_answers_get_no_claims():
+    fallback = (
+        "I couldn't finish this answer. These passages found while searching may help: [1] [2]"
+    )
+    assert no_claims_reason({"error": None, "fallback": True, "answer": fallback})
+    assert no_claims_reason({"error": "400 tool_use_failed", "answer": ""})
+    assert no_claims_reason({"error": None, "fallback": False, "answer": "  "})
+    # Records from runs 1-2 have no "fallback" field and are split as before.
+    assert no_claims_reason({"error": None, "answer": TRANSFER_EN}) is None

@@ -54,6 +54,15 @@ def answer_text(messages) -> str:
     return normalize_brackets("".join(parts))
 
 
+def is_fallback(messages) -> bool:
+    """Did the graph send its code-built fallback instead of a model answer?
+
+    A fallback is not a real answer: the report counts it as a failed answer
+    on an answerable question, and split_claims makes no claims from it.
+    """
+    return any(m.type == "ai" and m.response_metadata.get("fallback") for m in messages)
+
+
 def collect_passages(messages) -> list[dict]:
     """Every passage the tools returned, one entry per marker, sorted by marker.
 
@@ -165,6 +174,7 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
             "usage": token_usage(messages),
             "seconds": round(time.perf_counter() - started, 1),
             "error": error,
+            "fallback": is_fallback(messages),
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         }
         with out_path.open("a", encoding="utf-8") as f:
@@ -172,7 +182,12 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
         records.append(record)
 
         u = record["usage"]
-        status = f"ERROR {error}" if error else f"{len(record['cited_markers'])} markers cited"
+        if error:
+            status = f"ERROR {error}"
+        elif record["fallback"]:
+            status = "FALLBACK (forced answer failed twice; no real answer)"
+        else:
+            status = f"{len(record['cited_markers'])} markers cited"
         print(
             f"{q['id']:<28} {u['llm_calls']} calls, {u['total_tokens']:>6} tokens, "
             f"{record['seconds']:>5}s, {status}"

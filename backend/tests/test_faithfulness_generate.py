@@ -7,9 +7,11 @@ import json
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
+from app.agent import graph
 from app.evaluation.generate_faithfulness_answers import (
     answer_text,
     collect_passages,
+    is_fallback,
     is_per_minute_limit,
     load_done_ids,
     token_usage,
@@ -109,3 +111,12 @@ def test_per_minute_limit_is_told_apart_from_the_daily_limit():
     tpd = "Rate limit reached for model `openai/gpt-oss-20b` ... on tokens per day (TPD): ..."
     assert is_per_minute_limit(Exception(tpm))
     assert not is_per_minute_limit(Exception(tpd))
+
+
+def test_fallback_is_detected_from_the_graphs_flag_only():
+    question = HumanMessage("How many courses can I take?")
+    fallback = graph._fallback_answer([question], "en")
+    assert is_fallback([question, fallback])
+    # The same text written by the model is not flagged: the flag, not the text, decides.
+    assert not is_fallback([question, AIMessage(fallback.content)])
+    assert not is_fallback([])  # a crashed run

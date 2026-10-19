@@ -5,7 +5,7 @@ Rolls claim labels up to answers, and answers up to groups:
   claim    final label = the judge's label after the quote check, or the
            auto label split_claims gave (a claim citing only markers no tool
            returned is "unsupported" without being judged)
-  answer   crashed? declined to answer? how many cited claims, how many of
+  answer   crashed? fallback? declined to answer? how many cited claims, how many of
            them unsupported; the same for `own` claims only, and for uncited
   group    `main` (the baseline, also split EN / FR), `regression`,
            `unanswerable`; each run on its own and both runs together
@@ -16,9 +16,17 @@ answers have no claims, so they're reported next to the headline, not in it.
 Answers citing nothing are counted too: they can't have an unsupported cited
 claim, so a model that stopped citing would otherwise look perfect.
 
+A fallback (the graph's code-built "I couldn't finish this answer..." once
+the forced answer failed twice) has no claims either, so it's kept out of the
+headline like a crash and counted in its own column. On a question that
+should be answered it is a FAILED answer, counted next to the false
+refusals: both leave the student without an answer. On a question that should
+be declined it's listed but not counted as a failure (it states nothing).
+
 Declines are checked per answer against the question's expected_behavior
 ("answer" / "abstain"), using the judge's "does the answer decline?" verdict:
   false refusal   declined a question it should have answered
+  fallback        gave the code-built fallback on a question it should have answered
   missed refusal  answered a question it should have declined
 Refusal sentences and short lead-ins ("The main options are:") are excluded
 from faithfulness scoring (split_claims.exclusion_reason); these two counts
@@ -62,7 +70,9 @@ def summarize_answer(
     """One answer's numbers; claims are this answer's claims only."""
     excluded = [c for c in claims if c.get("exclude")]
     claims = [c for c in claims if not c.get("exclude")]
-    answered = answer["error"] is None
+    # .get: records generated before fallbacks existed have no field.
+    fallback = answer["error"] is None and answer.get("fallback", False)
+    answered = answer["error"] is None and not fallback
 
     def unsupported(kinds) -> int:
         return sum(
@@ -75,7 +85,8 @@ def summarize_answer(
         "language": question["language"],
         "set": question["set"],
         "expected_behavior": question["expected_behavior"],
-        "error": not answered,
+        "error": answer["error"] is not None,
+        "fallback": fallback,
         "abstains": abstains,
         "false_refusal": answered
         and question["expected_behavior"] == "answer"
@@ -94,14 +105,16 @@ def summarize_answer(
 
 def group_stats(answers: list[dict]) -> dict:
     """Headline numbers over a group of answer summaries."""
-    answered = [a for a in answers if not a["error"]]
+    answered = [a for a in answers if not a["error"] and not a["fallback"]]
+    fallbacks = [a for a in answers if a["fallback"]]
     n = len(answered)
     unfaithful = sum(1 for a in answered if a["unsupported_cited"] > 0)
     low, high = wilson_interval(unfaithful, n)
     declined = sum(1 for a in answered if a["abstains"])
     return {
         "answers": len(answers),
-        "errors": len(answers) - n,
+        "errors": sum(1 for a in answers if a["error"]),
+        "fallbacks": [a["id"] for a in fallbacks],
         "answered": n,
         # The headline: answers with at least one unsupported cited claim.
         "unfaithful": unfaithful,
@@ -111,10 +124,20 @@ def group_stats(answers: list[dict]) -> dict:
         "with_unsupported_uncited": sum(1 for a in answered if a["unsupported_uncited"] > 0),
         "citing_nothing": sum(1 for a in answered if a["cited_claims"] == 0),
         "declined": declined,
-        "should_answer": sum(1 for a in answered if a["expected_behavior"] == "answer"),
+        # Out of every non-crashed answer, fallbacks included: on a question
+        # that should be answered, a fallback is a failure like a false refusal.
+        "should_answer": sum(1 for a in answered + fallbacks if a["expected_behavior"] == "answer"),
         "false_refusals": [a["id"] for a in answered if a["false_refusal"]],
-        "should_abstain": sum(1 for a in answered if a["expected_behavior"] == "abstain"),
+        "fallbacks_should_answer": [
+            a["id"] for a in fallbacks if a["expected_behavior"] == "answer"
+        ],
+        "should_abstain": sum(
+            1 for a in answered + fallbacks if a["expected_behavior"] == "abstain"
+        ),
         "missed_refusals": [a["id"] for a in answered if a["missed_refusal"]],
+        "fallbacks_should_abstain": [
+            a["id"] for a in fallbacks if a["expected_behavior"] == "abstain"
+        ],
         # No "does it decline?" verdict: neither check can run on these.
         "no_decline_verdict": [a["id"] for a in answered if a["abstains"] is None],
         "excluded_claims": sum(a["excluded_claims"] for a in answered),
@@ -171,7 +194,7 @@ def load_run(run: int, questions: dict[str, dict]) -> tuple[list[dict], list[dic
 def print_table(title: str, stats: dict[str, dict]) -> None:
     print(f"\n{title}")
     print(
-        f"  {'group':<13} {'answered':>8} {'errors':>6}  {'unfaithful (95% CI)':<27}"
+        f"  {'group':<13} {'answered':>8} {'errors':>6} {'fallback':>8}  {'unfaithful (95% CI)':<27}"
         f"{'own only':>8} {'uncited':>8} {'cite 0':>7} {'declined':>9}"
     )
     for name, s in stats.items():
@@ -179,7 +202,8 @@ def print_table(title: str, stats: dict[str, dict]) -> None:
         pct = f"{s['unfaithful']}/{n} = {s['unfaithful_pct']}%" if n else "-"
         low, high = s["ci95_pct"]
         print(
-            f"  {name:<13} {n:>8} {s['errors']:>6}  {pct + f' ({low}-{high})':<27}"
+            f"  {name:<13} {n:>8} {s['errors']:>6} {len(s['fallbacks']):>8}  "
+            f"{pct + f' ({low}-{high})':<27}"
             f"{s['unfaithful_own_only']:>8} {s['with_unsupported_uncited']:>8} "
             f"{s['citing_nothing']:>7} {s['declined']:>9}"
         )
@@ -189,7 +213,9 @@ def print_refusal_checks(title: str, stats: dict[str, dict]) -> None:
     """False and missed refusals over all of a run's answered questions."""
     groups = [stats[name] for name in ("main", "regression", "unanswerable")]
     false_refusals = [i for g in groups for i in g["false_refusals"]]
+    fallbacks_answer = [i for g in groups for i in g["fallbacks_should_answer"]]
     missed_refusals = [i for g in groups for i in g["missed_refusals"]]
+    fallbacks_abstain = [i for g in groups for i in g["fallbacks_should_abstain"]]
     no_verdict = [i for g in groups for i in g["no_decline_verdict"]]
     should_answer = sum(g["should_answer"] for g in groups)
     should_abstain = sum(g["should_abstain"] for g in groups)
@@ -199,9 +225,17 @@ def print_refusal_checks(title: str, stats: dict[str, dict]) -> None:
         f"{len(false_refusals)}/{should_answer}  {false_refusals}"
     )
     print(
+        f"  fallbacks (no real answer, should answer):  "
+        f"{len(fallbacks_answer)}/{should_answer}  {fallbacks_answer}"
+    )
+    no_answer = len(false_refusals) + len(fallbacks_answer)
+    print(f"  -> answerable questions left without an answer: {no_answer}/{should_answer}")
+    print(
         f"  missed refusals (answered, should decline): "
         f"{len(missed_refusals)}/{should_abstain}  {missed_refusals}"
     )
+    if fallbacks_abstain:
+        print(f"  fallbacks on should-decline questions (not failures): {fallbacks_abstain}")
     print(f"  no decline verdict: {len(no_verdict)}  {no_verdict}")
 
 
@@ -235,7 +269,8 @@ if __name__ == "__main__":
     print(
         "\nunfaithful = answers with >=1 unsupported cited claim; own only = the same, counting "
         "only claims with their own marker;\nuncited = answers with >=1 unsupported uncited "
-        "claim; cite 0 = answers citing nothing; declined = judge says the answer declines."
+        "claim; cite 0 = answers citing nothing; declined = judge says the answer declines;\n"
+        "fallback = the code-built fallback answer (no real answer; outside the headline)."
     )
     report["answers"] = [a for answers in by_run.values() for a in answers]
     out = RESULTS_DIR / f"report_runs_{'_'.join(map(str, args.runs))}.json"

@@ -8,6 +8,8 @@ QUESTIONS = {
     "r": {"set": "regression", "expected_behavior": "answer"},
     "u": {"set": "unanswerable", "expected_behavior": "abstain"},
     "c": {"set": "main", "expected_behavior": "answer"},
+    "f": {"set": "regression", "expected_behavior": "answer"},
+    "g": {"set": "unanswerable", "expected_behavior": "abstain"},
 }
 
 
@@ -66,3 +68,13 @@ def test_unconfirmed_lists_missing_and_unknown_causes():
     failures = [{"id": "a#1"}, {"id": "a#2"}, {"id": "a#3"}]
     causes = {"a#1": {"confirmed": "crash"}, "a#2": {"confirmed": "typo"}}
     assert unconfirmed(failures, causes) == ["a#2", "a#3"]
+
+
+def test_a_fallback_is_a_failure_only_where_an_answer_was_expected():
+    answers = [{"id": "f", "error": None, "fallback": True},
+               {"id": "g", "error": None, "fallback": True},
+               {"id": "m", "error": None}]  # fmt: skip
+    # A fallback is never judged, so it has no claims and no decline verdict.
+    judgements = [{"id": "m", "abstains": False, "claims": []}]
+    failures = collect_failures(answers, [], judgements, QUESTIONS)
+    assert [(f["id"], f["type"]) for f in failures] == [("f", "fallback")]

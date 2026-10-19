@@ -4,6 +4,7 @@ Collects, for a run, every failure worth a cause:
   claim          an unsupported cited claim in a `main` answer (the headline's failures)
   false_refusal  an answer that declined a question it should have answered
   crash          an answer that ended in an error (no claims at all)
+  fallback       the code-built fallback on a question that should be answered
 
 and writes error_analysis_runN.md: each failure with its question, the claim,
 the full text of the passages it cites, and the judge's label, quote check and
@@ -18,6 +19,7 @@ Causes:
   french_retrieval    a French question's searches missed the passage that answers it
   citation_placement  the fact is in a retrieved passage, but not the one cited
   crash               the forced-final-answer error (no answer)
+  fallback            the forced answer failed twice; the code-built fallback was sent
   embellishment       the model added a gloss, hedge or detail no passage gives
   uncitable_tool      a tool result the model couldn't cite (query_courses "no description")
   judge_artifact      the claim IS supported; it failed only in the judge or quote check
@@ -43,6 +45,7 @@ CAUSES = (
     "french_retrieval",
     "citation_placement",
     "crash",
+    "fallback",
     "embellishment",
     "uncitable_tool",
     "judge_artifact",
@@ -62,7 +65,9 @@ def collect_failures(
     answers: list[dict], claims: list[dict], judgements: list[dict], questions: dict
 ) -> list[dict]:
     """Every failure of the run, in answer order: unsupported cited claims of
-    `main` answers, false refusals (any set), crashes (any set)."""
+    `main` answers, false refusals (any set), crashes (any set), fallbacks on
+    questions that should be answered (any set; .get: older records have no
+    field). A fallback has no claims, so nothing else is collected for it."""
     results = {c["claim_id"]: c for j in judgements for c in j["claims"]}
     abstains = {j["id"]: j["abstains"] for j in judgements}
     failures = []
@@ -70,6 +75,10 @@ def collect_failures(
         q = questions[a["id"]]
         if a["error"]:
             failures.append({"id": a["id"], "type": "crash", "answer": a["id"]})
+            continue
+        if a.get("fallback"):
+            if q["expected_behavior"] == "answer":
+                failures.append({"id": a["id"], "type": "fallback", "answer": a["id"]})
             continue
         if q["expected_behavior"] == "answer" and abstains.get(a["id"]) is True:
             failures.append({"id": a["id"], "type": "false_refusal", "answer": a["id"]})
@@ -134,7 +143,7 @@ def render_markdown(
         if f["type"] == "crash":
             lines += ["", f"**Error:** {a['error'][:300]}"]
             continue
-        if f["type"] == "false_refusal":
+        if f["type"] in ("false_refusal", "fallback"):
             lines += ["", "**Answer:**", "", "```text", a["answer"], "```"]
             passages = a["passages"]
         else:

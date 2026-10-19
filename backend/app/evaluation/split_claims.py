@@ -305,6 +305,22 @@ def extract_claims(answer: str, passage_markers: set[int]) -> list[dict]:
     return claims
 
 
+def no_claims_reason(answer: dict) -> str | None:
+    """Why an answer gets no claims, or None if it's split.
+
+    A fallback (the graph's code-built "these passages may help: [1] [2]")
+    states nothing; splitting it would send a list of markers to the judge as
+    if it were a fact. Records from before fallbacks existed have no field.
+    """
+    if answer["error"]:
+        return answer["error"]
+    if answer.get("fallback"):
+        return "fallback answer"
+    if not answer["answer"].strip():
+        return "empty"
+    return None
+
+
 def split_run(run: int) -> list[dict]:
     answers_path = RESULTS_DIR / f"answers_run{run}.jsonl"
     with answers_path.open(encoding="utf-8") as f:
@@ -316,8 +332,9 @@ def split_run(run: int) -> list[dict]:
 
     all_claims = []
     for a in answers:
-        if a["error"] or not a["answer"].strip():
-            print(f"{a['id']:<28} no answer ({a['error'] or 'empty'}), no claims")
+        reason = no_claims_reason(a)
+        if reason:
+            print(f"{a['id']:<28} no answer ({reason}), no claims")
             continue
         passage_markers = {p["marker"] for p in a["passages"]}
         claims = extract_claims(a["answer"], passage_markers)

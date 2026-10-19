@@ -250,6 +250,19 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     comparability; report the hand count alongside. README: causes "proposed by AI assistant,
     reviewed by the author"; adjudications_run1.json marks 6 `ai_assisted` decisions.
   - *Plan: three fixes, one step each (explain -> code + tests -> commit), in this order:*
+    - **A DONE 2026-10-19** (5ca58fb graph + history; evaluation side in the next commit):
+      `_forced_answer` retries once with FORCED_RETRY_NOTE, then returns `_fallback_answer`
+      ("I couldn't finish... may help: [1] [2]", EN/FR, `response_metadata["fallback"]`).
+      `_is_refused_tool_call` matches code `tool_use_failed` in both shapes (400
+      BadRequestError, body["error"]; mid-stream APIError, body). history.py drops fallback
+      answers (question kept), via graph.is_fallback_answer. Eval: answers record
+      `fallback`; split_claims gives fallbacks no claims (so never judged); report keeps them
+      out of the headline (own column) and counts them on should-answer questions next to
+      false refusals ("answerable questions left without an answer"); on should-decline
+      questions listed, not a failure; error_analysis has failure type + cause `fallback`.
+      Run-1 numbers unchanged after the change (checked). Known limit: text streamed before
+      a mid-stream refusal would be followed by the retry's text in /chat (not seen: all 6
+      refused generations were pure tool calls).
     - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced
       path (graph.py `_agent_node`, after MAX_TOOL_ROUNDS) catch Groq's 400 "Tool choice is
       none, but model called a tool", retry once with "tools unavailable, answer in plain

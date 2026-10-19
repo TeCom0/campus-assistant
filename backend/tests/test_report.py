@@ -19,6 +19,7 @@ def _summary(error: bool = False, cited: int = 1, unsupported_cited: int = 0, **
     base = {
         "id": "q",
         "error": error,
+        "fallback": False,
         "abstains": False,
         "expected_behavior": "answer",
         "false_refusal": False,
@@ -114,3 +115,40 @@ def test_group_stats_list_false_and_missed_refusals_and_missing_verdicts():
     assert (s["false_refusals"], s["should_answer"]) == (["a"], 2)
     assert (s["missed_refusals"], s["should_abstain"]) == (["b"], 2)
     assert s["no_decline_verdict"] == ["d"]
+
+
+def test_a_fallback_is_kept_out_of_the_headline_and_counted_as_no_answer():
+    answer = {"id": "q", "run": 3, "error": None, "fallback": True}
+    s = summarize_answer(answer, QUESTION, [], {}, abstains=None)
+    assert (s["fallback"], s["error"], s["false_refusal"]) == (True, False, False)
+
+    answers = [
+        _summary(id="a", unsupported_cited=1),
+        _summary(id="b", abstains=True, false_refusal=True),
+        _summary(id="f", cited=0, fallback=True, abstains=None),
+        _summary(id="g", cited=0, fallback=True, abstains=None, expected_behavior="abstain"),
+        _summary(id="e", error=True, cited=0),
+    ]
+    s = group_stats(answers)
+    assert (s["answers"], s["errors"], s["answered"]) == (5, 1, 2)
+    assert s["fallbacks"] == ["f", "g"]
+    # Not a citing-nothing answer, and no missing decline verdict: it isn't an answer.
+    assert (s["citing_nothing"], s["no_decline_verdict"]) == (0, [])
+    assert (s["unfaithful"], s["unfaithful_pct"]) == (1, 50.0)
+    # On answerable questions: a failure next to the false refusals, same denominator.
+    assert (s["false_refusals"], s["fallbacks_should_answer"], s["should_answer"]) == (
+        ["b"],
+        ["f"],
+        3,
+    )
+    # On a should-decline question: listed, but not a missed refusal.
+    assert (s["fallbacks_should_abstain"], s["missed_refusals"], s["should_abstain"]) == (
+        ["g"],
+        [],
+        1,
+    )
+
+
+def test_records_without_a_fallback_field_are_read_as_real_answers():
+    answer = {"id": "q", "run": 1, "error": None}  # runs 1-2 predate the field
+    assert summarize_answer(answer, QUESTION, [], {}, abstains=False)["fallback"] is False
