@@ -4,7 +4,7 @@
     "question": "How many credits can I transfer to AUI from another university?",
     "language": "en",
     "topic": "transfer credits",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 51}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "For undergraduate programs, a maximum of 68 semester credits are transferable to AUI"}]
   },
   {
     "id": "transfer_credits_fr",
@@ -12,21 +12,21 @@
     "question_en": "How many credits can I transfer to AUI from another university?",
     "language": "fr",
     "topic": "transfer credits",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 51}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "For undergraduate programs, a maximum of 68 semester credits are transferable to AUI"}]
   },
   {
     "id": "min_grade_transfer_en",
     "question": "What is the minimum grade required for a course to be transferable to AUI?",
     "language": "en",
     "topic": "transfer credits",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 50}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "Undergraduate courses that are transferable to AUI must be completed with grades A, B, or C"}]
   },
   {
     "id": "plagiarism_en",
     "question": "What is considered plagiarism at AUI?",
     "language": "en",
     "topic": "academic integrity",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 245}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "Any attempt by students to present another person's words, content, or ideas as their own"}]
   },
   {
     "id": "plagiarism_fr",
@@ -34,24 +34,21 @@
     "question_en": "What is considered plagiarism at AUI?",
     "language": "fr",
     "topic": "academic integrity",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 245}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "Any attempt by students to present another person's words, content, or ideas as their own"}]
   },
   {
     "id": "grading_determination_en",
     "question": "Who determines a student's grade in a course?",
     "language": "en",
     "topic": "grading",
-    "expected": [
-      {"source": "academic_catalog_2024_2025", "chunk_index": 249},
-      {"source": "academic_catalog_2024_2025", "chunk_index": 250}
-    ]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "The instructor determines all grades for a course"}]
   },
   {
     "id": "add_drop_en",
     "question": "How do I add or drop a course at AUI?",
     "language": "en",
     "topic": "registration",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 232}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "All students must have permission from their advisors and school coordinators to drop or add a course"}]
   },
   {
     "id": "add_drop_fr",
@@ -59,28 +56,28 @@
     "question_en": "How do I add or drop a course at AUI?",
     "language": "fr",
     "topic": "registration",
-    "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 232}]
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "All students must have permission from their advisors and school coordinators to drop or add a course"}]
   },
   {
     "id": "rhodes_scholarship_en",
     "question": "Which AUI student received the Rhodes Scholarship?",
     "language": "en",
     "topic": "fellowships",
-    "expected": [{"source": "prestigious_scholarships", "chunk_index": 1}]
+    "expected": [{"source": "prestigious_scholarships", "anchor": "has been awarded the first-ever Rhodes Scholarship"}]
   },
   {
     "id": "mccall_macbain_en",
     "question": "Which AUI student received the McCall MacBain Scholarship?",
     "language": "en",
     "topic": "fellowships",
-    "expected": [{"source": "prestigious_scholarships", "chunk_index": 1}]
+    "expected": [{"source": "prestigious_scholarships", "anchor": "top 10 global recipients of the McCall MacBain Scholarships"}]
   },
   {
     "id": "scholarship_conditions_en",
     "question": "What are the conditions for keeping an Al Akhawayn scholarship?",
     "language": "en",
     "topic": "fellowships",
-    "expected": [{"source": "graduate_scholarships", "chunk_index": 0}]
+    "expected": [{"source": "graduate_scholarships", "anchor": "Al Akhawayn scholarships are predicated on the following conditions"}]
   },
   {
     "id": "scholarship_conditions_fr",
@@ -88,6 +85,6 @@
     "question_en": "What are the conditions for keeping an Al Akhawayn scholarship?",
     "language": "fr",
     "topic": "fellowships",
-    "expected": [{"source": "graduate_scholarships", "chunk_index": 0}]
+    "expected": [{"source": "graduate_scholarships", "anchor": "Al Akhawayn scholarships are predicated on the following conditions"}]
   }
 ]

@@ -304,7 +304,22 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       English for French questions. Untested: whether Groq rejects a call that OMITS a
       required arg (tool_use_failed on the normal path, not handled) -- watch run 3.
       README updated (design decision, retrieval table row, limitations).
-    - **C NEXT** (section context in chunks), then runs 3 + 4.
+    - **C, step (a) DONE 2026-10-19**: retrieval eval expected answers are now text anchors
+      ({source, anchor}: the verbatim sentence that answers the question), not chunk_index; a
+      hit = right source + text contains the anchor (whitespace, case, curly quotes ignored).
+      `run_retrieval_eval --check-anchors` lists the chunks holding each anchor, exits 1 if one
+      is LOST (e.g. split by a boundary) -- **run it after the re-load, before trusting the
+      eval**. On today's DB every anchor is in its labelled chunk(s) (transfer credits also in
+      chunk 50, by overlap), and all numbers + per-question ranks are IDENTICAL to the
+      chunk-index version: hybrid + English 91.7% / 100% / 0.715 = the Fix C "before".
+      Caveat: scholarship_conditions_en/fr's expected answer is the GRADUATE scholarships page
+      (question names no level); if level tags push graduate passages down, it may drop while
+      the system improves -- check it first. Label kept for comparability.
+    - **C, steps (b)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
+      file OUTSIDE the repo and record the exact restore command here; after re-loading, run
+      --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
+      worse, STOP and show Youness before going further.** Explain each step before coding.
+      Then runs 3 + 4.
     - **Fix D candidate (if time allows after A-C): citation placement** -- 6 failures over
       runs 1-2 (the fact is in a retrieved passage, but not the one cited).
     - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced

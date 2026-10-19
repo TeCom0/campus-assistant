@@ -119,8 +119,9 @@ flowchart LR
 
 ## Evaluation
 
-Retrieval is measured on 12 hand-labelled questions (8 English, 4 French), each with the chunk
-that answers it (`eval/retrieval_eval_set.json`):
+Retrieval is measured on 12 hand-labelled questions (8 English, 4 French), each with a verbatim
+sentence of the answer as an anchor (`eval/retrieval_eval_set.json`). A result is a hit if its
+text contains the anchor, so the labels survive re-chunking:
 
 | Method | Hit@3 | MRR |
 |---|---|---|

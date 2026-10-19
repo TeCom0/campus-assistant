@@ -2,16 +2,26 @@
 eval/retrieval_eval_set.json, reporting Hit Rate@k and Mean Reciprocal Rank (MRR),
 overall and per language.
 
+Each question's expected answer is a text ANCHOR (a verbatim sentence of the
+answer), not a chunk number: a result is a hit if it comes from the expected
+source and its text contains the anchor (whitespace, case and curly quotes
+ignored). Chunk numbers change whenever the documents are re-chunked; the
+answer text doesn't. `--check-anchors` lists the chunks holding each anchor
+and fails if one is in no chunk (e.g. split by a chunk boundary).
+
 "hybrid + English" fuses the question with its English version
 (`question_en`, set on the French questions: their English twins in the set),
 as the search_documents tool does on a first turn. For an English question
 both are the same query, so it equals "hybrid".
 """
 
+import argparse
 import json
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
+from app.db.connection import get_connection
 from app.retrieval.hybrid_search import search_hybrid, search_hybrid_multi
 from app.retrieval.keyword_search import search_keyword
 from app.retrieval.vector_search import search_vector
@@ -25,12 +35,52 @@ def load_eval_set() -> list[dict]:
     return json.loads(EVAL_SET_PATH.read_text(encoding="utf-8"))
 
 
-def rank_of_first_match(results, expected: set[tuple[str, int]]) -> int | None:
-    """1-based rank of the first result matching an expected chunk, or None if not found."""
+_QUOTE_FIXES = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"'})
+
+
+def normalize_text(text: str) -> str:
+    """Whitespace runs to one space, curly quotes to straight, case folded."""
+    return " ".join(text.translate(_QUOTE_FIXES).split()).casefold()
+
+
+def contains_anchor(source: str, text: str, expected: dict) -> bool:
+    return source == expected["source"] and normalize_text(expected["anchor"]) in normalize_text(
+        text
+    )
+
+
+def rank_of_first_match(results, expected: list[dict]) -> int | None:
+    """1-based rank of the first result containing an expected anchor, or None if not found."""
     for i, r in enumerate(results, start=1):
-        if (r.source, r.chunk_index) in expected:
+        if any(contains_anchor(r.source, r.text, e) for e in expected):
             return i
     return None
+
+
+def anchor_locations(questions: list[dict], chunks: list[tuple[str, int, str]]) -> list[dict]:
+    """For each question's anchor: the chunk indexes (in its source) whose text holds it."""
+    return [
+        {
+            "id": q["id"],
+            "anchor": e["anchor"],
+            "chunks": [i for source, i, text in chunks if contains_anchor(source, text, e)],
+        }
+        for q in questions
+        for e in q["expected"]
+    ]
+
+
+def check_anchors(questions: list[dict]) -> bool:
+    """Print where each anchor is in the database; False if one is in no chunk."""
+    conn = get_connection()
+    chunks = conn.execute("SELECT source, chunk_index, text FROM document_chunks").fetchall()
+    conn.close()
+    ok = True
+    for loc in anchor_locations(questions, chunks):
+        status = "OK  " if loc["chunks"] else "LOST"
+        ok = ok and bool(loc["chunks"])
+        print(f"{status} {loc['id']:<28} chunks {loc['chunks']}  {loc['anchor'][:60]!r}")
+    return ok
 
 
 def run_eval(search_fn: Callable[[dict, int], list], name: str, questions: list[dict]) -> dict:
@@ -42,9 +92,8 @@ def run_eval(search_fn: Callable[[dict, int], list], name: str, questions: list[
     print(f"\n=== {name} ===")
     print(f"{'id':<28} {'lang':<5} {'rank':<6} {'hit@3':<6} {'hit@5':<6}")
     for q in questions:
-        expected = {(e["source"], e["chunk_index"]) for e in q["expected"]}
         results = search_fn(q, TOP_K)
-        rank = rank_of_first_match(results, expected)
+        rank = rank_of_first_match(results, q["expected"])
 
         for k in HIT_RATE_KS:
             if rank is not None and rank <= k:
@@ -73,7 +122,15 @@ def run_eval(search_fn: Callable[[dict, int], list], name: str, questions: list[
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--check-anchors", action="store_true", help="Only check each anchor is in some chunk"
+    )
+    args = parser.parse_args()
     all_questions = load_eval_set()
+    if args.check_anchors:
+        sys.exit(0 if check_anchors(all_questions) else 1)
     methods = {
         "vector": lambda q, k: search_vector(q["question"], k),
         "keyword": lambda q, k: search_keyword(q["question"], k),
