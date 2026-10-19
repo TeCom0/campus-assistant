@@ -170,20 +170,39 @@ def _starts_sentence(texts: list[str], n: int) -> bool:
     return n == 0 or texts[n - 1].endswith(SENTENCE_END) or texts[n].startswith("•")
 
 
-def chunk_text(source: str, text: str) -> list[Chunk]:
-    """Chunk one document's text into overlapping, line-aligned windows that
-    end at a sentence end where possible.
+BOUNDARY_MODES = ("lines", "sentences", "headings")
 
-    PDF lines rarely end where sentences do: with fixed line windows, 81% of
-    the catalog's chunks started mid-sentence, and one cut "the 9 / semesters
-    for undergraduates" apart, so a chunk gave the graduate number without the
-    undergraduate one. Now a full chunk ends after its last sentence-ending
-    line in its second half; the unfinished sentence moves whole to the next
-    chunk, and the overlap is the whole sentences before the cut (up to
-    OVERLAP_CHARS). Measured: 1197 chunks instead of 1141, 12% starting
-    mid-sentence. A chunk with no sentence end in its second half (tables,
-    lists) is cut and overlapped by lines as before.
+
+def _line_overlap_start(emitted: list) -> int:
+    """The last lines up to OVERLAP_CHARS, at least one (the original overlap)."""
+    start, overlap_len = len(emitted) - 1, len(emitted[-1][2])
+    while start > 0 and overlap_len + len(emitted[start - 1][2]) <= OVERLAP_CHARS:
+        start -= 1
+        overlap_len += len(emitted[start][2])
+    return start
+
+
+def chunk_text(source: str, text: str, boundaries: str = "sentences") -> list[Chunk]:
+    """Chunk one document's text into overlapping, line-aligned windows.
+
+    `boundaries` says where a full chunk (MAX_CHUNK_CHARS) ends:
+    - "lines": where it fills up, with the last lines (<= OVERLAP_CHARS, at
+      least one) carried over. PDF lines rarely end where sentences do: 81% of
+      the catalog's chunks then start mid-sentence, and one cut "the 9 /
+      semesters for undergraduates" apart.
+    - "sentences": after its last sentence-ending line past its halfway point;
+      the unfinished sentence moves whole to the next chunk, and the overlap
+      is the whole sentences before the cut (up to OVERLAP_CHARS). Measured:
+      14% of catalog chunks start mid-sentence. But it can glue the start of
+      a new section onto the previous one: the Plagiarism heading and
+      definition became the last lines of a chunk about cheating.
+    - "headings": as "sentences", but a heading past the halfway point is cut
+      BEFORE, so the new section starts the next chunk (no overlap across it).
+    With no sentence end or heading to cut at (tables, lists), a chunk is cut
+    and overlapped by lines in every mode.
     """
+    if boundaries not in BOUNDARY_MODES:
+        raise ValueError(f"boundaries must be one of {BOUNDARY_MODES}, not {boundaries!r}")
     lines: list[tuple[int | None, str]] = []
     for page_number, page_text in _split_into_pages(text):
         for line in _split_into_lines(page_text):
@@ -192,6 +211,13 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
     # Over the whole document, not per page: a heading's next line can be on
     # the next page.
     sections = assign_sections(source, texts)
+    # Lines where a new section starts: a part heading or a heading.
+    section_starts = {
+        i
+        for i in range(1, len(texts))
+        if texts[i] in LEVEL_HEADINGS
+        or (i < len(texts) - 1 and is_heading(texts[i - 1], texts[i], texts[i + 1]))
+    }
 
     chunks: list[Chunk] = []
     current: list[tuple[int, int | None, str]] = []  # (line number, page, line) in progress
@@ -202,15 +228,23 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
         if not current:
             return
 
-        # Cut after the LAST sentence-ending line past the chunk's halfway
-        # point; with none (or for the document's last chunk), keep it all.
-        cut = len(current)
-        if not final:
-            running = 0
-            for j, (_, _, line) in enumerate(current):
+        # Where to cut. Past the halfway point: before the last heading, or
+        # after the last sentence end. With neither (or for the document's
+        # last chunk), keep it all.
+        cut, at_heading = len(current), False
+        if not final and boundaries in ("sentences", "headings"):
+            half, running = current_len / 2, 0
+            heading_cut = sentence_cut = None
+            for j, (n, _, line) in enumerate(current):
+                if running >= half and n in section_starts:
+                    heading_cut = j
                 running += len(line)
-                if running >= current_len / 2 and line.endswith(SENTENCE_END):
-                    cut = j + 1
+                if running >= half and line.endswith(SENTENCE_END):
+                    sentence_cut = j + 1
+            if boundaries == "headings" and heading_cut is not None:
+                cut, at_heading = heading_cut, True
+            elif sentence_cut is not None:
+                cut = sentence_cut
         emitted, unfinished = current[:cut], current[cut:]
 
         chunk_str = "\n".join(line for _, _, line in emitted)
@@ -232,24 +266,23 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
             )
         )
 
-        # Overlap: the whole sentences at the end of the chunk that fit in
-        # OVERLAP_CHARS (the window's lines, from its first sentence start),
-        # so boundary-crossing context isn't lost and the next chunk doesn't
-        # open mid-sentence. May be empty: the chunk then ended at a sentence
-        # end, so the next one starts a sentence anyway.
-        start, overlap_len = len(emitted), 0
-        while start > 0 and overlap_len + len(emitted[start - 1][2]) <= OVERLAP_CHARS:
-            start -= 1
-            overlap_len += len(emitted[start][2])
-        while start < len(emitted) and not _starts_sentence(texts, emitted[start][0]):
-            start += 1
-        if start == len(emitted) and not emitted[-1][2].endswith(SENTENCE_END):
-            # No sentence end to cut at (a table, a list): overlap by lines as
-            # before, the last lines up to OVERLAP_CHARS, at least one.
-            start, overlap_len = len(emitted) - 1, len(emitted[-1][2])
+        if at_heading:
+            start = len(emitted)  # a new section starts: nothing carried across
+        elif boundaries == "lines":
+            start = _line_overlap_start(emitted)
+        else:
+            # The whole sentences at the end of the chunk that fit in
+            # OVERLAP_CHARS (the window's lines, from its first sentence
+            # start). May be empty: the chunk then ended at a sentence end, so
+            # the next one starts a sentence anyway.
+            start, overlap_len = len(emitted), 0
             while start > 0 and overlap_len + len(emitted[start - 1][2]) <= OVERLAP_CHARS:
                 start -= 1
                 overlap_len += len(emitted[start][2])
+            while start < len(emitted) and not _starts_sentence(texts, emitted[start][0]):
+                start += 1
+            if start == len(emitted) and not emitted[-1][2].endswith(SENTENCE_END):
+                start = _line_overlap_start(emitted)  # no sentence end: a table, a list
         current = emitted[start:] + unfinished
         current_len = sum(len(line) for _, _, line in current)
 
@@ -263,12 +296,12 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
     return chunks
 
 
-def chunk_all() -> list[Chunk]:
+def chunk_all(boundaries: str = "sentences") -> list[Chunk]:
     all_chunks: list[Chunk] = []
     for processed_file in sorted(PROCESSED_DIR.glob("*.txt")):
         text = processed_file.read_text(encoding="utf-8")
         source = processed_file.stem
-        chunks = chunk_text(source, text)
+        chunks = chunk_text(source, text, boundaries)
         all_chunks.extend(chunks)
         print(f"chunked: {processed_file.name} -> {len(chunks)} chunks")
     return all_chunks
@@ -298,7 +331,13 @@ def report_token_lengths(chunks: list[Chunk]) -> None:
 
 
 if __name__ == "__main__":
-    all_chunks = chunk_all()
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--boundaries", choices=BOUNDARY_MODES, default="sentences")
+    args = parser.parse_args()
+    all_chunks = chunk_all(args.boundaries)
+    print(f"boundaries: {args.boundaries}")
     save_chunks(all_chunks)
     print(f"\ntotal chunks: {len(all_chunks)} -> saved to {CHUNKS_PATH}")
     report_token_lengths(all_chunks)

@@ -6,10 +6,13 @@ whatever its chunk number. No database needed.
 from dataclasses import dataclass
 
 from app.evaluation.run_retrieval_eval import (
+    NINE_SEMESTERS_SENTENCE,
     anchor_locations,
     contains_anchor,
     load_eval_set,
+    nine_semesters_whole,
     rank_of_first_match,
+    repeat_policy_order,
 )
 
 EXPECTED = {"source": "catalog", "anchor": "a maximum of 68 semester credits are transferable"}
@@ -73,3 +76,27 @@ def test_every_eval_question_has_an_anchor_and_no_chunk_number():
         for e in q["expected"]:
             assert set(e) == {"source", "anchor"}, q["id"]
             assert len(e["anchor"].split()) >= 6, q["id"]  # long enough to be distinctive
+
+
+def test_repeat_policy_order_needs_the_undergraduate_rule_first():
+    undergraduate = _Result(
+        "catalog", 1, "A student may repeat any course in which a C- or lower has been earned."
+    )
+    graduate = _Result(
+        "catalog", 2, "student may repeat any course in which a B- or lower has been earned."
+    )
+    other = _Result("catalog", 3, "unrelated")
+    assert repeat_policy_order([undergraduate, graduate]) == (True, 1, 2)
+    assert repeat_policy_order([graduate, undergraduate]) == (False, 2, 1)
+    assert repeat_policy_order([other, undergraduate]) == (True, 2, None)  # graduate absent
+    assert repeat_policy_order([graduate, other]) == (False, None, 1)  # undergraduate absent
+
+
+def test_nine_semesters_check_fails_when_a_chunk_has_only_part_of_the_sentence():
+    whole = "Scholarship Period\n" + NINE_SEMESTERS_SENTENCE.replace(
+        "semesters (or", "semesters\n(or"
+    )
+    cut = "Undergraduate beneficiaries are eligible for AUI scholarship for a maximum of nine semesters"
+    assert nine_semesters_whole([whole, "unrelated"]) == (True, 1, 1)
+    assert nine_semesters_whole([whole, cut]) == (False, 2, 1)
+    assert nine_semesters_whole(["unrelated"]) == (False, 0, 0)  # the sentence is nowhere

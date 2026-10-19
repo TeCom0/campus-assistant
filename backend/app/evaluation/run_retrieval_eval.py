@@ -83,6 +83,60 @@ def check_anchors(questions: list[dict]) -> bool:
     return ok
 
 
+# Targeted checks for Fix C (section context in chunks), defined before any
+# variant was measured (CLAUDE.md, 2026-10-19).
+REPEAT_QUERY = "What is the repeat policy for undergraduate students?"
+UNDERGRADUATE_REPEAT_RULE = "a C- or lower has been earned"
+GRADUATE_REPEAT_RULE = "a B- or lower has been earned"
+NINE_SEMESTERS = "maximum of nine semesters"
+NINE_SEMESTERS_SENTENCE = (
+    "Undergraduate beneficiaries are eligible for AUI scholarship for a maximum of nine "
+    "semesters (or eight semesters plus two summer sessions), while graduate scholarships are "
+    "allowed to use their scholarship for a maximum of four semesters, including one semester "
+    "at the Language Center."
+)
+
+
+def first_rank_with(results, fragment: str) -> int | None:
+    """1-based rank of the first result whose text contains `fragment`."""
+    for i, r in enumerate(results, start=1):
+        if normalize_text(fragment) in normalize_text(r.text):
+            return i
+    return None
+
+
+def repeat_policy_order(results) -> tuple[bool, int | None, int | None]:
+    """Check 1: the undergraduate rule ranks above the graduate one (or that's absent)."""
+    undergraduate = first_rank_with(results, UNDERGRADUATE_REPEAT_RULE)
+    graduate = first_rank_with(results, GRADUATE_REPEAT_RULE)
+    ok = undergraduate is not None and (graduate is None or undergraduate < graduate)
+    return ok, undergraduate, graduate
+
+
+def nine_semesters_whole(texts: list[str]) -> tuple[bool, int, int]:
+    """Check 2: every chunk with "maximum of nine semesters" holds its full sentence."""
+    with_phrase = [t for t in texts if normalize_text(NINE_SEMESTERS) in normalize_text(t)]
+    whole = [t for t in with_phrase if normalize_text(NINE_SEMESTERS_SENTENCE) in normalize_text(t)]
+    return bool(with_phrase) and len(whole) == len(with_phrase), len(with_phrase), len(whole)
+
+
+def run_targeted_checks() -> bool:
+    ok1, undergraduate, graduate = repeat_policy_order(search_hybrid(REPEAT_QUERY, TOP_K))
+    print(
+        f"{'PASS' if ok1 else 'FAIL'} check 1, repeat policy order for {REPEAT_QUERY!r}: "
+        f"undergraduate rule (C-) at rank {undergraduate}, graduate rule (B-) at rank {graduate}"
+    )
+    conn = get_connection()
+    texts = [r[0] for r in conn.execute("SELECT text FROM document_chunks").fetchall()]
+    conn.close()
+    ok2, with_phrase, whole = nine_semesters_whole(texts)
+    print(
+        f"{'PASS' if ok2 else 'FAIL'} check 2, nine-semesters sentence: {whole} of {with_phrase} "
+        f"chunks with {NINE_SEMESTERS!r} hold the full sentence"
+    )
+    return ok1 and ok2
+
+
 def run_eval(search_fn: Callable[[dict, int], list], name: str, questions: list[dict]) -> dict:
     """search_fn gets the whole eval question, so a method can use question_en."""
     hit_counts = dict.fromkeys(HIT_RATE_KS, 0)
@@ -127,10 +181,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--check-anchors", action="store_true", help="Only check each anchor is in some chunk"
     )
+    parser.add_argument(
+        "--targeted", action="store_true", help="Only run Fix C's two targeted checks"
+    )
     args = parser.parse_args()
     all_questions = load_eval_set()
     if args.check_anchors:
         sys.exit(0 if check_anchors(all_questions) else 1)
+    if args.targeted:
+        sys.exit(0 if run_targeted_checks() else 1)
     methods = {
         "vector": lambda q, k: search_vector(q["question"], k),
         "keyword": lambda q, k: search_keyword(q["question"], k),
