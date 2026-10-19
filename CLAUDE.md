@@ -191,6 +191,19 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
     is in README Future work.
 - [ ] **5. Deploy on Azure for Students**: Docker Compose, Caddy with automatic HTTPS,
   Youness's Namecheap domain, .env only on the server, then load the database.
+  **5a done 2026-10-19 (2d189a6)**: docker-compose.prod.yml (only Caddy published; db/api
+  private via `ports: !reset []`; UI built with VITE_API_URL=/api; TRUST_PROXY_HEADERS=true;
+  CORS_ORIGINS=https://${DOMAIN}), deploy/Caddyfile (handle_path /api/* -> api:8000 with
+  flush_interval -1; rest -> frontend; HSTS, nosniff, no Server header), deploy/DEPLOY.md
+  (runbook: B2s VM, NSG 80/443 + 22 from own IP, DNS A record, Docker, `git archive` copy
+  (private repo, no credentials on the VM), server .env with NEW random POSTGRES_PASSWORD and
+  IP_HASH_SECRET + only GROQ_API_KEY copied, DB via pg_dump/pg_restore, up --build).
+  Tested locally with DOMAIN=localhost on 8081/8443 (UI, /api/health, source redirect,
+  headers, API/db unreachable, SSE streamed: first event 0.7 s before the last); local dev
+  stack restored afterwards. Measured: api 408 MiB idle, image 2.94 GB.
+  **BLOCKED on Youness (2026-10-19)**: (1) `az account list` shows only a "Pay-As-You-Go"
+  subscription, no Azure for Students -- nothing created; (2) the domain name; (3) approve
+  VM size/region (Standard_B2s proposed).
 - [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
   unanswerable question, on desktop and mobile.
 - [ ] **7. Go public**: fix the pytest hang (open issues), gitleaks over the full history, then
