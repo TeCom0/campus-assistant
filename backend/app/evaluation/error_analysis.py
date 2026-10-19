@@ -21,6 +21,8 @@ Causes:
   crash               the forced-final-answer error (no answer)
   fallback            the forced answer failed twice; the code-built fallback was sent
   embellishment       the model added a gloss, hedge or detail no passage gives
+  misread             the cited passage contradicts the claim (a wrong reading, not an
+                      added detail); added for run 2's w_grade_en#4
   uncitable_tool      a tool result the model couldn't cite (query_courses "no description")
   judge_artifact      the claim IS supported; it failed only in the judge or quote check
 
@@ -47,6 +49,7 @@ CAUSES = (
     "crash",
     "fallback",
     "embellishment",
+    "misread",
     "uncitable_tool",
     "judge_artifact",
 )

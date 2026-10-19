@@ -245,8 +245,8 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
     **confirmed by Youness (all 18 unchanged)**: judge_artifact 5, french_retrieval 4,
     citation_placement 2, embellishment 2, crash 2, grad_undergrad 1, heading_split 1,
     uncitable_tool 1. **By hand 7/24 main answers fail** (plagiarism_en, add_drop_en,
-    csc3326_prereqs_en fail only via judge artifacts: one-passage quote rule on claims citing
-    two passages x3, PDF "and/ or" spacing, 3-word quote). Judge rules stay FROZEN for
+    csc3326_prereqs_en fail only via judge artifacts: two-passage quotes x2, PDF "and/ or" spacing
+    x2, 3-word quote x1 -- corrected 2026-10-19; the README had said 3/1/1). Judge rules stay FROZEN for
     comparability; report the hand count alongside. README: causes "proposed by AI assistant,
     reviewed by the author"; adjudications_run1.json marks 6 `ai_assisted` decisions.
   - *Plan: three fixes, one step each (explain -> code + tests -> commit), in this order:*
@@ -270,13 +270,15 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       answer declines; same as run 1's instructor_en) -> 0/7 by hand over both runs.
       **Runs 1+2 combined: main 17/47 = 36.2% (CI 24.0-50.5; EN 9/24 = 37.5%, FR 8/23 =
       34.8%)**, 5 crashes, false refusals 5/55, regression 6/8 -> report_runs_1_2.json.
-      error_analysis_run2.md + error_causes_run2.json: 21 failures, causes PROPOSED by Claude,
-      **awaiting Youness's review**: judge_artifact 8, citation_placement 4, crash 4,
-      french_retrieval 2, embellishment 1, uncitable_tool 1, and a proposed NEW cause
-      `misread` 1 (w_grade_en#4: cited passage contradicts the claim; not yet in CAUSES --
-      add it only if confirmed). w_grade_en#3 flagged borderline (judge_artifact vs
-      embellishment). If confirmed as proposed: by hand 4/23 main answers fail (all EN).
-      README not updated yet: do it once causes are confirmed (one edit for both baselines).
+      error_analysis_run2.md + error_causes_run2.json: 21 failures, causes proposed by Claude,
+      **all 21 confirmed unchanged by Youness (2026-10-19)**: judge_artifact 8,
+      citation_placement 4, crash 4, french_retrieval 2, embellishment 1, uncitable_tool 1,
+      and the NEW cause `misread` 1 (w_grade_en#4: the cited passage contradicts the claim;
+      added to CAUSES). w_grade_en#3 (borderline) stays judge_artifact. By hand 4/23 main
+      answers fail in run 2 (all EN), **11/47 over runs 1+2** (judge: 17/47). README updated
+      with both baselines and the per-run cause table (39 failures).
+    - **Fix D candidate (if time allows after A-C): citation placement** -- 6 failures over
+      runs 1-2 (the fact is in a retrieved passage, but not the one cited).
     - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced
       path (graph.py `_agent_node`, after MAX_TOOL_ROUNDS) catch Groq's 400 "Tool choice is
       none, but model called a tool", retry once with "tools unavailable, answer in plain
@@ -312,9 +314,11 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       answers, per-cause counts, crashes, false refusals.
   - **Decisions (Youness, 2026-10-19):**
     1. Fix B: `query_en` is a required argument of the search_documents tool call, written by
-       the agent (no extra LLM call). Each search fuses THREE queries with RRF -- the agent's
-       query, its English version, and the student's exact original question (counters query
-       padding) -- still returning the top 5.
+       the agent (no extra LLM call). Each search fuses with RRF the agent's query, its English
+       version, and -- **on the first turn of a conversation only** -- the student's exact
+       original question (counters query padding); follow-ups fuse only the agent's query and
+       its English version (a follow-up like "And for graduates?" isn't standalone). Still
+       returns the top 5. (Refined 2026-10-19, Youness.)
     2. Judge run 2 with the frozen judge as a second baseline (~$0.06).
     3. One combined after-run (runs 3 + 4), with per-cause attribution.
     4. The two blind-round notes (intl_scholarships_fr#8, scholarship_work_hours_fr#1) were

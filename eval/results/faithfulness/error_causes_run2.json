@@ -1,132 +1,132 @@
 {
   "run": 2,
   "judge": "mistral-large-2512 (v2 rules)",
-  "note": "proposed = the AI assistant's reading of error_analysis_run2.md (2026-10-19); confirmed = the author's review (pending).",
+  "note": "proposed = the AI assistant's reading of error_analysis_run2.md; confirmed = the author's review (2026-10-19: all 21 proposals accepted unchanged, incl. the new cause misread for w_grade_en#4 and judge_artifact for the borderline w_grade_en#3).",
   "causes": {
     "transfer_credits_en#3": {
       "proposed": "citation_placement",
       "why": "The 30-credit minimum is in [4], but the FAS exemption for 'more than 60 credits' is only in retrieved passage [3] (p. 31), which the sentence doesn't cite; it cites [4][6].",
-      "confirmed": "",
+      "confirmed": "citation_placement",
       "note": ""
     },
     "plagiarism_en#6": {
       "proposed": "citation_placement",
       "why": "'Several courses at AUI teach ... crediting sources' is in [2], but the faculty part is only in retrieved passage [5] (pp. 107-108: 'Faculty members are expected to make their practices clear'); the closing line cites [2] alone. 'model and enforce' is also a loose gloss of 'make their practices clear'.",
-      "confirmed": "",
+      "confirmed": "citation_placement",
       "note": ""
     },
     "add_drop_en#10": {
       "proposed": "judge_artifact",
       "why": "Verbatim in [1] ('not official until all applicable tuition and fees have been paid'); the quote failed only on the PDF's 'and/ or' spacing (same as run 1's add_drop_en#1/#6).",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "add_drop_en#14": {
       "proposed": "citation_placement",
       "why": "'Courses dropped within the official add/drop period ... are not reflected on the academic record' is in [1]; list item 4 cites [4], whose text stops before that sentence.",
-      "confirmed": "",
+      "confirmed": "citation_placement",
       "note": ""
     },
     "add_drop_en#16": {
       "proposed": "citation_placement",
       "why": "'not official until all applicable tuition and fees have been paid' is in [1]. Item 5 has no marker of its own; the lead_in rule gave it [4] (item 4's marker), which doesn't have it. The model cited nothing here.",
-      "confirmed": "",
+      "confirmed": "citation_placement",
       "note": ""
     },
     "add_drop_en#17": {
       "proposed": "embellishment",
       "why": "'Verify that the changes appear on your academic record; if not, contact the Registrar's Office' is a procedural step no passage gives (scope [4] via the lead_in rule).",
-      "confirmed": "",
+      "confirmed": "embellishment",
       "note": ""
     },
     "add_drop_fr": {
       "proposed": "crash",
       "why": "Forced-final-answer 400: 'Tool choice is none, but model called a tool' (before Fix A).",
-      "confirmed": "",
+      "confirmed": "crash",
       "note": ""
     },
     "course_load_en": {
       "proposed": "crash",
       "why": "Forced-final-answer 400, same error (also crashed in run 1).",
-      "confirmed": "",
+      "confirmed": "crash",
       "note": ""
     },
     "course_load_fr": {
       "proposed": "crash",
       "why": "Forced-final-answer 400, same error.",
-      "confirmed": "",
+      "confirmed": "crash",
       "note": ""
     },
     "w_grade_en#3": {
       "proposed": "judge_artifact",
       "why": "BORDERLINE. [2] says after the W period (40th class day) 'Faculty must assign either a grade of WP ... or WF' -- the claim's substance. The judge quoted [1] (withdrawing from ALL classes after mid-semester), not cited, so the quote failed. 'mid-semester cutoff' paraphrases '40th class day' (the calendar's W deadline, Oct 29, is mid-semester). Alternative: embellishment, if 'mid-semester' counts as a detail [2] doesn't give.",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "w_grade_en#4": {
       "proposed": "misread",
-      "why": "PROPOSED NEW CAUSE: the cited passage contradicts the claim. [8] says Oct 29 is the 'Last Day to Drop a Course with W'; the claim says the W lasts 'until the last day of the add/drop period' (4th class day per [1]) -- then gives Oct 29 as that date. Not an added detail (embellishment): a wrong reading of a retrieved, cited passage.",
-      "confirmed": "",
+      "why": "NEW CAUSE (accepted): the cited passage contradicts the claim. [8] says Oct 29 is the 'Last Day to Drop a Course with W'; the claim says the W lasts 'until the last day of the add/drop period' (4th class day per [1]) -- then gives Oct 29 as that date. Not an added detail (embellishment): a wrong reading of a retrieved, cited passage.",
+      "confirmed": "misread",
       "note": ""
     },
     "scholarship_conditions_fr": {
       "proposed": "french_retrieval",
       "why": "3 French searches ('conditions conserver bourse Al Akhawayn') returned course lists, loans and MBA pages, none of the renewal-policy chunks; it declined. Same as run 1.",
-      "confirmed": "",
+      "confirmed": "french_retrieval",
       "note": ""
     },
     "scholarship_work_hours_en#1": {
       "proposed": "judge_artifact",
       "why": "'Yes.' is supported by [5] and [6]. The judge's quote started with the answer's own 'Yes.' and joined [6]'s wording to [5]'s, which the one-passage rule fails.",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "scholarship_work_hours_en#2": {
       "proposed": "judge_artifact",
       "why": "Supported across the two cited passages: 'up to 10 hours per week starting their 2nd semester' in [5], '(160 hours per semester)' in [6]. The quote joined both, failing the one-passage rule.",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "scholarship_work_hours_en#3": {
       "proposed": "judge_artifact",
       "why": "'unpaid ... as part of their scholarship package' is in [6]; 'must be completed each semester' matches [5] ('Failing to complete the total hours of work required per semester may jeopardize...'). Cross-passage quote.",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "scholarship_work_hours_en#4": {
       "proposed": "judge_artifact",
       "why": "A statement that [5] and [6] state the requirement -- true for both. Cross-passage quote.",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "scholarship_work_hours_fr#3": {
       "proposed": "judge_artifact",
       "why": "The claim quotes [10] word for word; the judge's quote failed only on the PDF's line-break hyphenation ('com-\nmunity service' vs 'community service').",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "csc3326_prereqs_fr#3": {
       "proposed": "judge_artifact",
       "why": "'Junior classification' is verbatim in [1]; the judge's quote 'and Junior classification' is 3 words, under the 4-word minimum (same as run 1's csc3326_prereqs_en#3).",
-      "confirmed": "",
+      "confirmed": "judge_artifact",
       "note": ""
     },
     "intl_scholarships_fr": {
       "proposed": "french_retrieval",
       "why": "3 French searches ('bourses étudiants internationaux ...') returned the table of contents, fees, faculty lists and course descriptions -- none of the scholarship pages; it declined. (The regression question; run 1 answered it.)",
-      "confirmed": "",
+      "confirmed": "french_retrieval",
       "note": ""
     },
     "mth1305_fr": {
       "proposed": "uncitable_tool",
       "why": "Only query_courses was called; it returned the 'no description' note (no marker); the model declined citing a [1] no tool returned, never searching. Same as run 1.",
-      "confirmed": "",
+      "confirmed": "uncitable_tool",
       "note": ""
     },
     "fulbright_fr": {
       "proposed": "crash",
       "why": "Forced-final-answer 400, same error (unanswerable question).",
-      "confirmed": "",
+      "confirmed": "crash",
       "note": ""
     }
   }

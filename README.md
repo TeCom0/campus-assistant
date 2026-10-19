@@ -195,51 +195,66 @@ the 36 scored sample claims:
   is "supported", so kappa punishes any disagreement heavily. Raw agreement with its interval is
   the more useful number here.
 
-As decided in advance, judge work ends here, so run 2 was not judged. The baseline below uses
-this judge and must be read together with its 75% agreement.
+As decided in advance, judge work ends here: the judge's rules are frozen from this point. Run 2
+was later judged with the same frozen judge (calibration re-checked first: 9/9) as a second
+baseline, which doubles the sample. Both baselines must be read together with the judge's 75%
+agreement.
 
-**Faithfulness baseline (run 1, 34 answers, judged by Mistral Large 2512):**
+**Faithfulness baseline (runs 1 and 2, 34 answers each, judged by Mistral Large 2512):**
 
-| Group | Answers with ≥ 1 unsupported cited claim | Crashed |
-|---|---|---|
-| `main` (all) | 10/24 = 41.7% (95% CI 24.5–61.2%) | 2 |
-| `main` English | 4/12 = 33.3% | 1 |
-| `main` French | 6/12 = 50.0% | 1 |
-| Known past failures | 3/4 | 0 |
-| Unanswerable | 0/4 (none cite anything) | 0 |
+| Group | Run 1 | Run 2 | **Runs 1 + 2** |
+|---|---|---|---|
+| `main` (all) | 10/24 = 41.7% (24.5–61.2%) | 7/23 = 30.4% (15.6–50.9%) | **17/47 = 36.2% (24.0–50.5%)** |
+| `main` English | 4/12 = 33.3% | 5/12 = 41.7% | 9/24 = 37.5% (21.2–57.3%) |
+| `main` French | 6/12 = 50.0% | 2/11 = 18.2% | 8/23 = 34.8% (18.8–55.1%) |
+| Known past failures | 3/4 | 3/4 | 6/8 |
+| Unanswerable | 0/4 (none cite anything) | 0/3 (none cite anything) | 0/7 |
+| Crashed (all sets) | 2 | 4 | 6 |
 
-- **False refusals:** 2/28. The assistant declined two answerable questions (scholarship
-  conditions in French, and MTH 1305 in French).
-- **Missed refusals:** the report counts 1/4 (`instructor_en`), but that's a judge error. The
-  answer does decline ("I couldn't find any information…"), and my hand label says so. So the
-  assistant declined all 4 unanswerable questions.
-- **Excluded from scoring:** 12 of 156 claims (7 lead-ins, 5 refusals), all listed in the report.
-- **Crashes:** 2 answers hit the known forced-answer error and have no claims.
-- **Cost:** the judge runs on Mistral's pay-as-you-go API; judging all of run 1 cost about $0.06.
+Each cell is answers with ≥ 1 unsupported cited claim, out of answers that didn't crash, with a
+95% Wilson interval.
 
-**Why answers fail.** Each of the 18 failures (14 unsupported cited claims in the 10 failing
-`main` answers, 2 false refusals, 2 crashes) was given one cause. The causes were proposed by an
-AI assistant and reviewed by the author, who accepted all 18
-(`eval/results/faithfulness/error_analysis_run1.md`):
+- **Run-to-run variance is large.** French went from 50% to 18% between two runs of the same
+  questions, and the intervals overlap heavily. With about 24 answers per group, no EN/FR
+  difference can be read from these numbers. Only large before/after effects will show.
+- **False refusals:** 5/55, all in French. Scholarship conditions and MTH 1305 were declined in
+  both runs; international scholarships, a known past failure, was declined in run 2.
+- **Missed refusals:** the report counts 2/7 (`instructor_en` in run 1, `fulbright_en` in run 2).
+  Both are judge errors: each answer plainly declines ("I can't find any specific information…").
+  By hand, the assistant declined all 7 unanswerable questions it answered.
+- **Excluded from scoring:** 12 of 156 claims in run 1 and 13 of 148 in run 2 (lead-ins and
+  refusals), all listed in the report.
+- **Crashes:** 6 answers hit the known forced-answer error and have no claims.
+- **Cost:** the judge runs on Mistral's pay-as-you-go API, about $0.06 per run.
 
-| Cause | Failures |
-|---|---|
-| Judge artifact (the claim *is* supported; the quote check failed it) | 5 |
-| French retrieval (the right passage was never retrieved) | 4 |
-| Citation placement (the fact is in a retrieved passage, not the cited one) | 2 |
-| Embellishment (a gloss or hedge no passage gives) | 2 |
-| Forced-final-answer crash | 2 |
-| Graduate rules presented as general | 1 |
-| Heading or number cut off by a chunk boundary | 1 |
-| Uncitable tool result (`query_courses` "no description") | 1 |
+**Why answers fail.** Each failure was given one cause: every unsupported cited claim in a
+`main` answer, every false refusal and every crash. That is 18 failures in run 1 (14 claims in 10
+answers, 2 false refusals, 2 crashes) and 21 in run 2 (14 claims in 7 answers, 3 false refusals,
+4 crashes). For both runs, the causes were proposed by an AI assistant and reviewed by the
+author, who accepted all of them: 18/18 in run 1, 21/21 in run 2
+(`eval/results/faithfulness/error_analysis_run1.md`, `error_analysis_run2.md`):
 
-Set the judge artifacts aside and **7 of 24 `main` answers fail by hand**, against the judge's 10.
-This hand count only re-checks what the judge called unsupported; it can't recover the judge's
-lenient errors. Of the 5 artifacts:
-- 3 are quotes that join two passages on claims that rightly cite both, which the one-passage
-  quote rule fails;
-- 1 is the PDF's "and/ or" spacing;
-- 1 is a 3-word quote under the 4-word minimum.
+| Cause | Run 1 | Run 2 | Total |
+|---|---|---|---|
+| Judge artifact (the claim *is* supported; the quote check failed it) | 5 | 8 | 13 |
+| French retrieval (the right passage was never retrieved) | 4 | 2 | 6 |
+| Citation placement (the fact is in a retrieved passage, not the cited one) | 2 | 4 | 6 |
+| Forced-final-answer crash | 2 | 4 | 6 |
+| Embellishment (a gloss, hedge or step no passage gives) | 2 | 1 | 3 |
+| Uncitable tool result (`query_courses` "no description") | 1 | 1 | 2 |
+| Graduate rules presented as general | 1 | 0 | 1 |
+| Heading or number cut off by a chunk boundary | 1 | 0 | 1 |
+| Misread (the cited passage contradicts the claim; a cause added in run 2) | 0 | 1 | 1 |
+
+Set the judge artifacts aside and **11 of 47 `main` answers fail by hand** (7/24 in run 1, 4/23
+in run 2), against the judge's 17. This hand count only re-checks what the judge called
+unsupported; it can't recover the judge's lenient errors. Of the 13 artifacts:
+- 6 are quotes that join two passages on claims that rightly cite both, which the one-passage
+  quote rule fails (2 in run 1, 4 in run 2);
+- 4 come from PDF text: "and/ or" spacing (3) and a line-break hyphen, "com- munity" (1);
+- 2 are 3-word quotes under the 4-word minimum;
+- 1 quotes a passage the claim doesn't cite, while the cited passage supports the claim (a
+  borderline case, `w_grade_en#3`).
 
 Those rules stay fixed, so that before and after fixes are judged identically. The hand count
 is reported alongside to correct for them.

@@ -1,6 +1,6 @@
 # Error analysis, run 2: 21 failures
 
-Confirm each cause in error_causes_run2.json ("confirmed": one of grad_undergrad, heading_split, french_retrieval, citation_placement, crash, fallback, embellishment, uncitable_tool, judge_artifact).
+Confirm each cause in error_causes_run2.json ("confirmed": one of grad_undergrad, heading_split, french_retrieval, citation_placement, crash, fallback, embellishment, misread, uncitable_tool, judge_artifact).
 
 ---
 
@@ -362,7 +362,7 @@ Students may withdraw from all classes after the last date to drop/add courses w
 
 ## 11. w_grade_en#4 (claim)
 
-**Proposed cause:** misread -- PROPOSED NEW CAUSE: the cited passage contradicts the claim. [8] says Oct 29 is the 'Last Day to Drop a Course with W'; the claim says the W lasts 'until the last day of the add/drop period' (4th class day per [1]) -- then gives Oct 29 as that date. Not an added detail (embellishment): a wrong reading of a retrieved, cited passage.
+**Proposed cause:** misread -- NEW CAUSE (accepted): the cited passage contradicts the claim. [8] says Oct 29 is the 'Last Day to Drop a Course with W'; the claim says the W lasts 'until the last day of the add/drop period' (4th class day per [1]) -- then gives Oct 29 as that date. Not an added detail (embellishment): a wrong reading of a retrieved, cited passage.
 
 **Question:** What does a W grade mean, and until when can I drop a course and still get a W?
 
