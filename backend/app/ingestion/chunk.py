@@ -2,7 +2,12 @@
 
 Chunks are the unit we'll embed and store in Phase 1's later steps. Each chunk
 keeps track of which source file and page(s) it came from, so answers can cite
-their source later.
+their source later, and of where it sits in the document: its LEVEL (general,
+undergraduate or graduate) and its SECTION (the nearest heading above it).
+A fixed-size window can cut a rule from its heading (the undergraduate repeat
+rules are a table away from "Repeat Policy"), and parallel undergraduate and
+graduate policies differ (repeat: C- or lower vs. B- or lower); without these,
+a chunk doesn't say what it is about or whom it applies to.
 """
 
 import json
@@ -20,6 +25,27 @@ OVERLAP_CHARS = 150
 
 PAGE_MARKER_RE = re.compile(r"--- page (\d+) ---\n")
 
+# The catalog's part headings, as body lines on their own (the table of
+# contents lists them too, followed by a page number, so an exact line match
+# skips those). Everything before the undergraduate part (admissions,
+# financial aid, add/drop, plagiarism, grading) is university-wide.
+LEVEL_HEADINGS = {
+    "AL AKHAWAYN UNDERGRADUATE STUDIES": "undergraduate",
+    "AL AKHAWAYN GRADUATE STUDIES": "graduate",
+    "ACADEMIC CENTERS AND INSTITUTES": "general",  # Language Center, faculty list
+}
+# Sources with one level throughout (web pages have no part headings).
+SOURCE_LEVELS = {"graduate_scholarships": "graduate"}
+DEFAULT_LEVEL = "general"
+
+# Repeated at the top of every catalog page; never a heading.
+PAGE_HEADER_LINES = {"Al Akhawayn University", "www.aui.ma", "2024-", "2025"}
+# Words a title-case heading leaves in lower case.
+SMALL_WORDS = {
+    "a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "of", "on", "or", "per",
+    "the", "to", "with",
+}  # fmt: skip
+
 
 @dataclass
 class Chunk:
@@ -28,6 +54,8 @@ class Chunk:
     text: str
     pages: list[int] = field(default_factory=list)  # empty for non-paginated (HTML) sources
     language: str = "en"  # TODO: derive per-source once non-English sources are added
+    level: str = DEFAULT_LEVEL  # "general", "undergraduate" or "graduate"
+    section: str | None = None  # nearest heading above the chunk's first line
 
 
 def _split_into_pages(text: str) -> list[tuple[int | None, str]]:
@@ -58,15 +86,76 @@ def _split_into_lines(text: str) -> list[str]:
     return [line for line in lines if line]
 
 
+def looks_like_heading(line: str) -> bool:
+    """A heading's shape: 1-8 words, title or upper case, no digits or punctuation.
+
+    PDF extraction loses fonts, so shape and context (is_heading) are all there
+    is. Excludes the page header, table header rows ("Course Code Course Name")
+    and the abbreviation table ("Finance FIN"); names ("Hazzaz, Safia") and
+    titles ("Mr. ...") are excluded by the punctuation rule.
+    """
+    words = line.split()
+    if not 1 <= len(words) <= 8 or line in PAGE_HEADER_LINES:
+        return False
+    if re.search(r"[\d.,;:!?]", line) or not line[0].isupper() or "Course Code" in line:
+        return False
+    if not line.isupper() and re.search(r"\s[A-Z]{2,5}$", line):
+        return False
+    return all(w[0].isupper() or w.lower() in SMALL_WORDS or not w[0].isalpha() for w in words)
+
+
+def _ends_sentence(line: str) -> bool:
+    # Not ")": the probation table's "(may appeal)" cell precedes its "Not
+    # Allowed" cell, which would then pass as the heading of the undergraduate
+    # repeat rules printed after the table.
+    return line[-1] in ".:;!?" or line in PAGE_HEADER_LINES or line.isdigit()
+
+
+def _starts_text(line: str) -> bool:
+    return len(line.split()) >= 6 or line.startswith("•")
+
+
+def is_heading(previous: str, line: str, following: str) -> bool:
+    """A heading-shaped line between the end of a sentence (or another heading)
+    and the start of real text.
+
+    The context keeps table cells ("Spring" between "Fall" and "Summer") and
+    staff titles (after a name line) out. Measured on the catalog: 535
+    headings, about 1 in 20 wrong in samples (mostly table header rows).
+    """
+    return (
+        looks_like_heading(line)
+        and (_ends_sentence(previous) or looks_like_heading(previous))
+        and _starts_text(following)
+    )
+
+
+def assign_sections(source: str, lines: list[str]) -> list[tuple[str, str | None]]:
+    """(level, section) in effect at each line of one document."""
+    level = SOURCE_LEVELS.get(source, DEFAULT_LEVEL)
+    section = None
+    sections = []
+    for i, line in enumerate(lines):
+        if line in LEVEL_HEADINGS:
+            level, section = LEVEL_HEADINGS[line], None
+        elif 0 < i < len(lines) - 1 and is_heading(lines[i - 1], line, lines[i + 1]):
+            section = line
+        sections.append((level, section))
+    return sections
+
+
 def chunk_text(source: str, text: str) -> list[Chunk]:
     """Chunk one document's text into overlapping, line-aligned windows."""
     lines: list[tuple[int | None, str]] = []
     for page_number, page_text in _split_into_pages(text):
         for line in _split_into_lines(page_text):
             lines.append((page_number, line))
+    # Over the whole document, not per page: a heading's next line can be on
+    # the next page.
+    sections = assign_sections(source, [line for _, line in lines])
 
     chunks: list[Chunk] = []
-    current: list[tuple[int | None, str]] = []  # (page, line) pairs in progress
+    current: list[tuple[int, int | None, str]] = []  # (line number, page, line) in progress
     current_len = 0
 
     def flush() -> None:
@@ -74,26 +163,38 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
         if not current:
             return
 
-        chunk_str = "\n".join(line for _, line in current)
-        pages = sorted({pg for pg, _ in current if pg is not None})
-        chunks.append(Chunk(source=source, chunk_index=len(chunks), text=chunk_str, pages=pages))
+        chunk_str = "\n".join(line for _, _, line in current)
+        pages = sorted({pg for _, pg, _ in current if pg is not None})
+        # The section in effect at the chunk's first line; a heading further
+        # down is already in the chunk's own text.
+        level, section = sections[current[0][0]]
+        chunks.append(
+            Chunk(
+                source=source,
+                chunk_index=len(chunks),
+                text=chunk_str,
+                pages=pages,
+                level=level,
+                section=section,
+            )
+        )
 
         # Carry the tail lines of this chunk into the next one (up to
         # OVERLAP_CHARS) so boundary-crossing context isn't lost.
-        overlap: list[tuple[int | None, str]] = []
+        overlap: list[tuple[int, int | None, str]] = []
         overlap_len = 0
-        for pg, line in reversed(current):
+        for n, pg, line in reversed(current):
             if overlap_len + len(line) > OVERLAP_CHARS and overlap:
                 break
-            overlap.insert(0, (pg, line))
+            overlap.insert(0, (n, pg, line))
             overlap_len += len(line)
         current = overlap
         current_len = overlap_len
 
-    for page_number, line in lines:
+    for n, (page_number, line) in enumerate(lines):
         if current_len + len(line) > MAX_CHUNK_CHARS and current:
             flush()
-        current.append((page_number, line))
+        current.append((n, page_number, line))
         current_len += len(line)
 
     flush()

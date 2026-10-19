@@ -315,7 +315,23 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       Caveat: scholarship_conditions_en/fr's expected answer is the GRADUATE scholarships page
       (question names no level); if level tags push graduate passages down, it may drop while
       the system improves -- check it first. Label kept for comparability.
-    - **C, steps (b)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
+    - **C, step (b) DONE 2026-10-19**: chunk.py gives each chunk `level` (general /
+      undergraduate / graduate) and `section` (nearest heading in effect at its FIRST line --
+      a heading further down is already in its text). Level: exact body lines "AL AKHAWAYN
+      UNDERGRADUATE STUDIES" -> undergraduate, "AL AKHAWAYN GRADUATE STUDIES" -> graduate,
+      "ACADEMIC CENTERS AND INSTITUTES" -> general (TOC lines end with a page number, so they
+      don't match); SOURCE_LEVELS graduate_scholarships = graduate; default general (pre-part
+      policies like add/drop, plagiarism, grading are university-wide). Heading = 1-8 words,
+      title/upper case, no digits or . , ; : ! ?, not page header / "Course Code" / "X ABC"
+      abbreviation rows; previous line ends a sentence (. : ; ! ? or page header/number -- NOT
+      ")", which let the probation table's "Not Allowed" become the heading of the C- rules)
+      or is heading-shaped; next line has >= 6 words or is a bullet. Measured over 3 rounds:
+      535 headings, ~1 in 20 wrong in samples (table headers). Chunk texts/indexes/pages are
+      IDENTICAL to today's chunks.jsonl (metadata only). Levels: catalog 516 undergraduate,
+      311 graduate, 314 general. 1142/1161 chunks have a section. Chunk 282 (C- rules) ->
+      undergraduate > Repeat Policy; 786 (B- rule) -> graduate. chunks.jsonl NOT regenerated
+      yet (step e). Tests: test_chunk_sections.py (real lines + whole-catalog checks).
+    - **C, steps (c)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
       worse, STOP and show Youness before going further.** Explain each step before coding.
