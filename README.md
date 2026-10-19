@@ -327,9 +327,11 @@ the fixes, that drop is consistent with run-to-run variance. A second after-fix 
 work. (The judge's one missed refusal in run 3, `fulbright_fr`, is another judge error: the
 answer declines.)
 
-**The saved example answers are not a quality sample.** The example answers on the empty state
-were selected from several generations and checked by hand against their cited passages before
-being saved, so they are better than an average answer. The evaluation numbers above are the
+**The saved example answers are not a quality sample.** The four example answers on the empty
+state were selected from up to 3 attempts each and checked by hand against their cited passages
+before being saved, with no edits to their text. 6 of the 9 attempts in that round had an error
+(an unsupported or wrong detail), and the first answers to the same three questions had been
+rejected too. So the saved examples are better than an average answer. The evaluation numbers above are the
 representative ones. Saved examples are marked `cached_example` and kept out of `eval/results/`,
 so no evaluation counts them.
 

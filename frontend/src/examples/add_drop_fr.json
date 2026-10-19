@@ -1,0 +1,28 @@
+{
+  "id": "add_drop_fr",
+  "question": "Comment ajouter ou supprimer un cours ?",
+  "language": "fr",
+  "cached_example": true,
+  "generated_at": "2026-10-19T19:31:10+00:00",
+  "model": "openai/gpt-oss-20b",
+  "tool_calls": [
+    {
+      "tool": "search_documents",
+      "label": "Recherche dans les documents pour « comment ajouter ou supprimer un cours AUI »"
+    }
+  ],
+  "answer": "Pour ajouter ou supprimer un cours à l’Université Al Akhawayn, suivez ces étapes :\n\n1. **Vérifiez votre situation académique**  \n   - Vous devez être en bonne situation académique et ne pas avoir de blocages (holds) sur votre compte.  \n\n2. **Procédure en ligne (si aucun blocage)**  \n   - Accédez au système d’inscription en ligne et utilisez la fonction “Add/Drop” (ajout/suppression).  \n\n3. **Si vous avez des blocages**  \n   - Rendez‑vous au bureau du registrar et remplissez un formulaire “Add/Drop Form”. Ce formulaire doit être soumis avant de pouvoir commencer le processus en ligne.  \n\n4. **Autorisation requise**  \n   - Vous devez obtenir l’autorisation de votre conseiller académique et du coordinateur de votre école (ou département) pour ajouter ou supprimer un cours, sauf si le cours a déjà été inclus dans votre formulaire d’inscription sous “cours alternatifs”.  \n\n5. **Paiement des frais**  \n   - L’ajout ou la suppression de cours n’est officiel que lorsque tous les frais de scolarité et autres frais applicables ont été payés à l’université.  \n\n6. **Période officielle d’ajout/suppression**  \n   - Les cours supprimés pendant la période officielle d’ajout/suppression (le 4ᵉ jour de cours en trimestre régulier et le 2ᵉ jour de cours en été) ne sont pas reflétés sur votre relevé académique.  \n\n7. **Absence non justifiée**  \n   - Ne pas assister à un cours sans l’avoir supprimé entraînera une note de WF (Failing) sur votre relevé académique.  \n\nCes informations proviennent du catalogue académique de l’année 2024‑2025, section “Adding/Dropping Courses” [1].",
+  "citations": [
+    {
+      "marker": 1,
+      "source": "academic_catalog_2024_2025",
+      "pages": [
+        103
+      ],
+      "section": "Adding/Dropping Courses",
+      "level": "general",
+      "title": "Academic Catalog 2024–2025",
+      "link": "/sources/academic_catalog_2024_2025?page=103"
+    }
+  ]
+}

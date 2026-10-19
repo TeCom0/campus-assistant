@@ -1,0 +1,28 @@
+{
+  "id": "academic_probation_fr",
+  "question": "Que se passe-t-il si mon GPA est entre 1,5 et 1,99 ?",
+  "language": "fr",
+  "cached_example": true,
+  "generated_at": "2026-10-19T19:31:51+00:00",
+  "model": "openai/gpt-oss-20b",
+  "tool_calls": [
+    {
+      "tool": "search_documents",
+      "label": "Recherche dans les documents pour « GPA 1.5 1.99 »"
+    }
+  ],
+  "answer": "Si votre moyenne générale (GPA) se situe entre 1,5 et 1,99, vous êtes placé en **probation académique**.  \n- Vous recevez un avertissement indiquant que votre performance est en dessous du niveau requis.  \n- Vous ne pouvez pas prendre plus de quatre cours (jusqu’à 13 heures de semestre) au semestre suivant.  \n- Pour revenir à un statut satisfaisant, vous devez obtenir une moyenne de semestre d’au moins 2,00 à la fin du semestre courant.  \n- Les résultats d’une session d’été ou d’une intersession ne comptent pas pour la remise en statut satisfaisant.  \n- Aucun signe de probation académique n’apparaît sur votre relevé de notes.  \n\n[1]",
+  "citations": [
+    {
+      "marker": 1,
+      "source": "academic_catalog_2024_2025",
+      "pages": [
+        121
+      ],
+      "section": "Undergraduate Studies › Repeat Policy",
+      "level": "undergraduate",
+      "title": "Academic Catalog 2024–2025",
+      "link": "/sources/academic_catalog_2024_2025?page=121"
+    }
+  ]
+}

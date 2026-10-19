@@ -1,0 +1,44 @@
+{
+  "id": "transfer_credits_en",
+  "question": "How many credits can I transfer to AUI?",
+  "language": "en",
+  "cached_example": true,
+  "generated_at": "2026-10-19T19:30:30+00:00",
+  "model": "openai/gpt-oss-20b",
+  "tool_calls": [
+    {
+      "tool": "search_documents",
+      "label": "Searching documents for \"credit transfer limit\""
+    },
+    {
+      "tool": "search_documents",
+      "label": "Searching documents for \"graduate transfer credit maximum\""
+    }
+  ],
+  "answer": "The AUI academic catalog specifies separate limits for undergraduate and graduate transfer credits:\n\n* **Undergraduate programs** – up to **68 semester credits** can be transferred to AUI. [3]\n* **Graduate programs** – up to **12 semester credits** can be transferred toward a graduate degree. [6]\n\nIf you’re applying as a transfer student, be sure to check the specific program’s requirements and confirm the credit conversion rules with the Office of Enrollment.",
+  "citations": [
+    {
+      "marker": 3,
+      "source": "academic_catalog_2024_2025",
+      "pages": [
+        31,
+        32
+      ],
+      "section": "Transfer Credit Maximums",
+      "level": "general",
+      "title": "Academic Catalog 2024–2025",
+      "link": "/sources/academic_catalog_2024_2025?page=31"
+    },
+    {
+      "marker": 6,
+      "source": "academic_catalog_2024_2025",
+      "pages": [
+        38
+      ],
+      "section": "Al Akhawayn University in Ifrane",
+      "level": "general",
+      "title": "Academic Catalog 2024–2025",
+      "link": "/sources/academic_catalog_2024_2025?page=38"
+    }
+  ]
+}
