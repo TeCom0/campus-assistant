@@ -6,31 +6,36 @@
       "label_A": "unsupported",
       "label_B": "supported",
       "decision": "unsupported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "course_load_fr#1": {
       "label_A": "unsupported",
       "label_B": "supported",
       "decision": "unsupported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "csc3326_prereqs_en#3": {
       "label_A": "supported",
       "label_B": "unsupported",
       "decision": "supported",
-      "note": ""
+      "note": "",
+      "ai_assisted": ""
     },
     "intl_scholarships_fr#8": {
       "label_A": "unsupported",
       "label_B": "supported",
       "decision": "unsupported",
-      "note": "Directly supported: New-student scholarships are merit-based, most awards are for the fall session, and the listed baccalaureate thresholds, GAT, interview, and essay criteria.Not supported by the provided passage: Continuing-student scholarship rules cited as [10], external scholarships cited as [8], and the claim that international students are eligible for the same scholarships as Moroccan students."
+      "note": "Directly supported: New-student scholarships are merit-based, most awards are for the fall session, and the listed baccalaureate thresholds, GAT, interview, and essay criteria.Not supported by the provided passage: Continuing-student scholarship rules cited as [10], external scholarships cited as [8], and the claim that international students are eligible for the same scholarships as Moroccan students.",
+      "ai_assisted": "note written with an AI tool (author's statement, 2026-10-19); the author confirms it is accurate"
     },
     "scholarship_work_hours_fr#1": {
       "label_A": "unsupported",
       "label_B": "supported",
       "decision": "supported",
-      "note": "Directly supported by the passages: Yes. Citations [11] and [12] appropriate: Yes. Unsupported factual claims: None identified. Contradictions: None. Overall judgment: The response is directly supported by the source passages, though it omits a potentially relevant exception described in [9]."
+      "note": "Directly supported by the passages: Yes. Citations [11] and [12] appropriate: Yes. Unsupported factual claims: None identified. Contradictions: None. Overall judgment: The response is directly supported by the source passages, though it omits a potentially relevant exception described in [9].",
+      "ai_assisted": "note written with an AI tool (author's statement, 2026-10-19); the author confirms it is accurate"
     }
   }
 }

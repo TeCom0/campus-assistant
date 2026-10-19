@@ -283,16 +283,18 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       identical frozen rules, report, error analysis with confirmed causes; run 4 the next
       Groq day for variance; re-run the retrieval eval. Compare headline, by-hand failing
       answers, per-cause counts, crashes, false refusals.
-  - **Decisions pending (Youness gives them next session):**
-    1. Fix B: where `query_en` comes from -- (1, Claude's recommendation) required tool
-       argument written by the agent; (2) separate LLM translation call; (3) local MT model
-       (opus-mt-fr-en). And does "the original question" mean the agent's search query or
-       the student's question verbatim (verbatim would also counter query padding)?
-    2. Judge run 2 with the frozen judge as a second baseline (~$0.06; doubles main answers
-       to 48)?
-    3. One combined after-run (runs 3 + 4) vs one run per fix?
-    4. Were the two odd blind-round notes (intl_scholarships_fr#8, scholarship_work_hours_fr#1)
-       written with an AI tool? If so, mark them ai_assisted too.
+  - **Decisions (Youness, 2026-10-19):**
+    1. Fix B: `query_en` is a required argument of the search_documents tool call, written by
+       the agent (no extra LLM call). Each search fuses THREE queries with RRF -- the agent's
+       query, its English version, and the student's exact original question (counters query
+       padding) -- still returning the top 5.
+    2. Judge run 2 with the frozen judge as a second baseline (~$0.06).
+    3. One combined after-run (runs 3 + 4), with per-cause attribution.
+    4. The two blind-round notes (intl_scholarships_fr#8, scholarship_work_hours_fr#1) were
+       written with an AI tool; Youness confirms they are accurate. Marked `ai_assisted` in
+       adjudications_run1_blind.json; decisions unchanged.
+    5. Fix A: on answerable questions, a fallback answer counts as a FAILED answer in the
+       report (alongside false refusals), not as a success.
 - [ ] **3. Rate limit + daily cap + access code** (~1 session; write it while step 2 waits on
   quotas): per-IP limit (real client IP from the proxy header), global daily cap stored in
   Postgres, shared access code checked server-side, friendly message on a Groq 429, UI prompt,

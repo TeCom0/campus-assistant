@@ -248,7 +248,9 @@ is reported alongside to correct for them.
 - The 13 first-round adjudication decisions are the author's. The disagreement listing they were
   made from was written by the AI assistant, and on 6 of them the author asked for its opinion
   before deciding. Those 6 are marked `ai_assisted` in `adjudications_run1.json`.
-- In the blind round, the assistant built the A/B page and gave no opinions.
+- In the blind round, the assistant built the A/B page and gave no opinions. The author wrote
+  2 of the 5 notes with an AI tool (accurate, per the author). Those 2 are marked `ai_assisted`
+  in `adjudications_run1_blind.json`.
 - The original 40 hand labels were made before any AI opinion on them.
 
 These numbers set the starting point for the fixes. The same pipeline measures the result.
