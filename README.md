@@ -289,7 +289,55 @@ is reported alongside to correct for them.
   in `adjudications_run1_blind.json`.
 - The original 40 hand labels were made before any AI opinion on them.
 
-These numbers set the starting point for the fixes. The same pipeline measures the result.
+**After the fixes (run 3).** Three fixes were made, each aimed at confirmed causes, then run 3
+was generated and judged with the same frozen judge and rules (calibration re-checked: 9/9):
+- **A. Forced-answer crash:** the forced final answer is retried once, then replaced by a
+  code-built fallback that lists the sources found (counted as a failed answer, not a success).
+- **B. French retrieval:** every search also runs an English version written by the agent, plus
+  the student's own question on the first turn, all fused by RRF.
+- **C. Section context:** every chunk starts with a "Section:" line naming its level
+  (undergraduate or graduate) and its nearest heading.
+
+| | Baseline (runs 1 + 2) | After the fixes (run 3) |
+|---|---|---|
+| `main` answers with ≥ 1 unsupported cited claim (judge) | 17/47 = 36.2% (95% CI 24.0–50.5%) | 6/26 = 23.1% (95% CI 11.0–42.1%) |
+| `main` English / French | 9/24 / 8/23 | 3/13 / 3/13 |
+| `main` answers failing by hand (judge artifacts set aside) | 11/47 | 5/26 |
+| Crashes (all sets) | 6 | **0** |
+| Fallback answers | – | 0 |
+| False refusals (answerable questions declined) | 5/55 | **0/30** |
+| Missed refusals, by hand | 0/7 | 0/4 |
+| Known past failures (regression set) | 6/8 | 3/4 |
+
+**The reliability gains are clear; the faithfulness change is suggestive.** Crashes went from 6
+to 0 and false refusals from 5/55 to 0/30. The share of `main` answers with an unsupported cited
+claim fell from 36.2% to 23.1%, but the 95% confidence intervals overlap: with 26 answers after
+the fixes, that drop is consistent with run-to-run variance. A second after-fix run is future
+work. (The judge's one missed refusal in run 3, `fulbright_fr`, is another judge error: the
+answer declines.)
+
+**Why run 3's answers fail.** Run 3's 11 failures (11 unsupported cited claims in 6 `main`
+answers; no false refusals, no crashes) were given causes the same way as runs 1 and 2: the
+causes were proposed by an AI assistant and reviewed by the author, who accepted all 11
+(`eval/results/faithfulness/error_analysis_run3.md`):
+
+| Cause | Baseline (runs 1 + 2) | Run 3 |
+|---|---|---|
+| Judge artifact (the claim *is* supported; the quote check failed it) | 13 | 3 |
+| French retrieval (the right passage was never retrieved) | 6 | 2 |
+| Citation placement (the fact is in a retrieved passage, not the cited one) | 6 | **4** |
+| Forced-final-answer crash | 6 | 0 |
+| Embellishment (a gloss, hedge or step no passage gives) | 3 | 2 |
+| Uncitable tool result (`query_courses` "no description") | 2 | 0 |
+| Graduate rules presented as general | 1 | 0 |
+| Heading or number cut off by a chunk boundary | 1 | 0 |
+| Misread (the cited passage contradicts the claim) | 1 | 0 |
+| **Total** | **39** | **11** |
+
+Citation placement is now the largest remaining cause. Two of its 4 failures are summary list
+lines with no marker of their own, which the claim splitter assigns to the nearest earlier
+citation. The 2 French-retrieval failures come from one answer whose searches dropped half of
+the question, so the sixth-course rule was never retrieved.
 
 ## Running it
 
@@ -376,13 +424,15 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 
 ## Known limitations
 
-- **Cited answers can still contain wrong details.** In the baseline (runs 1 and 2), 17 of 47
-  main answers (36%) had at least one cited claim the judge found unsupported, 11 of 47 by hand. The judge itself agrees with
-  hand labels on 75% of claims and tends to be too strict (see Evaluation).
+- **Cited answers can still contain wrong details.** After the fixes (run 3), 6 of 26 main
+  answers (23%) had at least one cited claim the judge found unsupported, 5 of 26 by hand
+  (baseline: 17 of 47 and 11 of 47). The judge itself agrees with hand labels on 75% of claims
+  and tends to be too strict (see Evaluation).
 - **French questions over English documents.** All sources are English. Each search now also
   runs an English version written by the agent, which retrieves all 4 French evaluation
-  questions' passages (2 before); how well the agent's own translations do is measured in the
-  next faithfulness runs.
+  questions' passages (2 before). In run 3 no French question was refused (5 refusals in the
+  baseline), but one French answer still missed a passage because its searches dropped half of
+  the question.
 - **The agent sometimes pads its search queries** ("MTH 1305 Al Akhawayn University course
   description"), which can push the right passage down the ranking. The student's own question
   is now searched alongside on the first turn; follow-ups rely on the agent's query.
@@ -400,8 +450,9 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   first; the section lines alone don't reorder these results.
 - **A second after-fix run (run 4)** to measure run-to-run variance, which was large between the
   two baseline runs (French 50% → 18%).
-- **Citation placement (6 failures in the baseline):** the fact is in a retrieved passage, but
-  the answer cites a different one.
+- **Citation placement (Fix D), now the largest remaining cause:** 4 of run 3's 11 failures (6
+  in the baseline). The fact is in a retrieved passage, but the answer cites a different one,
+  including summary list lines that carry no marker of their own.
 
 ## Data
 
