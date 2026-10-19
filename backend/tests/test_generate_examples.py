@@ -48,3 +48,33 @@ def test_review_puts_each_cited_passage_next_to_the_answer():
     assert "Yes [1]." in review
     assert "[1] Academic Catalog 2024–2025, p. 120 -- Repeat Policy" in review
     assert "PASSAGE" in review
+
+
+def _rate_limit(message: str):
+    import groq
+    import httpx
+
+    response = httpx.Response(429, request=httpx.Request("POST", "https://api.groq.com"))
+    return groq.RateLimitError(message, response=response, body=None)
+
+
+def test_a_per_minute_limit_is_waited_out_and_the_daily_limit_is_raised(monkeypatch):
+    calls = []
+
+    def answer(graph, example):
+        calls.append(1)
+        if len(calls) == 1:
+            raise _rate_limit("Rate limit reached ... tokens per minute (TPM)")
+        return {"id": "x"}, []
+
+    monkeypatch.setattr(generate_examples, "answer_example", answer)
+    monkeypatch.setattr(generate_examples.time, "sleep", lambda seconds: None)
+    assert generate_examples.answer_with_retries(None, {"id": "x"}) == ({"id": "x"}, [])
+    assert len(calls) == 2
+
+    def daily(graph, example):
+        raise _rate_limit("Rate limit reached ... tokens per day (TPD)")
+
+    monkeypatch.setattr(generate_examples, "answer_example", daily)
+    with pytest.raises(Exception, match="per day"):
+        generate_examples.answer_with_retries(None, {"id": "x"})

@@ -26,6 +26,7 @@ import argparse
 import json
 import shutil
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from app.agent.history import build_input_messages
 from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
 from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
+from app.evaluation.generate_faithfulness_answers import is_per_minute_limit
 from app.sources import with_display_info
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "src"
@@ -98,17 +100,40 @@ def review_section(saved: dict, cited: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def generate(ids: list[str] | None, out: Path) -> int:
+PER_MINUTE_WAIT_SECONDS = 60
+PER_MINUTE_RETRIES = 3
+# Exit code when Groq's daily limit stopped the run (resume after it resets).
+EXIT_DAILY_LIMIT = 3
+
+
+def answer_with_retries(graph, example: dict) -> tuple[dict, list[dict]]:
+    """answer_example, waiting out Groq's per-minute limit (it clears within a
+    minute). The daily limit is raised as is: only a new day clears it."""
+    for attempt in range(PER_MINUTE_RETRIES + 1):
+        try:
+            return answer_example(graph, example)
+        except RateLimitError as e:
+            if not is_per_minute_limit(e) or attempt == PER_MINUTE_RETRIES:
+                raise
+            print(f"{example['id']}: per-minute limit, waiting {PER_MINUTE_WAIT_SECONDS}s")
+            time.sleep(PER_MINUTE_WAIT_SECONDS)
+    raise AssertionError("unreachable")
+
+
+def generate(ids: list[str] | None, out: Path) -> bool:
+    """Generate the selected examples into `out`; False if the daily limit stopped it."""
     questions = json.loads(QUESTIONS_PATH.read_text(encoding="utf-8"))
     selected = [q for q in questions if not ids or q["id"] in ids]
     out.mkdir(parents=True, exist_ok=True)
     graph = build_graph()
     sections = []
+    finished = True
     for example in selected:
         try:
-            saved, cited = answer_example(graph, example)
+            saved, cited = answer_with_retries(graph, example)
         except RateLimitError as e:
-            print(f"{example['id']}: Groq rate limit, stopping. Re-run with --ids later.\n{e}")
+            print(f"{example['id']}: Groq daily limit, stopping. Re-run with --ids later.\n{e}")
+            finished = False
             break
         (out / f"{example['id']}.json").write_text(
             json.dumps(saved, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -121,7 +146,7 @@ def generate(ids: list[str] | None, out: Path) -> int:
     with review.open("a", encoding="utf-8") as f:
         f.writelines(sections)
     print(f"-> {review}")
-    return len(sections)
+    return finished
 
 
 def approve(ids: list[str], out: Path) -> None:
@@ -143,5 +168,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.approve:
         approve(args.approve.split(","), args.out)
-    else:
-        generate(args.ids.split(",") if args.ids else None, args.out)
+    elif not generate(args.ids.split(",") if args.ids else None, args.out):
+        sys.exit(EXIT_DAILY_LIMIT)
