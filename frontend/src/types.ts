@@ -17,4 +17,5 @@ export type ChatEvent =
   | { type: "tool_call"; tool: string; args: Record<string, unknown>; label: string }
   | { type: "citations"; citations: Citation[] }
   | { type: "done" }
-  | { type: "error"; message: string };
+  // kind "limit": a demo or provider limit was hit; message is already friendly.
+  | { type: "error"; message: string; kind?: "limit" };

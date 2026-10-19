@@ -29,6 +29,10 @@ export function parseSse(buffer: string): { events: ChatEvent[]; rest: string } 
   return { events, rest };
 }
 
+// The demo refused the question (HTTP 429: daily cap or per-IP limit). The
+// server's message is friendly and already in the question's language.
+export class LimitError extends Error {}
+
 // POST /chat and call onEvent for each event as it arrives. EventSource can't
 // be used here: it only supports GET, and /chat needs a POST with a JSON body.
 export async function streamChat(
@@ -41,6 +45,10 @@ export async function streamChat(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ question, messages: history }),
   });
+  if (response.status === 429) {
+    const body = await response.json().catch(() => ({}));
+    throw new LimitError(body.message ?? "The demo limit was reached. Please try again later.");
+  }
   if (!response.ok || !response.body) {
     throw new Error(`Chat request failed with HTTP ${response.status}`);
   }

@@ -112,8 +112,21 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   "After the fixes (run 3)" table + run-3 cause table written (reliability gains clear,
   faithfulness change suggestive -- CIs overlap); Future work: Fix D = largest remaining
   cause. **Step 2 DONE.**
-- [ ] **3. Minimal protection** (no access code): per-IP rate limit + global daily question
+- [x] **3. Minimal protection** (no access code): per-IP rate limit + global daily question
   cap stored in Postgres; a friendly "demo limit reached, try again tomorrow" message in the UI.
+  **Done 2026-10-19**: app/limits.py + table question_log (asked_at, ip_hash; schema.sql,
+  created at API startup by a lifespan init_schema). `check_and_record()`: one transaction
+  with pg_advisory_xact_lock -> daily count since 00:00 UTC (DAILY_QUESTION_CAP=30) then
+  this IP's count in the window (PER_IP_LIMIT=5 / PER_IP_WINDOW_MINUTES=10) -> insert;
+  refused questions NOT recorded; rows > 2 days deleted. IP = HMAC-SHA256(IP_HASH_SECRET);
+  `client_ip()` reads the LAST X-Forwarded-For entry only if TRUST_PROXY_HEADERS=true (set it
+  on the server behind Caddy, plus IP_HASH_SECRET). /chat: refused -> HTTP 429 {kind,
+  message (EN/FR by detected language)} + Retry-After, before any LLM call; groq.RateLimitError
+  mid-answer -> SSE error {kind: "limit"} ("busy, try again in a minute" for per-minute, else
+  "try again tomorrow"). UI: LimitError in chatStream.ts, status "limited" + .limit-notice
+  (excluded from history). Browser check (PER_IP_LIMIT=0 on a test API) found + fixed a
+  crash: limit 0 with no earlier rows -> min() NULL. Tests: test_limits.py (12). Step 4:
+  the notice's contrast in dark mode is poor (cream background, light text).
 - [ ] **4. UI polish, bounded checklist**: welcoming empty state with 3-4 clickable example
   questions (EN + FR); smooth streaming with clear tool-status labels; citations as clean
   clickable source cards; polished loading / error / limit-reached states; mobile-friendly

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import Markdown, { type Components } from "react-markdown";
 import "./App.css";
-import { streamChat } from "./chatStream";
+import { LimitError, streamChat } from "./chatStream";
 import type { Citation, HistoryMessage } from "./types";
 
 interface UserMessage {
@@ -14,7 +14,10 @@ interface AssistantMessage {
   text: string;
   labels: string[];
   citations: Citation[];
-  status: "streaming" | "done" | "interrupted";
+  // "limited": the demo's daily cap, the per-IP limit or the LLM provider's
+  // limit -- shown as a friendly notice, not as a broken answer. Like
+  // "interrupted", it isn't sent back as history (only "done" is).
+  status: "streaming" | "done" | "interrupted" | "limited";
   error?: string;
 }
 
@@ -120,13 +123,15 @@ export default function App() {
           updateLastAssistant((m) => ({ ...m, status: "done" }));
         } else if (ev.type === "error") {
           finished = true;
-          updateLastAssistant((m) => ({ ...m, status: "interrupted", error: ev.message }));
+          const status = ev.kind === "limit" ? "limited" : "interrupted";
+          updateLastAssistant((m) => ({ ...m, status, error: ev.message }));
         }
       });
     } catch (err) {
       finished = true;
       const message = err instanceof Error ? err.message : "Connection failed";
-      updateLastAssistant((m) => ({ ...m, status: "interrupted", error: message }));
+      const status = err instanceof LimitError ? "limited" : "interrupted";
+      updateLastAssistant((m) => ({ ...m, status, error: message }));
     } finally {
       if (!finished) {
         updateLastAssistant((m) => ({
@@ -163,6 +168,7 @@ export default function App() {
               {m.status === "interrupted" && (
                 <div className="interrupted">Answer interrupted: {m.error}</div>
               )}
+              {m.status === "limited" && <div className="limit-notice">{m.error}</div>}
               {m.citations.length > 0 && (
                 // Only cited sources arrive, so markers can skip numbers ([2], [4]).
                 // value= makes each footnote show its marker, not its list position.

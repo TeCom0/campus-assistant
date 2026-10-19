@@ -60,6 +60,22 @@ MAX_TOOL_ROUNDS = 3
 # Hitting this raises GraphRecursionError, which ends the answer with an error.
 MAX_AGENT_STEPS = 10
 
+# Demo protection (app/limits.py). The public demo shares one Groq free-tier
+# key: 200k tokens/day. Run 3 averaged ~4.8k tokens per question, so ~40
+# questions/day fit; the cap leaves a margin (follow-ups carry history).
+DAILY_QUESTION_CAP = int(os.environ.get("DAILY_QUESTION_CAP", "30"))
+# Per client IP: keeps one visitor from using up the day's cap.
+PER_IP_LIMIT = int(os.environ.get("PER_IP_LIMIT", "5"))
+PER_IP_WINDOW_MINUTES = int(os.environ.get("PER_IP_WINDOW_MINUTES", "10"))
+# Behind Caddy, the TCP peer is always the proxy and the client's IP is in
+# X-Forwarded-For. A client can send that header too, so it's read only when
+# this is set (on the server, behind the proxy).
+TRUST_PROXY_HEADERS = os.environ.get("TRUST_PROXY_HEADERS", "false").lower() == "true"
+# Key for hashing IPs before storing them (never stored raw). Empty: a random
+# key per process, so per-IP counts restart with the API -- fine for a 10-minute
+# window; set it on the server to keep them across restarts.
+IP_HASH_SECRET = os.environ.get("IP_HASH_SECRET", "")
+
 # Browser origins allowed to call the API. Browsers block cross-origin requests
 # unless the server opts in with CORS headers. Defaults to the Vite dev server;
 # CORS_ORIGINS (comma-separated) overrides it, e.g. in docker-compose.yml,

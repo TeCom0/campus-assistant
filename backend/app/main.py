@@ -1,11 +1,13 @@
 """FastAPI application entrypoint."""
 
 import json
+from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import FastAPI
+import groq
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.agent.citations import (
@@ -19,8 +21,23 @@ from app.agent.history import build_input_messages
 from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
 from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
+from app.db.connection import get_connection, init_schema
+from app.limits import Decision, check_and_record, client_ip, hash_ip, message
 
-app = FastAPI(title="Campus AI Assistant")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Idempotent (IF NOT EXISTS throughout): makes sure question_log exists on
+    # a server whose database was loaded before the table was added.
+    conn = get_connection(register_vector_type=False)
+    try:
+        init_schema(conn)
+    finally:
+        conn.close()
+    yield
+
+
+app = FastAPI(title="Campus AI Assistant", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -50,11 +67,31 @@ def _sse(event_type: str, data: dict) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-@app.post("/chat")
-async def chat(request: ChatRequest) -> StreamingResponse:
+def admit_question(http_request: Request) -> Decision:
+    """Record the question against the demo limits, or refuse it (app/limits.py)."""
+    conn = get_connection()
+    try:
+        return check_and_record(conn, hash_ip(client_ip(http_request)))
+    finally:
+        conn.close()
+
+
+# response_model=None: it returns Response objects itself (a stream, or a 429),
+# so there's no model for FastAPI to derive from the return annotation.
+@app.post("/chat", response_model=None)
+async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse | JSONResponse:
+    language = detect_language(request.question)
+    # Checked before any LLM call, so a refused question costs no tokens.
+    decision = admit_question(http_request)
+    if not decision.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"kind": decision.kind, "message": message(decision.kind, language)},
+            headers={"Retry-After": str(decision.retry_after_seconds)},
+        )
+
     async def event_stream():
         reset_citation_counter()
-        language = detect_language(request.question)
         citations: list[dict] = []
         # Everything streamed as answer text, so the citations event can list
         # only the markers the answer actually uses. A marker can arrive split
@@ -97,6 +134,14 @@ async def chat(request: ChatRequest) -> StreamingResponse:
             cited = without_passage_text(keep_cited(citations, "".join(answer_parts)))
             yield _sse("citations", {"citations": cited})
             yield _sse("done", {})
+
+        except groq.RateLimitError as e:
+            # Groq's own limit, hit mid-answer: say so kindly instead of the
+            # generic error. "per minute" (tokens/min) clears within a minute;
+            # anything else (tokens/day) only tomorrow.
+            print(f"[chat] Groq rate limit: {e!r}")
+            kind = "busy" if "per minute" in str(e) else "daily_cap"
+            yield _sse("error", {"message": message(kind, language), "kind": "limit"})
 
         except Exception as e:  # noqa: BLE001 -- deliberately broad: any failure
             # mid-stream must still close the SSE stream with an error event,

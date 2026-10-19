@@ -65,6 +65,15 @@
   font-size: 0.9rem;
 }
 
+/* A demo limit, not a failure: calm, not red. Styled properly in the UI polish step. */
+.limit-notice {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid #b8860b;
+  background: #fdf6e3;
+  font-size: 0.9rem;
+}
+
 .sources {
   margin-top: 0.75rem;
   padding-left: 1.25rem;

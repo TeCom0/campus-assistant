@@ -36,6 +36,16 @@ ALTER TABLE document_chunks
 ALTER TABLE document_chunks
     ADD COLUMN IF NOT EXISTS section TEXT;
 
+-- One row per question the public demo accepted (app/limits.py): the global
+-- daily cap and the per-IP rate limit are counted from it. The IP is stored
+-- only as a keyed hash, and rows older than 2 days are deleted on insert.
+CREATE TABLE IF NOT EXISTS question_log (
+    id BIGSERIAL PRIMARY KEY,
+    asked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ip_hash TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS question_log_asked_at_idx ON question_log (asked_at);
+
 -- Structured course data (code, title, credits, prerequisites), for the
 -- query_courses agent tool. Deliberately doesn't store full course
 -- descriptions -- that free text is already in document_chunks (Phase 1)

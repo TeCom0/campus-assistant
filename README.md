@@ -114,6 +114,12 @@ flowchart LR
   a parser would turn that into confident wrong answers.
 - **The server is stateless.** The browser sends the recent conversation with each question
   (last 10 messages, old citation markers stripped), so there is no session store.
+- **The public demo is protected by limits stored in Postgres, not by accounts.** One free-tier
+  Groq key allows ~40 questions a day (run 3 averaged ~4.8k tokens per question), so the API
+  accepts 30 a day in total and 5 per IP per 10 minutes, and refuses the rest with HTTP 429 and
+  a friendly message before any LLM call. The check and the insert share one transaction with an
+  advisory lock, so simultaneous requests can't overshoot the cap. Behind the proxy the client
+  IP comes from the last `X-Forwarded-For` entry, and only when the proxy is trusted.
 - **The embedding model was chosen by measurement.** The first model's 128-token limit was
   silently truncating 99.8% of chunks; e5-small handles 512 tokens.
 
@@ -438,7 +444,8 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   is now searched alongside on the first turn; follow-ups rely on the agent's query.
 - **Free-tier LLM limits.** Groq's daily token limit caps usage; history is capped at 10 messages
   to keep requests small.
-- **No authentication or rate limiting yet**, needed before a public deployment.
+- **Small demo limits, no accounts.** The public demo shares one free-tier Groq key, so it
+  accepts 30 questions a day in total and 5 per visitor per 10 minutes (see Design decisions).
 
 ## Future work
 
@@ -457,5 +464,7 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 ## Data
 
 Only public AUI documents are used (listed with URLs in `data/sources.md`); no personal student
-data is stored. The server doesn't save questions, but each question and the retrieved passages
+data is stored. To enforce the demo limits, the server records when each question was asked and
+a keyed hash (HMAC-SHA256) of the visitor's IP address, never the address itself; those rows
+are deleted after 2 days. The server doesn't save questions, but each question and the retrieved passages
 are sent to the LLM provider (Groq, or Google for Gemini) to generate the answer.
