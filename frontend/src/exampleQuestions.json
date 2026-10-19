@@ -1,0 +1,26 @@
+[
+  {
+    "id": "acc2302_prereqs_en",
+    "language": "en",
+    "question": "What do I need before taking ACC 2302?",
+    "short": "ACC 2302 prerequisites"
+  },
+  {
+    "id": "transfer_credits_en",
+    "language": "en",
+    "question": "How many credits can I transfer to AUI?",
+    "short": "Transfer credits"
+  },
+  {
+    "id": "add_drop_fr",
+    "language": "fr",
+    "question": "Comment ajouter ou supprimer un cours ?",
+    "short": "Ajouter ou supprimer un cours"
+  },
+  {
+    "id": "academic_probation_fr",
+    "language": "fr",
+    "question": "Que se passe-t-il si mon GPA est entre 1,5 et 1,99 ?",
+    "short": "GPA entre 1,5 et 1,99"
+  }
+]

@@ -1,7 +1,9 @@
+import questions from "./exampleQuestions.json";
 import { prefersReducedMotion } from "./theme";
 import type { ChatEvent, Citation } from "./types";
 
-// The example questions on the empty state (2 English, 2 French).
+// The example questions on the empty state (2 English, 2 French). The list is
+// a JSON file because the generator (backend/app/generate_examples.py) reads it too.
 export interface ExampleQuestion {
   id: string;
   language: "en" | "fr";
@@ -9,32 +11,7 @@ export interface ExampleQuestion {
   short: string; // for the small chips under a limit notice
 }
 
-export const EXAMPLE_QUESTIONS: ExampleQuestion[] = [
-  {
-    id: "acc2302_prereqs_en",
-    language: "en",
-    question: "What do I need before taking ACC 2302?",
-    short: "ACC 2302 prerequisites",
-  },
-  {
-    id: "transfer_credits_en",
-    language: "en",
-    question: "How many credits can I transfer to AUI?",
-    short: "Transfer credits",
-  },
-  {
-    id: "add_drop_fr",
-    language: "fr",
-    question: "Comment ajouter ou supprimer un cours ?",
-    short: "Ajouter ou supprimer un cours",
-  },
-  {
-    id: "academic_probation_fr",
-    language: "fr",
-    question: "Que se passe-t-il si mon GPA est entre 1,5 et 1,99 ?",
-    short: "GPA entre 1,5 et 1,99",
-  },
-];
+export const EXAMPLE_QUESTIONS = questions as ExampleQuestion[];
 
 // A saved answer: generated once by the real agent (backend/app/generate_examples.py),
 // checked by the author, committed as src/examples/<id>.json. Replaying one makes
