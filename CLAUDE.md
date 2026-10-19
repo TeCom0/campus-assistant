@@ -394,6 +394,23 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       definition. So step (d)'s cut can glue a new section's start onto the previous
       section's chunk. Untested split: how much is (c)'s Section line vs. (d)'s boundaries.
       Full eval output: scratchpad retrieval_after_fixC.txt (session-only).
+    - **Fix C variants -- DECISION RULE fixed BEFORE any variant number (Youness, 2026-10-19)**:
+      both variants keep step (c)'s Section lines; they differ only in chunk boundaries:
+      (i) the OLD line-based boundaries (isolates (c)); (ii) step (d)'s sentence-end
+      boundaries, but a heading in the chunk's second half is cut BEFORE (the new section
+      starts the next chunk, no overlap across that boundary). Each: re-chunk, `store
+      --replace`, --check-anchors, retrieval eval, the two targeted checks. **Keep a variant
+      only if hybrid + English matches or beats Hit@3 91.7%, Hit@5 100% AND MRR 0.715; if both
+      qualify, prefer (ii); if neither does, ROLL BACK with the restore command.** Targeted
+      checks (reported for both, fixed now):
+      (1) query "What is the repeat policy for undergraduate students?" (hybrid, top 10): a
+          chunk containing "a C- or lower has been earned" must rank above the first chunk
+          containing "a B- or lower has been earned" (or the latter is absent);
+      (2) every chunk containing "maximum of nine semesters" must contain the full sentence
+          "Undergraduate beneficiaries are eligible for AUI scholarship for a maximum of nine
+          semesters (or eight semesters plus two summer sessions), while graduate
+          scholarships are allowed to use their scholarship for a maximum of four semesters,
+          including one semester at the Language Center." -- and at least one chunk does.
     - **C, steps (e)-(f) plan as agreed** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
