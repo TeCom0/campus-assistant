@@ -1,0 +1,27 @@
+# Production reverse proxy (Ship plan step 5). The only service reachable from
+# outside: it gets and renews the HTTPS certificate for {$DOMAIN} automatically
+# (Let's Encrypt; for DOMAIN=localhost, Caddy's own local CA), and serves the
+# UI and the API on one origin, so the browser needs no CORS.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# The API, under /api (the prefix is stripped: the app knows /chat, /sources/...).
+	handle_path /api/* {
+		reverse_proxy api:8000 {
+			# Answers stream as server-sent events: pass each piece on at once.
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the built UI, served by the frontend container.
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
