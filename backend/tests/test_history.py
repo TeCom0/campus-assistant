@@ -1,6 +1,8 @@
 """Tests for building the agent's input messages from optional chat history."""
 
+from app.agent import graph
 from app.agent.history import build_input_messages, strip_citation_markers
+from app.config import MAX_HISTORY_MESSAGES
 
 
 def test_no_history_gives_just_the_question():
@@ -51,3 +53,36 @@ def test_history_is_capped_to_the_most_recent_turns():
 
 def test_strip_keeps_text_without_markers_unchanged():
     assert strip_citation_markers("No citations here.") == "No citations here."
+
+
+def test_fallback_answers_are_left_out_but_the_question_stays():
+    fallback = graph.FALLBACK_WITH_SOURCES["en"] + " [1] [2] [3]"
+    history = [
+        {"role": "user", "content": "How many courses can I take?"},
+        {"role": "assistant", "content": fallback},
+        {"role": "user", "content": "Quelle est la limite ?"},
+        {"role": "assistant", "content": graph.FALLBACK_NO_SOURCES["fr"]},
+    ]
+    messages = build_input_messages("Try again please", history)
+
+    assert messages == [
+        {"role": "user", "content": "How many courses can I take?"},
+        {"role": "user", "content": "Quelle est la limite ?"},
+        {"role": "user", "content": "Try again please"},
+    ]
+
+
+def test_a_real_answer_that_mentions_not_finishing_is_kept():
+    answer = "The catalog says you can't finish a degree in under 7 semesters [2]."
+    messages = build_input_messages("Next?", [{"role": "assistant", "content": answer}])
+    assert (
+        messages[0]["content"] == "The catalog says you can't finish a degree in under 7 semesters."
+    )
+
+
+def test_the_cap_counts_only_turns_that_are_kept():
+    fallback = {"role": "assistant", "content": graph.FALLBACK_NO_SOURCES["en"]}
+    real = [{"role": "user", "content": f"q{i}"} for i in range(MAX_HISTORY_MESSAGES)]
+    messages = build_input_messages("Next?", [*real[:5], fallback, *real[5:]])
+
+    assert [m["content"] for m in messages[:-1]] == [m["content"] for m in real]

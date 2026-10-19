@@ -7,7 +7,8 @@ over narrative text can't reliably answer.
 
 from datetime import UTC, datetime
 
-from langchain_core.messages import HumanMessage
+import groq
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -73,6 +74,31 @@ BUDGET_EXHAUSTED_NOTE = """Tools are no longer available for this question. Answ
 only the tool results provided in the conversation, with citations as usual. If they don't \
 contain the answer, say plainly that you don't know based on the available information."""
 
+# Added for the one retry after the model called a tool anyway (see _forced_answer).
+FORCED_RETRY_NOTE = """Do not call any tool, and do not write a tool call or a search query: \
+no tool can be used any more. Write your answer as plain text now."""
+
+# The answer built in code when both forced attempts fail: no LLM text, just
+# the passages the searches found, cited by their markers so /chat lists them
+# as sources. Flagged in response_metadata so the evaluation counts it as a
+# failed answer, not a real one.
+FALLBACK_WITH_SOURCES = {
+    "en": "I couldn't finish this answer. These passages found while searching may help:",
+    "fr": "Je n'ai pas pu terminer cette réponse. Ces passages trouvés pendant la recherche "
+    "peuvent vous aider :",
+}
+FALLBACK_NO_SOURCES = {
+    "en": "I couldn't finish this answer. Please try asking again, in other words if possible.",
+    "fr": "Je n'ai pas pu terminer cette réponse. Veuillez reposer la question, si possible "
+    "autrement.",
+}
+
+
+def is_fallback_answer(text: str) -> bool:
+    """True for an answer _fallback_answer built (the client sends it back as history)."""
+    texts = [*FALLBACK_WITH_SOURCES.values(), *FALLBACK_NO_SOURCES.values()]
+    return any(text.startswith(t) for t in texts)
+
 
 def _build_system_prompt(language: str | None) -> str:
     if language in LANGUAGE_NAMES:
@@ -100,6 +126,10 @@ def _tool_rounds_since_last_question(messages) -> int:
     return rounds
 
 
+def _latest_question_index(messages) -> int:
+    return max(i for i, m in enumerate(messages) if m.type == "human")
+
+
 def _without_tool_calls(messages) -> list:
     """Rewrite the conversation with no tool-call structure, for the forced final answer.
 
@@ -110,7 +140,7 @@ def _without_tool_calls(messages) -> list:
     wasn't enough: Groq rejects a tool call the model still generates, it
     doesn't prevent it.
     """
-    last_question = max(i for i, m in enumerate(messages) if m.type == "human")
+    last_question = _latest_question_index(messages)
     conversation = [
         m
         for m in messages[: last_question + 1]
@@ -123,6 +153,62 @@ def _without_tool_calls(messages) -> list:
     ]
 
 
+def _is_refused_tool_call(error: Exception) -> bool:
+    """True for Groq's "Tool choice is none, but model called a tool" error.
+
+    It comes in two shapes: a 400 response (BadRequestError, details under
+    body["error"]), or, when the answer is streamed as in /chat, an error event
+    inside the stream (APIError, details directly in body). Both carry the code
+    "tool_use_failed".
+    """
+    if not isinstance(error, groq.APIError) or not isinstance(error.body, dict):
+        return False
+    details = error.body.get("error", error.body)
+    return isinstance(details, dict) and details.get("code") == "tool_use_failed"
+
+
+def _fallback_answer(messages, language: str | None) -> AIMessage:
+    """The answer when the model can't produce one: the passages found, by marker."""
+    markers = sorted(
+        {
+            citation["marker"]
+            for m in messages[_latest_question_index(messages) + 1 :]
+            if m.type == "tool"
+            for citation in getattr(m, "artifact", None) or []
+        }
+    )
+    text_language = "fr" if language == "fr" else "en"
+    if markers:
+        text = FALLBACK_WITH_SOURCES[text_language] + " " + " ".join(f"[{n}]" for n in markers)
+    else:
+        text = FALLBACK_NO_SOURCES[text_language]
+    return AIMessage(text, response_metadata={"fallback": True})
+
+
+def _forced_answer(messages, system_prompt: str, language: str | None) -> AIMessage:
+    """The final answer once the tool budget is used.
+
+    No tools are bound and the conversation has no tool-call structure, yet
+    gpt-oss-20b still emits a tool call ~9% of the time (6/68 answers over
+    faithfulness runs 1-2), and Groq rejects it. So: one retry with a stronger
+    "plain text" note, then the code-built fallback. Any other error is raised
+    as before -- only this known failure is handled.
+    """
+    model = get_agent_model()
+    conversation = _without_tool_calls(messages)
+    system_prompt += "\n\n" + BUDGET_EXHAUSTED_NOTE
+    prompts = [system_prompt, system_prompt + "\n\n" + FORCED_RETRY_NOTE]
+    for attempt, prompt in enumerate(prompts, start=1):
+        try:
+            return model.invoke([{"role": "system", "content": prompt}, *conversation])
+        except Exception as e:
+            if not _is_refused_tool_call(e):
+                raise
+            print(f"[agent] forced answer, attempt {attempt}: the model called a tool")
+    print("[agent] forced answer failed twice; sending the fallback answer")
+    return _fallback_answer(messages, language)
+
+
 def _agent_node(state: MessagesState, config: RunnableConfig | None = None) -> dict:
     # LangGraph passes the run's config to a node that declares a `config`
     # parameter. The language lives there, not in the state: it's fixed for
@@ -132,14 +218,11 @@ def _agent_node(state: MessagesState, config: RunnableConfig | None = None) -> d
     if _tool_rounds_since_last_question(state["messages"]) >= MAX_TOOL_ROUNDS:
         # Budget used: no tools bound and no tool calls in the conversation,
         # so the model can only answer.
-        model = get_agent_model()
-        conversation = _without_tool_calls(state["messages"])
-        system_prompt += "\n\n" + BUDGET_EXHAUSTED_NOTE
+        response = _forced_answer(state["messages"], system_prompt, language)
     else:
         model = get_agent_model().bind_tools(TOOLS)
-        conversation = state["messages"]
-    messages = [{"role": "system", "content": system_prompt}, *conversation]
-    response = model.invoke(messages)
+        messages = [{"role": "system", "content": system_prompt}, *state["messages"]]
+        response = model.invoke(messages)
     return {"messages": [response]}
 
 
