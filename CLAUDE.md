@@ -202,8 +202,9 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   headers, API/db unreachable, SSE streamed: first event 0.7 s before the last); local dev
   stack restored afterwards. Measured: api 408 MiB idle, image 2.94 GB.
   **BLOCKED on Youness (2026-10-19)**: (1) `az account list` shows only a "Pay-As-You-Go"
-  subscription, no Azure for Students -- nothing created; (2) the domain name; (3) approve
-  VM size/region (Standard_B2s proposed).
+  subscription, no Azure for Students -- nothing created, and **do not use Pay-As-You-Go**;
+  (2) the domain name; (3) approve VM size/region (proposed Standard_B2s, Ubuntu 24.04,
+  France Central). See "Current status" below.
 - [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
   unanswerable question, on desktop and mobile.
 - [ ] **7. Go public**: fix the pytest hang (open issues), gitleaks over the full history, then
@@ -628,6 +629,32 @@ picked in step 2); linking `[2, 4]` markers; ingestion endpoint; re-judging with
 more hand labels; pinning `ubuntu-24.04` in CI.
 
 ## Current status
+
+**END OF SESSION 2026-10-19 -- START HERE NEXT SESSION.** Ship plan (revised 2026-10-19,
+top of this file): steps 2, 3 and 4 DONE; step 5a DONE; **step 5 BLOCKED on three decisions
+from Youness**.
+- Done this session: Fixes A, B, C(i) + run 3 judged (main 23.1% vs baseline 36.2%, CIs
+  overlap; crashes 6 -> 0, false refusals 5/55 -> 0/30) and the README before/after table;
+  demo protection (daily cap 30 + per-IP 5/10 min in Postgres, friendly 429s); the new UI
+  (approved visual direction, source cards with fallback links, states, dark mode,
+  "Answers are based on the Academic Catalog 2024–2025" line).
+- **Examples saved**: all four (acc2302_prereqs_en + attempt 3 of transfer_credits_en,
+  add_drop_fr, academic_probation_fr), approved by Youness, text unedited, replay with 0 API
+  requests; README says they were selected from up to 3 attempts each and hand-checked
+  (6 of 9 had an error), so not representative -- the evaluation numbers are.
+- **Sections fix done**: source cards show every heading a chunk spans (metadata-only
+  `sections` column; texts and embeddings proven unchanged by md5; retrieval eval
+  unchanged 100/100/0.819).
+- **Step 5a done**: docker-compose.prod.yml + deploy/Caddyfile + deploy/DEPLOY.md, tested
+  locally with DOMAIN=localhost (incl. SSE streaming through Caddy).
+- **Step 5 BLOCKED on**:
+  1. **The Azure for Students subscription.** `az account list` (2026-10-19) showed only a
+     "Pay-As-You-Go" subscription. **Do NOT use Pay-As-You-Go** (Youness's decision): wait for
+     Youness to log the CLI into the Azure for Students account (`az login`) and check again.
+  2. **The domain**: which Namecheap domain (GitHub Student Pack), and whether it's claimed.
+  3. **VM size and region**: proposed **Standard_B2s (2 vCPU, 4 GiB), Ubuntu 24.04 LTS,
+     France Central** -- awaiting Youness's approval.
+  Then: create the VM, follow deploy/DEPLOY.md, step 6 smoke test on the live URL.
 
 **Phases 0-6 done; Phase 7 in progress (README + diagrams done).** Session 2026-10-09: Phase 5
 code walkthrough (2 bugs found and fixed), Phase 6 built and signed off (CI with 3 jobs, Docker
