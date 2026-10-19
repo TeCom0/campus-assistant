@@ -43,6 +43,9 @@ LEVEL_LABELS = {"undergraduate": "Undergraduate Studies", "graduate": "Graduate 
 SOURCE_LEVELS = {"graduate_scholarships": "graduate"}
 DEFAULT_LEVEL = "general"
 
+# A line ending with one of these ends a sentence, for chunk boundaries.
+SENTENCE_END = (".", "!", "?", ":", ";")
+
 # Repeated at the top of every catalog page; never a heading.
 PAGE_HEADER_LINES = {"Al Akhawayn University", "www.aui.ma", "2024-", "2025"}
 # Words a title-case heading leaves in lower case.
@@ -162,31 +165,60 @@ def section_line(level: str, section: str | None, first_line: str) -> str | None
     return "Section: " + " > ".join(parts) if parts else None
 
 
+def _starts_sentence(texts: list[str], n: int) -> bool:
+    """Does line n of the document start a sentence (or a bullet item)?"""
+    return n == 0 or texts[n - 1].endswith(SENTENCE_END) or texts[n].startswith("•")
+
+
 def chunk_text(source: str, text: str) -> list[Chunk]:
-    """Chunk one document's text into overlapping, line-aligned windows."""
+    """Chunk one document's text into overlapping, line-aligned windows that
+    end at a sentence end where possible.
+
+    PDF lines rarely end where sentences do: with fixed line windows, 81% of
+    the catalog's chunks started mid-sentence, and one cut "the 9 / semesters
+    for undergraduates" apart, so a chunk gave the graduate number without the
+    undergraduate one. Now a full chunk ends after its last sentence-ending
+    line in its second half; the unfinished sentence moves whole to the next
+    chunk, and the overlap is the whole sentences before the cut (up to
+    OVERLAP_CHARS). Measured: 1197 chunks instead of 1141, 12% starting
+    mid-sentence. A chunk with no sentence end in its second half (tables,
+    lists) is cut and overlapped by lines as before.
+    """
     lines: list[tuple[int | None, str]] = []
     for page_number, page_text in _split_into_pages(text):
         for line in _split_into_lines(page_text):
             lines.append((page_number, line))
+    texts = [line for _, line in lines]
     # Over the whole document, not per page: a heading's next line can be on
     # the next page.
-    sections = assign_sections(source, [line for _, line in lines])
+    sections = assign_sections(source, texts)
 
     chunks: list[Chunk] = []
     current: list[tuple[int, int | None, str]] = []  # (line number, page, line) in progress
     current_len = 0
 
-    def flush() -> None:
+    def flush(final: bool = False) -> None:
         nonlocal current, current_len
         if not current:
             return
 
-        chunk_str = "\n".join(line for _, _, line in current)
-        pages = sorted({pg for _, pg, _ in current if pg is not None})
+        # Cut after the LAST sentence-ending line past the chunk's halfway
+        # point; with none (or for the document's last chunk), keep it all.
+        cut = len(current)
+        if not final:
+            running = 0
+            for j, (_, _, line) in enumerate(current):
+                running += len(line)
+                if running >= current_len / 2 and line.endswith(SENTENCE_END):
+                    cut = j + 1
+        emitted, unfinished = current[:cut], current[cut:]
+
+        chunk_str = "\n".join(line for _, _, line in emitted)
+        pages = sorted({pg for _, pg, _ in emitted if pg is not None})
         # The section in effect at the chunk's first line; a heading further
         # down is already in the chunk's own text.
-        level, section = sections[current[0][0]]
-        prefix = section_line(level, section, current[0][2])
+        level, section = sections[emitted[0][0]]
+        prefix = section_line(level, section, emitted[0][2])
         if prefix:
             chunk_str = prefix + "\n" + chunk_str
         chunks.append(
@@ -200,17 +232,26 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
             )
         )
 
-        # Carry the tail lines of this chunk into the next one (up to
-        # OVERLAP_CHARS) so boundary-crossing context isn't lost.
-        overlap: list[tuple[int, int | None, str]] = []
-        overlap_len = 0
-        for n, pg, line in reversed(current):
-            if overlap_len + len(line) > OVERLAP_CHARS and overlap:
-                break
-            overlap.insert(0, (n, pg, line))
-            overlap_len += len(line)
-        current = overlap
-        current_len = overlap_len
+        # Overlap: the whole sentences at the end of the chunk that fit in
+        # OVERLAP_CHARS (the window's lines, from its first sentence start),
+        # so boundary-crossing context isn't lost and the next chunk doesn't
+        # open mid-sentence. May be empty: the chunk then ended at a sentence
+        # end, so the next one starts a sentence anyway.
+        start, overlap_len = len(emitted), 0
+        while start > 0 and overlap_len + len(emitted[start - 1][2]) <= OVERLAP_CHARS:
+            start -= 1
+            overlap_len += len(emitted[start][2])
+        while start < len(emitted) and not _starts_sentence(texts, emitted[start][0]):
+            start += 1
+        if start == len(emitted) and not emitted[-1][2].endswith(SENTENCE_END):
+            # No sentence end to cut at (a table, a list): overlap by lines as
+            # before, the last lines up to OVERLAP_CHARS, at least one.
+            start, overlap_len = len(emitted) - 1, len(emitted[-1][2])
+            while start > 0 and overlap_len + len(emitted[start - 1][2]) <= OVERLAP_CHARS:
+                start -= 1
+                overlap_len += len(emitted[start][2])
+        current = emitted[start:] + unfinished
+        current_len = sum(len(line) for _, _, line in current)
 
     for n, (page_number, line) in enumerate(lines):
         if current_len + len(line) > MAX_CHUNK_CHARS and current:
@@ -218,7 +259,7 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
         current.append((n, page_number, line))
         current_len += len(line)
 
-    flush()
+    flush(final=True)
     return chunks
 
 

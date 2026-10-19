@@ -346,7 +346,22 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       in its text). **Re-load needs a full replace, not the upsert**: store.py upserts by
       (source, chunk_index, model_name), so stale rows would survive if the chunk count
       shrinks -- handle in step (e).
-    - **C, steps (d)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
+    - **C, step (d) DONE 2026-10-19 -- design CHANGED from the plan, Youness's choice**:
+      not "extend the overlap back to the sentence start" but **sentence-end boundaries**.
+      Measured on the catalog first (prototype): today 81% of chunks start mid-sentence
+      (PDF lines rarely end at sentence ends); extending the overlap (cap 400) -> 1402 chunks
+      (+23%, near-duplicates) and still 36% mid-sentence; sentence-end boundaries -> ~1200
+      (+5%) and 12%. Rule (chunk_text): a full chunk ends after its LAST sentence-ending line
+      (. ! ? : ;) past its halfway point; the unfinished sentence moves whole to the next
+      chunk; the overlap = the last lines within OVERLAP_CHARS (150) from the first sentence
+      start in that window (may be empty: the chunk ended at a sentence end); no sentence
+      end in the second half (tables, lists) -> cut by size and overlap by lines as before
+      (>= 1 line). Real implementation: catalog 1211 chunks (was 1141), 14% start
+      mid-sentence, 0 lines lost, max 1000 line chars (old max 1176), max 406 tokens; total
+      1228 chunks (graduate_scholarships 13, prestigious 4); the "9 / semesters" sentence is
+      whole; all 12 retrieval anchors are in some chunk (in memory). Tests:
+      test_chunk_boundaries.py. chunks.jsonl still NOT regenerated.
+    - **C, steps (e)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
       worse, STOP and show Youness before going further.** Explain each step before coding.
