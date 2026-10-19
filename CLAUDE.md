@@ -95,6 +95,20 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   stops it, it resumes the next day -- Youness won't use the app until it finishes) -> judge
   with the frozen rules -> error analysis (causes proposed by Claude, confirmed by Youness)
   -> README before/after table vs. the runs 1+2 baseline.
+  **Run 3 status (2026-10-19)**: generated in one go (34 answers, ~162k Groq tokens, no daily
+  limit hit); 0 errors, 0 fallbacks (Fix A retried once and succeeded on fulbright_en);
+  query_en sent on all 46 searches. 199 claims (9 excluded). Judge: calibration 9/9, 34 calls,
+  ~$0.07. **Main 6/26 = 23.1% (CI 11.0-42.1; EN 3/13, FR 3/13) vs baseline 17/47 = 36.2%
+  (24.0-50.5)** -- intervals overlap. Regression 3/4 (baseline 6/8). False refusals **0/30**
+  (baseline 5/55). Missed refusal 1/4 = fulbright_fr, a JUDGE error again (it declines, then
+  suggests the Office of International Programs with "il est probable") -> 0/4 by hand.
+  error_causes_run3.json: 11 failures, causes PROPOSED, **awaiting Youness**:
+  citation_placement 4 (2 via the lead_in scope rule, like run 2's add_drop_en#16;
+  repeat_course_fr#4 cites the graduate passage for a licence question, alt. grad_undergrad),
+  judge_artifact 3 ("and/ or" x2, a mixed FR/EN quote), french_retrieval 2 (course_load_fr:
+  the French searches dropped "sixth course", so the p. 116 rule was never retrieved; the
+  model then said the catalog sets no limit), embellishment 2. If confirmed: by hand 5/26
+  (judge-artifact-only: add_drop_fr). Next: confirmations -> README before/after table.
 - [ ] **3. Minimal protection** (no access code): per-IP rate limit + global daily question
   cap stored in Postgres; a friendly "demo limit reached, try again tomorrow" message in the UI.
 - [ ] **4. UI polish, bounded checklist**: welcoming empty state with 3-4 clickable example

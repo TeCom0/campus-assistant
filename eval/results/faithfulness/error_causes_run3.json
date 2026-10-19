@@ -1,0 +1,73 @@
+{
+  "run": 3,
+  "judge": "mistral-large-2512 (v2 rules)",
+  "note": "proposed = the AI assistant's reading of error_analysis_run3.md (2026-10-19); confirmed = the author's review (pending).",
+  "causes": {
+    "add_drop_en#8": {
+      "proposed": "judge_artifact",
+      "why": "Verbatim in [1] ('not official until all applicable tuition and fees have been paid to the University'); the quote failed only on the PDF's 'and/ or' spacing (as in runs 1-2).",
+      "confirmed": "",
+      "note": ""
+    },
+    "add_drop_en#10": {
+      "proposed": "embellishment",
+      "why": "[1] says courses dropped within the add/drop period 'are not reflected on the academic record'; the claim adds 'until the process is finalized', which no passage says (and changes the meaning).",
+      "confirmed": "",
+      "note": ""
+    },
+    "add_drop_fr#6": {
+      "proposed": "judge_artifact",
+      "why": "The French claim restates [6]'s 'not official until all applicable tuition and fees have been paid'; the quote failed only on 'and/ or' spacing.",
+      "confirmed": "",
+      "note": ""
+    },
+    "course_load_fr#5": {
+      "proposed": "french_retrieval",
+      "why": "The catalog HAS an explicit rule (p. 116: CGPA >= 3.00 may take six courses; below that, a sixth with the coordinator's and Dean's approval), but the French question's searches dropped its 'sixth course' half ('maximum number of courses per semester AUI'), so it was never retrieved (course_load_en searched 'allowed a sixth course' and found it). The model then claimed 'the catalog sets no explicit limit'.",
+      "confirmed": "",
+      "note": ""
+    },
+    "course_load_fr#7": {
+      "proposed": "citation_placement",
+      "why": "'Minimum: 4 cours (12 SCH)' is in [7] (p. 116, which the answer's own bullets cite); this summary line has no marker and the lead_in rule gave it [2] (the scholarship passage), which doesn't have it. Same pattern as run 2's add_drop_en#16.",
+      "confirmed": "",
+      "note": ""
+    },
+    "course_load_fr#8": {
+      "proposed": "citation_placement",
+      "why": "'Recommandé: 5 cours (15 SCH)': the 15 SCH recommendation is in [7]; same lead_in scope ([2]) as #7.",
+      "confirmed": "",
+      "note": ""
+    },
+    "course_load_fr#9": {
+      "proposed": "french_retrieval",
+      "why": "'Sixth course mainly for scholarship students (perhaps with special authorization)' -- the real sixth-course rule (p. 116, CGPA 3.00) was never retrieved (see #5); [2] only recommends six courses to scholarship holders.",
+      "confirmed": "",
+      "note": ""
+    },
+    "academic_probation_en#7": {
+      "proposed": "citation_placement",
+      "why": "'2 semesters or 12 credits (whichever comes first)... suspension or dismissal' is in retrieved passage [2] (p. 121, Academic Dismissal); the closing source line cites [1] only.",
+      "confirmed": "",
+      "note": ""
+    },
+    "repeat_course_fr#3": {
+      "proposed": "judge_artifact",
+      "why": "A faithful French translation of [5]'s 'A student may repeat any course in which a C- or lower has been earned' (undergraduate passage); the judge's quote mixed French and English ('...un C- ou lower has been earned'), so it failed the check.",
+      "confirmed": "",
+      "note": ""
+    },
+    "repeat_course_fr#4": {
+      "proposed": "citation_placement",
+      "why": "'If a course is repeated, the highest grade earned is used for the CGPA' is in BOTH [5] (undergraduate repeat policy) and [2] (graduate); the answer to a 'licence' question cites the graduate passage [2]. The fact is right for undergraduates, the citation points to the wrong level's passage. Alternative: grad_undergrad.",
+      "confirmed": "",
+      "note": ""
+    },
+    "scholarship_work_hours_en#3": {
+      "proposed": "embellishment",
+      "why": "'This is the standard requirement for graduate scholarship students' generalizes [5], which limits it to graduate scholarship students 'benefiting from tuition waiver or more'.",
+      "confirmed": "",
+      "note": ""
+    }
+  }
+}
