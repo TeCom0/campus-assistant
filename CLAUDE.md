@@ -377,7 +377,24 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       The last line should print 1161. The DB then holds the pre-Fix-C chunks (no
       level/section columns); the code at HEAD still chunks the new way, so don't re-run
       the ingestion commands without reverting chunk.py too.
-    - **C, steps (e)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
+    - **C, steps (e)-(f) RESULT 2026-10-19 -- RETRIEVAL GOT WORSE, STOPPED (Youness's rule),
+      decision pending.** Re-loaded with `store --replace` (deleted 1161, inserted 1228; old
+      chunks.jsonl copied to C:\dev\backups\chunks_before_fixC_2026-10-19.jsonl). **The DB
+      now holds the NEW chunks** (rollback: restore command above). --check-anchors: all 12
+      OK. hybrid + English: **Hit@3 91.7% -> 83.3%, Hit@5 100% -> 83.3%, MRR 0.715 ->
+      0.639** (hybrid 75.0/83.3/0.646 -> 66.7/66.7/0.551; vector 58.3/83.3/0.558 ->
+      58.3/58.3/0.490). Lost: plagiarism_en + plagiarism_fr (rank 1 -> not in top 10).
+      Gained: scholarship_conditions_fr 3 -> 1, rhodes 4 -> 1, scholarship_conditions_en
+      2 -> 1; slightly down: min_grade 2 -> 3, add_drop_fr 2 -> 3, grading 1 -> 2.
+      **Cause (read, not yet tested)**: the sentence-end boundary put the Plagiarism heading +
+      definition ("Any attempt by students to present...") as the last 3 lines of chunk
+      257, which starts at "Cheating" and is mostly the cheating list; 258 (Section:
+      Plagiarism, "Writers, artists...") and 257 are both outside the top 20; 259 (Section:
+      Plagiarism, "Several courses teach... crediting sources") ranks 1 but lacks the
+      definition. So step (d)'s cut can glue a new section's start onto the previous
+      section's chunk. Untested split: how much is (c)'s Section line vs. (d)'s boundaries.
+      Full eval output: scratchpad retrieval_after_fixC.txt (session-only).
+    - **C, steps (e)-(f) plan as agreed** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
       worse, STOP and show Youness before going further.** Explain each step before coding.
