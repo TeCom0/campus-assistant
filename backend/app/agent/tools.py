@@ -13,11 +13,14 @@ run (so a second tool call picks up where the first left off, never
 restarting at [1]), and gives a passage returned again its earlier number.
 """
 
+from typing import Annotated
+
 from langchain_core.tools import tool
+from langgraph.prebuilt import InjectedState
 
 from app.agent.citations import citation_number_for
 from app.db.connection import get_connection
-from app.retrieval.hybrid_search import search_hybrid
+from app.retrieval.hybrid_search import search_hybrid_multi, unique_queries
 
 CATALOG_SOURCE = "academic_catalog_2024_2025"
 
@@ -31,8 +34,39 @@ NO_DESCRIPTION_NOTE = (
 )
 
 
+def search_queries(query: str, query_en: str, messages) -> list[str]:
+    """The phrasings one search_documents call searches and fuses, without repeats.
+
+    - the agent's query, always;
+    - its English version (the documents are in English, and a French query
+      misses passages an English one finds); if the model left it out or
+      empty, the query alone is searched rather than failing;
+    - on the first turn only (exactly one student message), the student's
+      question word for word: it counters the agent padding its queries
+      ("MTH 1305 Al Akhawayn University course description"). A follow-up
+      like "And for graduates?" doesn't stand alone, so it isn't searched.
+
+    Also used by the evaluation to record what each search really searched.
+    """
+    queries = [query, query_en]
+    questions = [m for m in messages if m.type == "human"]
+    if len(questions) == 1:
+        queries.append(str(questions[0].content))
+    return unique_queries(queries)  # drops blanks and repeats (case, spacing)
+
+
 @tool(response_format="content_and_artifact")
-def search_documents(query: str) -> tuple[str, list[dict]]:
+def search_documents(
+    query: Annotated[str, "What to search for, in the language of the question."],
+    # Filled in by LangGraph's ToolNode with the graph state (the conversation);
+    # hidden from the model's schema, so the model can't see or set it.
+    state: Annotated[dict, InjectedState],
+    query_en: Annotated[
+        str,
+        "The same search in English (the documents are in English). If the query is "
+        "already in English, repeat it.",
+    ] = "",
+) -> tuple[str, list[dict]]:
     """Search Al Akhawayn University's academic catalog and scholarship pages.
 
     Use this for any question about academic policies, course requirements,
@@ -40,7 +74,11 @@ def search_documents(query: str) -> tuple[str, list[dict]]:
     be described in official university documents. Returns relevant passages
     with numbered citations like [1], [2].
     """
-    results = search_hybrid(query, top_k=5)
+    # query_en defaults to "" so a call without it still searches; the schema
+    # bound to the model marks it required (see graph.MODEL_TOOLS).
+    queries = search_queries(query, query_en, state["messages"])
+    print(f"[search_documents] searching: {queries}")
+    results = search_hybrid_multi(queries, top_k=5)
     if not results:
         return "No relevant passages found in the university documents.", []
 

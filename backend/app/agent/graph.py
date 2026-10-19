@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 import groq
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
@@ -69,6 +70,25 @@ English; if in French, answer only in French. Never switch languages, even if to
 in a different language than the question."""
 
 TOOLS = [search_documents, query_courses]
+
+
+def _model_facing_tools() -> list:
+    """The tool schemas bound to the model: TOOLS, with search_documents'
+    query_en marked required.
+
+    The function defaults query_en to "" so a call without it still searches
+    (with the query alone) instead of failing validation; but a default makes
+    the generated schema list it as optional, and the model should always write
+    one. So the schema the model sees is patched here, explicitly.
+    """
+    search = convert_to_openai_tool(search_documents)
+    parameters = search["function"]["parameters"]
+    parameters["required"] = ["query", "query_en"]
+    parameters["properties"]["query_en"].pop("default", None)
+    return [search, query_courses]
+
+
+MODEL_TOOLS = _model_facing_tools()
 
 BUDGET_EXHAUSTED_NOTE = """Tools are no longer available for this question. Answer now using \
 only the tool results provided in the conversation, with citations as usual. If they don't \
@@ -220,7 +240,7 @@ def _agent_node(state: MessagesState, config: RunnableConfig | None = None) -> d
         # so the model can only answer.
         response = _forced_answer(state["messages"], system_prompt, language)
     else:
-        model = get_agent_model().bind_tools(TOOLS)
+        model = get_agent_model().bind_tools(MODEL_TOOLS)
         messages = [{"role": "system", "content": system_prompt}, *state["messages"]]
         response = model.invoke(messages)
     return {"messages": [response]}

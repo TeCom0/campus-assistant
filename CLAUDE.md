@@ -286,10 +286,25 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       English": **Hit@3 75.0% -> 91.7%, Hit@5 83.3% -> 100%, MRR 0.646 -> 0.715; FR Hit@3
       2/4 -> 4/4, EN 7/8 unchanged** (optimistic: perfect translations, 4 FR questions).
       Tests: test_hybrid_search.py (stub searches). README not updated yet (after B2).
-    - **B2 NEXT**: search_documents(query, query_en) with query_en required; student's
-      question via LangGraph `InjectedState` (checked: hidden from the model's schema), fused
-      only when the state has exactly one human message (first turn). Risk to check live: a
-      missing required arg may be rejected by Groq as tool_use_failed on the normal path.
+    - **B2 DONE 2026-10-19**: `search_documents(query, state: InjectedState, query_en="")`;
+      `tools.search_queries()` = [query, query_en, + the student's question if exactly one
+      human message], blanks/repeats dropped (`hybrid_search.unique_queries`). Missing/blank
+      query_en -> query alone (no failure). The schema bound to the model is patched in
+      graph.`_model_facing_tools()` -> MODEL_TOOLS: query_en required, no default (a pydantic
+      json_schema_extra was dropped by LangChain's tool_call_schema -- tried). ToolNode still
+      gets the real tools (TOOLS). Logged per search: `[search_documents] searching: [...]`;
+      eval records get `searches` [{query, query_en (None if omitted), searched}].
+      Tests: test_search_documents.py (tool run through a real ToolNode graph, stub searches).
+      **Live check (5 /chat questions, 8 searches): Groq accepted query_en every time, the
+      model always sent it, no errors.** scholarship_conditions_fr now answers instead of
+      refusing, BUT cites only the graduate_scholarships page (SGPA 3.5) as the general rule
+      -> a grad_undergrad case for Fix C. intl_scholarships_fr answers (catalog pp. 65-66,
+      73-74). "What is MTH 1305?" -> "Mathematics for Business" (p. 155). Follow-up searched
+      only the agent's query (question not added). The agent often writes `query` itself in
+      English for French questions. Untested: whether Groq rejects a call that OMITS a
+      required arg (tool_use_failed on the normal path, not handled) -- watch run 3.
+      README updated (design decision, retrieval table row, limitations).
+    - **C NEXT** (section context in chunks), then runs 3 + 4.
     - **Fix D candidate (if time allows after A-C): citation placement** -- 6 failures over
       runs 1-2 (the fact is in a retrieved passage, but not the one cited).
     - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced

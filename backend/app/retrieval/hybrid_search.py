@@ -35,7 +35,7 @@ class HybridResult:
     keyword_rank: int | None
 
 
-def _unique_queries(queries: list[str]) -> list[str]:
+def unique_queries(queries: list[str]) -> list[str]:
     """The queries in order, without blanks or repeats (ignoring case and spacing).
 
     For an English question the agent's English version is usually the query
@@ -64,7 +64,7 @@ def search_hybrid_multi(queries: list[str], top_k: int = 5) -> list[HybridResult
     vector_ranks: dict[tuple[str, int], int] = {}
     keyword_ranks: dict[tuple[str, int], int] = {}
 
-    for query in _unique_queries(queries):
+    for query in unique_queries(queries):
         vector_results = search_vector(query, top_k=CANDIDATE_POOL_SIZE)
         keyword_results = search_keyword(query, top_k=CANDIDATE_POOL_SIZE)
         for results, ranks in ((vector_results, vector_ranks), (keyword_results, keyword_ranks)):

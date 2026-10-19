@@ -30,6 +30,7 @@ from app.agent.citations import cited_markers, normalize_brackets, reset_citatio
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
+from app.agent.tools import search_queries
 from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
 
 EVAL_DIR = Path(__file__).resolve().parents[3] / "eval"
@@ -95,6 +96,27 @@ def tool_calls(messages) -> list[dict]:
         for m in messages
         if m.type == "ai"
         for tc in m.tool_calls
+    ]
+
+
+def searches(messages) -> list[dict]:
+    """Each search_documents call: the agent's query, its own English version,
+    and the queries actually searched (search_queries, the tool's own rule:
+    blank query_en dropped, the question added on a first turn, repeats
+    removed). Shows the agent's translations next to what retrieval used.
+    """
+    return [
+        {
+            "query": tc["args"].get("query", ""),
+            "query_en": tc["args"].get("query_en"),  # None: the model left it out
+            "searched": search_queries(
+                tc["args"].get("query", ""), tc["args"].get("query_en") or "", messages
+            ),
+        }
+        for m in messages
+        if m.type == "ai"
+        for tc in m.tool_calls
+        if tc["name"] == "search_documents"
     ]
 
 
@@ -171,6 +193,7 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
             "cited_markers": sorted(cited_markers(answer)),
             "passages": collect_passages(messages),
             "tool_calls": tool_calls(messages),
+            "searches": searches(messages),
             "usage": token_usage(messages),
             "seconds": round(time.perf_counter() - started, 1),
             "error": error,

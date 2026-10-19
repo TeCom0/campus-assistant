@@ -48,7 +48,7 @@ flowchart TD
     end
     API --> AG
 
-    TN --> SD["search_documents<br/>hybrid search"]
+    TN --> SD["search_documents<br/>hybrid search: query, its English<br/>version, the question (1st turn)"]
     TN --> QC["query_courses<br/>course lookup"]
 
     SD --> VS["vector search<br/>query embedded with e5-small"]
@@ -97,6 +97,12 @@ flowchart LR
 - **Hybrid search with Reciprocal Rank Fusion.** Vector similarity and keyword `ts_rank` scores
   are on incompatible scales, so they're merged by *rank* (`1 / (60 + rank)`), not by score.
   Hybrid beat vector-only on the evaluation set with no regressions (numbers below).
+- **Each search fuses several phrasings.** The documents are English, so the agent writes every
+  search twice: in the question's language and in English (`query_en`, a required tool
+  argument). On the first turn the student's own question is searched too, which counters the
+  agent padding its queries. Each phrasing gets a vector and a keyword list, and RRF fuses them
+  all; repeated phrasings are searched once. The question reaches the tool through LangGraph's
+  `InjectedState`, hidden from the model's schema, so the model can't rewrite it.
 - **Rules that must hold are enforced in code, not only in the prompt.** The model ignored "at
   most two searches" in testing, so the tool budget is enforced in the graph: after 3 tool rounds
   the model is called with no tools bound. Same for the answer language (detected in code and
@@ -120,7 +126,12 @@ that answers it (`eval/retrieval_eval_set.json`):
 |---|---|---|
 | Keyword (Postgres full-text) | 16.7% | 0.167 |
 | Vector (pgvector, cosine) | 58.3% | 0.558 |
-| **Hybrid (RRF)** | **75.0%** | **0.646** |
+| Hybrid (RRF) | 75.0% | 0.646 |
+| **Hybrid + English version (RRF over both phrasings)** | **91.7%** | **0.715** |
+
+The English-version row is what `search_documents` does on a first turn. It changes only the 4
+French questions (Hit@3 2/4 → 4/4; English stays 7/8), and their English versions here are
+exact translations, so it is likely optimistic for the agent's own translations.
 
 Run it with `python -m app.evaluation.run_retrieval_eval` (in `backend/`, database seeded).
 
@@ -355,14 +366,16 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 
 ## Known limitations
 
-- **Cited answers can still contain wrong details.** In the baseline, 10 of 24 main answers
-  (42%) had at least one cited claim the judge found unsupported. The judge itself agrees with
+- **Cited answers can still contain wrong details.** In the baseline (runs 1 and 2), 17 of 47
+  main answers (36%) had at least one cited claim the judge found unsupported, 11 of 47 by hand. The judge itself agrees with
   hand labels on 75% of claims and tends to be too strict (see Evaluation).
-- **French questions over English documents.** All sources are English; 2 of the 4 French
-  evaluation questions aren't retrieved by any method. Translating the query before retrieval is
-  the likely fix.
+- **French questions over English documents.** All sources are English. Each search now also
+  runs an English version written by the agent, which retrieves all 4 French evaluation
+  questions' passages (2 before); how well the agent's own translations do is measured in the
+  next faithfulness runs.
 - **The agent sometimes pads its search queries** ("MTH 1305 Al Akhawayn University course
-  description"), which can push the right passage down the ranking.
+  description"), which can push the right passage down the ranking. The student's own question
+  is now searched alongside on the first turn; follow-ups rely on the agent's query.
 - **Free-tier LLM limits.** Groq's daily token limit caps usage; history is capped at 10 messages
   to keep requests small.
 - **No authentication or rate limiting yet**, needed before a public deployment.
