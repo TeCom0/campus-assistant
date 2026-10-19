@@ -1,0 +1,27 @@
+{
+  "id": "acc2302_prereqs_en",
+  "question": "What do I need before taking ACC 2302?",
+  "language": "en",
+  "cached_example": true,
+  "generated_at": "2026-10-19T19:13:00+00:00",
+  "model": "openai/gpt-oss-20b",
+  "tool_calls": [
+    {
+      "tool": "query_courses",
+      "label": "Looking up course ACC 2302 and its prerequisite chain"
+    }
+  ],
+  "answer": "To register for **ACC 2302 – Accounting Principles II**, you must first complete:\n\n1. **ACC 2301 – Accounting Principles I**  \n   - *Prerequisite for ACC 2302*[1]  \n\n2. **One of the mathematics courses required for ACC 2301**  \n   - **MTH 1305**, or **MTH 1303 – Calculus I: Differential and Integral Calculus**, or **MTH 1304 – Discrete Mathematics for Engineers**[1]  \n\n> *Note:* The catalog uses “or” to indicate alternative options, so you only need to satisfy one of the listed mathematics courses to meet the requirement for ACC 2301. If you have any doubts about which course fits best for your program or if you need to confirm any additional requirements, it’s a good idea to consult an academic advisor.",
+  "citations": [
+    {
+      "marker": 1,
+      "source": "academic_catalog_2024_2025",
+      "pages": [
+        222
+      ],
+      "section": "Course ACC 2302",
+      "title": "Academic Catalog 2024–2025",
+      "link": "/sources/academic_catalog_2024_2025?page=222"
+    }
+  ]
+}

@@ -15,9 +15,10 @@ deployment for students, and a demo video.
 
 ## What it does
 
-- **Answers only from university documents**, with numbered citations (`[1]`) linked to footnotes
-  showing the source and page. When the documents don't cover a question, it says so instead of
-  guessing.
+- **Answers only from university documents**, with numbered citations (`[1]`) linked to source
+  cards that give the document, page and section and open the PDF at that page. When the
+  documents don't cover a question, it says so instead of guessing. Answers are based on the
+  Academic Catalog 2024–2025 (and AUI's scholarship pages), and the UI says so.
 - **Agent with two tools**, chosen per question by the LLM:
   - `search_documents` — hybrid search (vector + keyword) over the catalog and scholarship pages.
   - `query_courses` — SQL over 660 courses and 526 prerequisite links extracted from the catalog,
@@ -26,6 +27,10 @@ deployment for students, and a demo video.
   ACC 2302").
 - **English and French**: answers in the question's language; follow-up questions keep the
   conversation's context.
+- **Example questions that answer instantly.** The empty state offers example questions whose
+  answers were saved in advance and are replayed without an LLM call, so they work even after
+  the daily demo limit. They are labelled "Example answer, saved in advance" (see Evaluation for
+  how they were chosen).
 
 ## Architecture
 
@@ -322,6 +327,12 @@ the fixes, that drop is consistent with run-to-run variance. A second after-fix 
 work. (The judge's one missed refusal in run 3, `fulbright_fr`, is another judge error: the
 answer declines.)
 
+**The saved example answers are not a quality sample.** The example answers on the empty state
+were selected from several generations and checked by hand against their cited passages before
+being saved, so they are better than an average answer. The evaluation numbers above are the
+representative ones. Saved examples are marked `cached_example` and kept out of `eval/results/`,
+so no evaluation counts them.
+
 **Why run 3's answers fail.** Run 3's 11 failures (11 unsupported cited claims in 6 `main`
 answers; no false refusals, no crashes) were given causes the same way as runs 1 and 2: the
 causes were proposed by an AI assistant and reviewed by the author, who accepted all 11
@@ -444,11 +455,17 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   is now searched alongside on the first turn; follow-ups rely on the agent's query.
 - **Free-tier LLM limits.** Groq's daily token limit caps usage; history is capped at 10 messages
   to keep requests small.
+- **One catalog edition.** Answers come from the original Academic Catalog 2024–2025; newer
+  editions exist (see Future work), so a rule changed since then would be answered as it was.
 - **Small demo limits, no accounts.** The public demo shares one free-tier Groq key, so it
   accepts 30 questions a day in total and 5 per visitor per 10 minutes (see Design decisions).
 
 ## Future work
 
+- **Re-ingest the newer catalog and re-run the evaluations.** AUI's catalog page now lists an
+  Academic Catalog 2024–2025 V2 and a 2026 catalog; the app answers from the original
+  2024–2025 edition (and says so in the UI). Re-ingesting means re-chunking, re-embedding,
+  re-anchoring the retrieval eval and re-running the retrieval and faithfulness evaluations.
 - **A search-time level filter (undergraduate vs. graduate).** Every chunk is tagged with its
   level (a `level` column and its "Section:" line), but search doesn't use it yet. The two
   targeted retrieval checks still fail: for an undergraduate repeat-policy question the graduate

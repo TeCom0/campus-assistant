@@ -65,8 +65,8 @@ export function Composer({
         </button>
       </form>
       <p className="disclaimer">
-        Unofficial student project, not an AUI service. Answers can be wrong: check important
-        details with the Registrar.
+        Answers are based on the Academic Catalog 2024–2025. Unofficial student project, not an
+        AUI service. Answers can be wrong: check important details with the Registrar.
       </p>
     </div>
   );

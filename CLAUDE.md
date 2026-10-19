@@ -154,11 +154,22 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
     frontend/src/examples/ (none saved yet). Questions: frontend/src/exampleQuestions.json.
     **Generated 2026-10-19 (review artifact JQFvFDGmdBgsrbnku5gxQZ; files in the session
     scratchpad examples_review/): acc2302_prereqs_en clean; transfer_credits_en,
-    add_drop_fr, academic_probation_fr each have unsupported or wrong details. Awaiting
-    Youness's decision per example -- nothing saved without his OK.**
+    add_drop_fr, academic_probation_fr each have unsupported or wrong details.**
+    **Decided 2026-10-19 (Youness):** acc2302_prereqs_en APPROVED and saved
+    (frontend/src/examples/acc2302_prereqs_en.json; replay checked in the browser with no
+    API running: 0 API requests). **NEXT SESSION (tomorrow, fresh Groq quota): regenerate the
+    other three, up to 3 attempts each** (`--ids <id>` per attempt, into a fresh review folder
+    per attempt so candidates don't overwrite each other); show EACH candidate with its cited
+    passages; Youness approves one. If none of an example's 3 is clean, SWAP that question
+    for a cleaner one (plagiarism or the minimum transfer grade), keeping French examples
+    where possible (update frontend/src/exampleQuestions.json). Then step 5 (deploy).
+    README states the examples were selected from several generations and hand-checked, so
+    not representative -- the evaluation numbers are.
   - FOUND: aui.ma/academic-catalogs now lists "Academic Catalog 2024-2025 V2" and a 2026
-    catalog; we ingested the original 2024-2025 PDF (still HTTP 200). Decide before go-live
-    whether to re-ingest.
+    catalog; we ingested the original 2024-2025 PDF (still HTTP 200). **Decided (Youness):
+    don't re-ingest before shipping**; the UI shows "Answers are based on the Academic
+    Catalog 2024–2025" (disclaimer under the composer); re-ingest + re-run the evaluations
+    is in README Future work.
 - [ ] **5. Deploy on Azure for Students**: Docker Compose, Caddy with automatic HTTPS,
   Youness's Namecheap domain, .env only on the server, then load the database.
 - [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
