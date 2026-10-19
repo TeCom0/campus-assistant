@@ -182,7 +182,7 @@ def _line_overlap_start(emitted: list) -> int:
     return start
 
 
-def chunk_text(source: str, text: str, boundaries: str = "sentences") -> list[Chunk]:
+def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]:
     """Chunk one document's text into overlapping, line-aligned windows.
 
     `boundaries` says where a full chunk (MAX_CHUNK_CHARS) ends:
@@ -200,6 +200,14 @@ def chunk_text(source: str, text: str, boundaries: str = "sentences") -> list[Ch
       BEFORE, so the new section starts the next chunk (no overlap across it).
     With no sentence end or heading to cut at (tables, lists), a chunk is cut
     and overlapped by lines in every mode.
+
+    "lines" is the default and what's loaded: measured on the retrieval eval
+    (hybrid + English, 2026-10-19, with the Section lines in all three), it
+    gave Hit@3 100% / MRR 0.819; "sentences" 83.3% / 0.639 and "headings"
+    83.3% / 0.662 (both lost the plagiarism questions). "headings" was the only
+    one passing both targeted checks (undergraduate repeat rule ranked first;
+    the nine-semesters sentence whole), but the decision rule fixed beforehand
+    was the eval. The other two modes stay as the measured alternatives.
     """
     if boundaries not in BOUNDARY_MODES:
         raise ValueError(f"boundaries must be one of {BOUNDARY_MODES}, not {boundaries!r}")
@@ -296,7 +304,7 @@ def chunk_text(source: str, text: str, boundaries: str = "sentences") -> list[Ch
     return chunks
 
 
-def chunk_all(boundaries: str = "sentences") -> list[Chunk]:
+def chunk_all(boundaries: str = "lines") -> list[Chunk]:
     all_chunks: list[Chunk] = []
     for processed_file in sorted(PROCESSED_DIR.glob("*.txt")):
         text = processed_file.read_text(encoding="utf-8")
@@ -334,7 +342,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--boundaries", choices=BOUNDARY_MODES, default="sentences")
+    parser.add_argument("--boundaries", choices=BOUNDARY_MODES, default="lines")
     args = parser.parse_args()
     all_chunks = chunk_all(args.boundaries)
     print(f"boundaries: {args.boundaries}")

@@ -123,16 +123,25 @@ Retrieval is measured on 12 hand-labelled questions (8 English, 4 French), each 
 sentence of the answer as an anchor (`eval/retrieval_eval_set.json`). A result is a hit if its
 text contains the anchor, so the labels survive re-chunking:
 
-| Method | Hit@3 | MRR |
-|---|---|---|
-| Keyword (Postgres full-text) | 16.7% | 0.167 |
-| Vector (pgvector, cosine) | 58.3% | 0.558 |
-| Hybrid (RRF) | 75.0% | 0.646 |
-| **Hybrid + English version (RRF over both phrasings)** | **91.7%** | **0.715** |
+| Method | Hit@3 | MRR | Hit@3 with section lines | MRR with section lines |
+|---|---|---|---|---|
+| Keyword (Postgres full-text) | 16.7% | 0.167 | 16.7% | 0.167 |
+| Vector (pgvector, cosine) | 58.3% | 0.558 | 75.0% | 0.692 |
+| Hybrid (RRF) | 75.0% | 0.646 | 83.3% | 0.720 |
+| **Hybrid + English version (RRF over both phrasings)** | 91.7% | 0.715 | **100%** | **0.819** |
 
 The English-version row is what `search_documents` does on a first turn. It changes only the 4
-French questions (Hit@3 2/4 → 4/4; English stays 7/8), and their English versions here are
-exact translations, so it is likely optimistic for the agent's own translations.
+French questions, and their English versions here are exact translations, so it is likely
+optimistic for the agent's own translations.
+
+The last two columns are the current chunks: each starts with a "Section:" line naming its level
+(Undergraduate or Graduate Studies) and nearest heading, e.g. `Section: Undergraduate Studies >
+Repeat Policy`. Two alternative chunk boundaries (ending chunks at sentence ends, with or without
+cutting before headings) were measured too and did worse on this eval (83.3% Hit@3), so the
+original boundaries were kept, by a decision rule fixed before measuring. Two targeted checks
+still fail with the kept chunks: for "What is the repeat policy for undergraduate students?" the
+graduate rule ranks above the undergraduate one, and one chunk holds only part of the "nine
+semesters" scholarship sentence. Only the heading-aware variant passed both.
 
 Run it with `python -m app.evaluation.run_retrieval_eval` (in `backend/`, database seeded).
 

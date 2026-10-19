@@ -1,5 +1,7 @@
-"""Tests for where chunks end (app.ingestion.chunk.chunk_text): after a sentence
-end where possible, with the unfinished sentence moved whole to the next chunk
+"""Tests for where chunks end (app.ingestion.chunk.chunk_text). The default,
+"lines", cuts where a chunk fills up (the original rule, kept after the Fix C
+measurement); "sentences", a measured alternative, cuts after a sentence end
+where possible, with the unfinished sentence moved whole to the next chunk
 and an overlap of whole sentences; by lines, as before, when there is no
 sentence end to cut at (tables, lists).
 
@@ -31,7 +33,7 @@ def _lines_of(chunk) -> list[str]:
 
 def test_a_full_chunk_ends_at_its_last_sentence_end_and_the_unfinished_sentence_moves_on():
     lines = [_line(i, ".") for i in range(6)] + [_line(6), _line(7), _line(8), _line(9, ".")]
-    first, second = chunk_text(SOURCE, "\n".join(lines))
+    first, second = chunk_text(SOURCE, "\n".join(lines), "sentences")
 
     assert _lines_of(first) == lines[:6]  # ends at line 5's period, not mid-sentence
     # Overlap: line 5, the whole last sentence (110 <= 150 chars); then the
@@ -41,13 +43,13 @@ def test_a_full_chunk_ends_at_its_last_sentence_end_and_the_unfinished_sentence_
 
 def test_a_sentence_end_in_the_first_half_is_not_used_as_the_cut():
     lines = [_line(0, ".")] + [_line(i) for i in range(1, 10)]
-    first = chunk_text(SOURCE, "\n".join(lines))[0]
+    first = chunk_text(SOURCE, "\n".join(lines), "sentences")[0]
     assert _lines_of(first) == lines[:9]  # cut by size, as before
 
 
 def test_without_sentence_ends_the_overlap_is_the_last_line_as_before():
     lines = [_line(i) for i in range(10)]  # a table: no punctuation
-    first, second = chunk_text(SOURCE, "\n".join(lines))
+    first, second = chunk_text(SOURCE, "\n".join(lines), "sentences")
 
     assert _lines_of(first) == lines[:9]
     assert _lines_of(second) == lines[8:]  # one line of overlap (110 <= 150 < 220)
@@ -56,7 +58,7 @@ def test_without_sentence_ends_the_overlap_is_the_last_line_as_before():
 def test_no_overlap_needed_when_the_cut_falls_on_a_sentence_end_with_long_sentences():
     # Every sentence spans two lines (220 chars > the 150-char overlap window).
     lines = [_line(i, "." if i % 2 else "") for i in range(12)]
-    chunks = chunk_text(SOURCE, "\n".join(lines))
+    chunks = chunk_text(SOURCE, "\n".join(lines), "sentences")
 
     assert _lines_of(chunks[0])[-1].endswith(".")
     assert _lines_of(chunks[1])[0] == lines[len(_lines_of(chunks[0]))]  # starts a sentence
@@ -65,7 +67,7 @@ def test_no_overlap_needed_when_the_cut_falls_on_a_sentence_end_with_long_senten
 def _catalog_chunks_and_lines():
     text = (PROCESSED_DIR / f"{CATALOG}.txt").read_text(encoding="utf-8")
     lines = [line for _, page in _split_into_pages(text) for line in _split_into_lines(page)]
-    return chunk_text(CATALOG, text), lines
+    return chunk_text(CATALOG, text, "sentences"), lines
 
 
 def _body(chunk) -> list[str]:
@@ -89,3 +91,11 @@ def test_every_catalog_line_is_in_a_chunk_and_no_chunk_is_over_budget():
         covered.update(range(position, position + len(body)))
         assert sum(len(line) for line in body) <= MAX_CHUNK_CHARS
     assert covered == set(range(len(lines)))
+
+
+def test_the_default_lines_mode_cuts_by_size_and_overlaps_by_lines():
+    lines = [_line(i, ".") for i in range(6)] + [_line(6), _line(7), _line(8), _line(9, ".")]
+    first, second = chunk_text(SOURCE, "\n".join(lines))  # default: "lines"
+
+    assert _lines_of(first) == lines[:9]  # full, although line 5 ends a sentence
+    assert _lines_of(second) == lines[8:]  # the last line carried over (110 <= 150 < 220)

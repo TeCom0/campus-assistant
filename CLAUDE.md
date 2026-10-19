@@ -411,6 +411,22 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
           semesters (or eight semesters plus two summer sessions), while graduate
           scholarships are allowed to use their scholarship for a maximum of four semesters,
           including one semester at the Language Center." -- and at least one chunk does.
+    - **Fix C variants RESULT + DECISION (2026-10-19, rule applied as fixed)**:
+      | hybrid + English | Hit@3 | Hit@5 | MRR | check 1 (C- above B-) | check 2 (nine sem.) |
+      | before Fix C | 91.7 | 100 | 0.715 | -- | -- |
+      | (d) sentences | 83.3 | 83.3 | 0.639 | -- | -- |
+      | **(i) lines + Section lines** | **100** | **100** | **0.819** | FAIL (C- 2, B- 1) | FAIL (1 of 2 whole) |
+      | (ii) headings + Section lines | 83.3 | 83.3 | 0.662 | PASS (C- 1, B- 3) | PASS (1 of 1) |
+      (i) also: hybrid 83.3/83.3/0.720, vector 75.0/75.0/0.692 (before: 75.0/83.3/0.646,
+      58.3/83.3/0.558). (ii) lost plagiarism_en/_fr again (like (d)). **Only (i) qualifies
+      -> (i) KEPT and loaded (1161 chunks, re-checked after the final load: identical
+      numbers).** chunk.py default boundaries = "lines" (the default chunking reproduces the
+      loaded chunks.jsonl exactly); "sentences"/"headings" stay as measured alternatives
+      (`--boundaries`). So Fix C as kept = steps (b)+(c) (level/section + Section line), NOT
+      (d). The two targeted checks FAIL with the kept chunks (the heading_split /
+      grad_undergrad / nine-semesters cases aren't fixed at retrieval level) -- runs 3+4 will
+      show the per-cause effect. Backup dump still valid for a rollback to pre-Fix-C.
+      README retrieval table updated. Per-variant outputs: scratchpad variant_*.txt.
     - **C, steps (e)-(f) plan as agreed** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
