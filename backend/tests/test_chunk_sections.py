@@ -186,9 +186,35 @@ def test_chunk_text_starts_with_the_section_line_and_keeps_the_body():
 
 def test_store_row_carries_level_and_section_and_rejects_old_chunks():
     chunk = {"source": CATALOG, "chunk_index": 3, "text": "t", "pages": [1], "language": "en",
-             "level": "graduate", "section": "Repeat Policy"}  # fmt: skip
+             "level": "graduate", "section": "Repeat Policy",
+             "sections": ["Repeat Policy", "Undergraduate Foundation Courses"]}  # fmt: skip
     row = chunk_row(chunk, [0.0] * 384)
-    assert row[5:7] == ("graduate", "Repeat Policy")
+    assert row[5:8] == (
+        "graduate",
+        "Repeat Policy",
+        ["Repeat Policy", "Undergraduate Foundation Courses"],
+    )
     old = {k: v for k, v in chunk.items() if k not in ("level", "section")}
     with pytest.raises(KeyError):
         chunk_row(old, [0.0] * 384)
+
+
+def test_a_chunk_lists_every_heading_it_spans_without_changing_its_text():
+    body = [SENTENCE, "Repeat Policy", TEXT, SENTENCE, "Academic Probation", TEXT]
+    chunk = chunk_text(CATALOG, "\n".join(body))[0]
+
+    assert chunk.section is None  # the first line comes before any heading
+    assert chunk.sections == ["Repeat Policy", "Academic Probation"]
+    assert chunk.text == "\n".join(body)  # metadata only: no Section line was added
+
+
+def test_the_real_probation_chunk_spans_its_headings():
+    text = (PROCESSED_DIR / f"{CATALOG}.txt").read_text(encoding="utf-8")
+    chunk = next(
+        c
+        for c in chunk_text(CATALOG, text)
+        if "placed on academic probation if their GPA" in c.text
+    )
+    assert chunk.section == "Repeat Policy"
+    assert chunk.sections[:2] == ["Repeat Policy", "Academic Probation"]
+    assert chunk.text.startswith("Section: Undergraduate Studies > Repeat Policy\n")  # unchanged

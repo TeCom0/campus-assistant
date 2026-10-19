@@ -15,12 +15,14 @@ BATCH_SIZE = 64
 
 UPSERT_SQL = """
     INSERT INTO document_chunks
-        (source, chunk_index, text, pages, language, level, section, model_name, embedding)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        (source, chunk_index, text, pages, language, level, section, sections, model_name,
+         embedding)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (source, chunk_index, model_name)
     DO UPDATE SET text = EXCLUDED.text, pages = EXCLUDED.pages,
                   language = EXCLUDED.language, level = EXCLUDED.level,
-                  section = EXCLUDED.section, embedding = EXCLUDED.embedding
+                  section = EXCLUDED.section, sections = EXCLUDED.sections,
+                  embedding = EXCLUDED.embedding
 """
 
 
@@ -44,6 +46,7 @@ def chunk_row(chunk: dict, vector, model_name: str = EMBEDDING_MODEL_NAME) -> tu
         chunk["language"],
         chunk["level"],
         chunk["section"],
+        chunk["sections"],
         model_name,
         Vector(vector),
     )
@@ -63,6 +66,41 @@ def replace_rows(conn, rows: list[tuple], model_name: str) -> int:
         with conn.cursor() as cur:
             cur.executemany(UPSERT_SQL, rows)
     return deleted
+
+
+def update_sections(conn, chunks: list[dict], model_name: str = EMBEDDING_MODEL_NAME) -> int:
+    """Set only the `sections` metadata of the loaded chunks, in one transaction.
+
+    For changes that leave every chunk's text as it is, so nothing needs
+    re-embedding. Refuses (changing nothing) unless each chunk is already
+    loaded with exactly this text: otherwise the metadata would describe text
+    that isn't there, and a full --replace is needed instead.
+    """
+    loaded = {
+        (source, index): text
+        for source, index, text in conn.execute(
+            "SELECT source, chunk_index, text FROM document_chunks WHERE model_name = %s",
+            (model_name,),
+        ).fetchall()
+    }
+    differs = [
+        (c["source"], c["chunk_index"])
+        for c in chunks
+        if loaded.get((c["source"], c["chunk_index"])) != c["text"]
+    ]
+    if differs or len(loaded) != len(chunks):
+        raise SystemExit(
+            f"{len(differs)} chunks differ from the loaded ones ({len(loaded)} loaded, "
+            f"{len(chunks)} in chunks.jsonl): the text changed, so use --replace. "
+            f"First differences: {differs[:5]}"
+        )
+    with conn.transaction(), conn.cursor() as cur:
+        cur.executemany(
+            "UPDATE document_chunks SET sections = %s "
+            "WHERE source = %s AND chunk_index = %s AND model_name = %s",
+            [(c["sections"], c["source"], c["chunk_index"], model_name) for c in chunks],
+        )
+    return len(chunks)
 
 
 def _embed_all(chunks: list[dict]) -> list:
@@ -111,8 +149,20 @@ if __name__ == "__main__":
         help="Delete this model's chunks and insert chunks.jsonl, in one transaction "
         "(needed after re-chunking)",
     )
+    parser.add_argument(
+        "--sections-only",
+        action="store_true",
+        help="Only update the sections metadata of chunks already loaded with the same text "
+        "(no re-embedding)",
+    )
     args = parser.parse_args()
     all_chunks = load_chunks()
     print(f"loaded {len(all_chunks)} chunks from {CHUNKS_PATH}")
-    store_chunks(all_chunks, replace=args.replace)
+    if args.sections_only:
+        connection = get_connection(register_vector_type=False)
+        init_schema(connection)
+        print(f"updated sections of {update_sections(connection, all_chunks)} chunks")
+        connection.close()
+    else:
+        store_chunks(all_chunks, replace=args.replace)
     print("done")

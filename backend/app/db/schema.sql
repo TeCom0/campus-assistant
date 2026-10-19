@@ -35,6 +35,10 @@ ALTER TABLE document_chunks
     CHECK (level IN ('general', 'undergraduate', 'graduate'));
 ALTER TABLE document_chunks
     ADD COLUMN IF NOT EXISTS section TEXT;
+-- Every heading the chunk spans (section first): metadata for source cards
+-- only, not part of `text`, so it can change without re-embedding.
+ALTER TABLE document_chunks
+    ADD COLUMN IF NOT EXISTS sections TEXT[] NOT NULL DEFAULT '{}';
 
 -- One row per question the public demo accepted (app/limits.py): the global
 -- daily cap and the per-IP rate limit are counted from it. The IP is stored

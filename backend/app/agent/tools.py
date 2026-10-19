@@ -95,6 +95,7 @@ def search_documents(
                     "pages": r.pages,
                     "section": r.section,
                     "level": r.level,
+                    "sections": r.sections,
                     "text": r.text,
                 }
             )

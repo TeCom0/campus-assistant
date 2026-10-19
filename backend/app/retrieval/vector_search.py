@@ -1,6 +1,6 @@
 """Vector similarity search over document_chunks using pgvector."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from pgvector import Vector
 
@@ -17,6 +17,7 @@ class SearchResult:
     distance: float  # cosine distance: 0 = identical direction, 2 = opposite. Lower is better.
     section: str | None = None  # nearest heading (app/ingestion/chunk.py), for source cards
     level: str = "general"  # general / undergraduate / graduate, for source cards
+    sections: list[str] = field(default_factory=list)  # every heading spanned, for source cards
 
 
 def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
@@ -26,7 +27,8 @@ def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
     conn = get_connection()
     rows = conn.execute(
         """
-        SELECT source, chunk_index, pages, text, embedding <=> %s AS distance, section, level
+        SELECT source, chunk_index, pages, text, embedding <=> %s AS distance, section, level,
+               sections
         FROM document_chunks
         ORDER BY embedding <=> %s
         LIMIT %s
@@ -44,6 +46,7 @@ def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
             distance=r[4],
             section=r[5],
             level=r[6],
+            sections=r[7],
         )
         for r in rows
     ]

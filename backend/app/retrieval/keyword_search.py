@@ -7,7 +7,7 @@ over a separate BM25 implementation/search engine to avoid new
 infrastructure, per CLAUDE.md's "Postgres full-text search or BM25" note.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.db.connection import get_connection
 
@@ -21,6 +21,7 @@ class SearchResult:
     score: float  # ts_rank: higher is better (unlike vector_search's distance)
     section: str | None = None  # nearest heading (app/ingestion/chunk.py), for source cards
     level: str = "general"  # general / undergraduate / graduate, for source cards
+    sections: list[str] = field(default_factory=list)  # every heading spanned, for source cards
 
 
 def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
@@ -29,7 +30,8 @@ def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
     rows = conn.execute(
         """
         SELECT source, chunk_index, pages, text,
-               ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score, section, level
+               ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score, section, level,
+               sections
         FROM document_chunks
         WHERE text_search @@ websearch_to_tsquery('english', %s)
         ORDER BY score DESC
@@ -48,6 +50,7 @@ def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
             score=r[4],
             section=r[5],
             level=r[6],
+            sections=r[7],
         )
         for r in rows
     ]

@@ -64,6 +64,11 @@ class Chunk:
     language: str = "en"  # TODO: derive per-source once non-English sources are added
     level: str = DEFAULT_LEVEL  # "general", "undergraduate" or "graduate"
     section: str | None = None  # nearest heading above the chunk's first line
+    # Every heading the chunk spans: `section`, then each heading that starts
+    # inside it. Metadata only, for source cards ("Repeat Policy -> Academic
+    # Probation"): the text and its Section line use `section` alone, so
+    # nothing embedded or indexed depends on this.
+    sections: list[str] = field(default_factory=list)
 
 
 def _split_into_pages(text: str) -> list[tuple[int | None, str]]:
@@ -260,6 +265,10 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
         # The section in effect at the chunk's first line; a heading further
         # down is already in the chunk's own text.
         level, section = sections[emitted[0][0]]
+        spanned = [section] if section else []
+        for n, _, line in emitted[1:]:
+            if n in section_starts and line not in LEVEL_HEADINGS and line not in spanned:
+                spanned.append(line)
         prefix = section_line(level, section, emitted[0][2])
         if prefix:
             chunk_str = prefix + "\n" + chunk_str
@@ -271,6 +280,7 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
                 pages=pages,
                 level=level,
                 section=section,
+                sections=spanned,
             )
         )
 

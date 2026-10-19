@@ -170,8 +170,20 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
     scratchpad regen/<id>/attempt<n>/ (session-only). Claude's check: attempt 3 is the only
     clean one for all three (transfer_credits_en 3; add_drop_fr 3, nit "trimestre régulier";
     academic_probation_fr 3, card section reads "Repeat Policy" -- first-line rule).
-    Review artifact WqzhkwVzo9Swk82GQGg6Xf. **Awaiting Youness's pick per question**; then
-    `--out <regen/<id>/attemptN> --approve <id>`, commit, then step 5 (deploy).
+    Review artifact WqzhkwVzo9Swk82GQGg6Xf. **Youness approved attempt 3 for all three
+    (2026-10-19); saved byte-identical (59ea1c4); all 4 replay with 0 API requests.**
+    README: selected from up to 3 attempts each, hand-checked, 6 of 9 had an error.
+  - **Sections spanned (2026-10-19)**: chunks get `sections` (first-line section + every
+    heading starting inside, no repeats; part headings excluded) -- METADATA ONLY: new column
+    `sections TEXT[]`, text and Section line unchanged. Confirmed first: embeddings and
+    text_search come from `text` only; the evals read only marker/source/pages/text; the DB
+    texts/section/level were identical to the code's output. Loaded with `store
+    --sections-only` (refuses if any text differs; one transaction): md5 of all texts and of
+    all embeddings identical before/after; retrieval eval unchanged (100/100/0.819). Cards:
+    "Undergraduate Studies › Repeat Policy → Academic Probation → Unsatisfactory Standing"
+    (max 3 headings, then "…"). 437/1161 chunks span >1 heading. The saved examples'
+    citations[*].section labels were refreshed from the DB (only those 3 lines changed;
+    answers and tool labels byte-identical).
   - FOUND: aui.ma/academic-catalogs now lists "Academic Catalog 2024-2025 V2" and a 2026
     catalog; we ingested the original 2024-2025 PDF (still HTTP 200). **Decided (Youness):
     don't re-ingest before shipping**; the UI shows "Answers are based on the Academic

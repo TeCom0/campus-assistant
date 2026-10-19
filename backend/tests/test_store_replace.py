@@ -11,7 +11,7 @@ import pytest
 
 from app.config import EMBEDDING_DIM
 from app.db.connection import get_connection, init_schema
-from app.ingestion.store import UPSERT_SQL, chunk_row, replace_rows
+from app.ingestion.store import UPSERT_SQL, chunk_row, replace_rows, update_sections
 
 MODEL = "test-replace-model"
 OTHER_MODEL = "test-other-model"
@@ -30,7 +30,7 @@ pytestmark = pytest.mark.skipif(not _db_available(), reason="Postgres not reacha
 
 def _chunk(index: int, text: str, level: str = "general") -> dict:
     return {"source": "test_source", "chunk_index": index, "text": text, "pages": [],
-            "language": "en", "level": level, "section": None}  # fmt: skip
+            "language": "en", "level": level, "section": None, "sections": []}  # fmt: skip
 
 
 def _row(index: int, text: str, model: str, level: str = "general") -> tuple:
@@ -72,3 +72,27 @@ def test_a_failing_insert_leaves_the_table_as_it_was(conn):
         replace_rows(conn, [_row(5, "new 5", MODEL), bad], MODEL)
 
     assert _texts(conn, MODEL) == ["old 0", "old 1"]  # the delete was undone too
+
+
+def test_update_sections_changes_only_the_metadata(conn):
+    # The fixture's other model is left alone; this one is updated in place.
+    loaded = [
+        {**_chunk(0, "old 0"), "sections": ["A", "B"]},
+        {**_chunk(1, "old 1"), "sections": ["C"]},
+    ]
+    assert update_sections(conn, loaded, MODEL) == 2
+    rows = conn.execute(
+        "SELECT text, sections FROM document_chunks WHERE model_name = %s ORDER BY chunk_index",
+        (MODEL,),
+    ).fetchall()
+    assert rows == [("old 0", ["A", "B"]), ("old 1", ["C"])]
+
+
+def test_update_sections_refuses_when_a_chunk_text_differs(conn):
+    changed = [{**_chunk(0, "NEW TEXT"), "sections": ["A"]}, {**_chunk(1, "old 1"), "sections": []}]
+    with pytest.raises(SystemExit, match="use --replace"):
+        update_sections(conn, changed, MODEL)
+    sections = conn.execute(
+        "SELECT sections FROM document_chunks WHERE model_name = %s", (MODEL,)
+    ).fetchall()
+    assert all(s == [] for (s,) in sections)  # nothing written

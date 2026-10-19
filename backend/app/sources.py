@@ -93,16 +93,27 @@ def with_display_info(citations: list[dict]) -> list[dict]:
             {
                 **c,
                 "title": source.title if source else c["source"],
-                "section": section_path(c.get("level"), c.get("section")),
+                "section": section_path(c.get("level"), c.get("section"), c.get("sections")),
                 "link": link if source else None,
             }
         )
     return shown
 
 
-def section_path(level: str | None, section: str | None) -> str | None:
-    """ "Undergraduate Studies › Repeat Policy", as on the chunk's Section line."""
+# A chunk can span many headings (a list of course descriptions); a card shows
+# the first few.
+MAX_HEADINGS_SHOWN = 3
+
+
+def section_path(
+    level: str | None, section: str | None, sections: list[str] | None = None
+) -> str | None:
+    """ "Undergraduate Studies › Repeat Policy → Academic Probation": the level,
+    then every heading the chunk spans (or its first-line section alone)."""
+    headings = list(sections or ([section] if section else []))
+    if len(headings) > MAX_HEADINGS_SHOWN:
+        headings = headings[:MAX_HEADINGS_SHOWN] + ["…"]
     parts = [LEVEL_LABELS[level]] if level in LEVEL_LABELS else []
-    if section:
-        parts.append(section)
+    if headings:
+        parts.append(" → ".join(headings))
     return " › ".join(parts) or None

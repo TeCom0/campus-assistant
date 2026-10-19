@@ -20,6 +20,7 @@ class _Hit:
     text: str
     section: str | None = None
     level: str = "general"
+    sections: tuple = ()
 
 
 def _hits(*chunk_indexes: int) -> list[_Hit]:

@@ -7,7 +7,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from app import main, sources
-from app.sources import SOURCES, link_target, url_answers, with_display_info
+from app.sources import SOURCES, link_target, section_path, url_answers, with_display_info
 
 CATALOG = "academic_catalog_2024_2025"
 
@@ -89,3 +89,12 @@ def test_the_endpoint_redirects_and_is_not_a_question(monkeypatch):
     assert response.status_code == 302
     assert response.headers["location"].endswith("#page=67")
     assert client.get("/sources/nope", follow_redirects=False).status_code == 404
+
+
+def test_the_card_path_shows_every_spanned_heading_up_to_three():
+    assert section_path(
+        "undergraduate", "Repeat Policy", ["Repeat Policy", "Academic Probation"]
+    ) == ("Undergraduate Studies › Repeat Policy → Academic Probation")
+    assert section_path("general", "Plagiarism", []) == "Plagiarism"  # older rows: section alone
+    assert section_path("general", None, ["A", "B", "C", "D", "E"]) == "A → B → C → …"
+    assert section_path("general", None, None) is None

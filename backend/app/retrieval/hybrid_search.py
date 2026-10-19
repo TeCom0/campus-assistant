@@ -32,6 +32,7 @@ class HybridResult:
     rrf_score: float
     section: str | None
     level: str
+    sections: list[str]
     # Best (lowest) rank in any query's vector / keyword list; None if in none.
     vector_rank: int | None
     keyword_rank: int | None
@@ -86,6 +87,7 @@ def search_hybrid_multi(queries: list[str], top_k: int = 5) -> list[HybridResult
             text=info[key].text,
             section=info[key].section,
             level=info[key].level,
+            sections=info[key].sections,
             rrf_score=scores[key],
             vector_rank=vector_ranks.get(key),
             keyword_rank=keyword_ranks.get(key),
