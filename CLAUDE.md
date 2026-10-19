@@ -277,6 +277,19 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       added to CAUSES). w_grade_en#3 (borderline) stays judge_artifact. By hand 4/23 main
       answers fail in run 2 (all EN), **11/47 over runs 1+2** (judge: 17/47). README updated
       with both baselines and the per-run cause table (39 failures).
+    - **B1 DONE 2026-10-19 (retrieval layer)**: `search_hybrid_multi(queries, top_k)` in
+      hybrid_search.py fuses every query's vector + keyword lists with RRF (k=60, pool 20 per
+      list); queries deduplicated ignoring case/spacing; `search_hybrid(q)` =
+      `search_hybrid_multi([q])` -- verified identical to the old code on the 12 eval
+      questions (top 10 chunks, scores, ranks). Retrieval eval: `question_en` on the 4 FR
+      questions (= their EN twins in the set, exact translations), new method "hybrid +
+      English": **Hit@3 75.0% -> 91.7%, Hit@5 83.3% -> 100%, MRR 0.646 -> 0.715; FR Hit@3
+      2/4 -> 4/4, EN 7/8 unchanged** (optimistic: perfect translations, 4 FR questions).
+      Tests: test_hybrid_search.py (stub searches). README not updated yet (after B2).
+    - **B2 NEXT**: search_documents(query, query_en) with query_en required; student's
+      question via LangGraph `InjectedState` (checked: hidden from the model's schema), fused
+      only when the state has exactly one human message (first turn). Risk to check live: a
+      missing required arg may be rejected by Groq as tool_use_failed on the normal path.
     - **Fix D candidate (if time allows after A-C): citation placement** -- 6 failures over
       runs 1-2 (the fact is in a retrieved passage, but not the one cited).
     - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced

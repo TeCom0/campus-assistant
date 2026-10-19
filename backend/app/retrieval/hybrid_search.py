@@ -30,30 +30,49 @@ class HybridResult:
     pages: list[int]
     text: str
     rrf_score: float
+    # Best (lowest) rank in any query's vector / keyword list; None if in none.
     vector_rank: int | None
     keyword_rank: int | None
 
 
-def search_hybrid(query: str, top_k: int = 5) -> list[HybridResult]:
-    vector_results = search_vector(query, top_k=CANDIDATE_POOL_SIZE)
-    keyword_results = search_keyword(query, top_k=CANDIDATE_POOL_SIZE)
+def _unique_queries(queries: list[str]) -> list[str]:
+    """The queries in order, without blanks or repeats (ignoring case and spacing).
 
+    For an English question the agent's English version is usually the query
+    itself; searching it twice would double every score and change nothing.
+    """
+    unique, seen = [], set()
+    for query in queries:
+        key = " ".join(query.split()).casefold()
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(query)
+    return unique
+
+
+def search_hybrid_multi(queries: list[str], top_k: int = 5) -> list[HybridResult]:
+    """Hybrid search for several phrasings of one search, fused into one ranking.
+
+    Each query gets its own vector and keyword list, and RRF fuses all of
+    them at once: a passage's score is the sum of 1 / (RRF_K + rank) over
+    every list it appears in. A passage only one phrasing finds can still
+    make the top_k (an English version finds what a French query can't: the
+    documents are in English), and one several phrasings agree on rises.
+    """
     scores: dict[tuple[str, int], float] = {}
     info: dict[tuple[str, int], object] = {}
     vector_ranks: dict[tuple[str, int], int] = {}
     keyword_ranks: dict[tuple[str, int], int] = {}
 
-    for rank, r in enumerate(vector_results, start=1):
-        key = (r.source, r.chunk_index)
-        scores[key] = scores.get(key, 0.0) + 1 / (RRF_K + rank)
-        info.setdefault(key, r)
-        vector_ranks[key] = rank
-
-    for rank, r in enumerate(keyword_results, start=1):
-        key = (r.source, r.chunk_index)
-        scores[key] = scores.get(key, 0.0) + 1 / (RRF_K + rank)
-        info.setdefault(key, r)
-        keyword_ranks[key] = rank
+    for query in _unique_queries(queries):
+        vector_results = search_vector(query, top_k=CANDIDATE_POOL_SIZE)
+        keyword_results = search_keyword(query, top_k=CANDIDATE_POOL_SIZE)
+        for results, ranks in ((vector_results, vector_ranks), (keyword_results, keyword_ranks)):
+            for rank, r in enumerate(results, start=1):
+                key = (r.source, r.chunk_index)
+                scores[key] = scores.get(key, 0.0) + 1 / (RRF_K + rank)
+                info.setdefault(key, r)
+                ranks[key] = min(rank, ranks.get(key, rank))
 
     ranked_keys = sorted(scores, key=lambda k: scores[k], reverse=True)[:top_k]
 
@@ -69,6 +88,11 @@ def search_hybrid(query: str, top_k: int = 5) -> list[HybridResult]:
         )
         for key in ranked_keys
     ]
+
+
+def search_hybrid(query: str, top_k: int = 5) -> list[HybridResult]:
+    """Hybrid search for one query: its vector and keyword lists fused by RRF."""
+    return search_hybrid_multi([query], top_k)
 
 
 if __name__ == "__main__":

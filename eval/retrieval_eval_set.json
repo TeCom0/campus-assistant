@@ -9,6 +9,7 @@
   {
     "id": "transfer_credits_fr",
     "question": "Combien de crédits puis-je transférer à l'AUI depuis une autre université ?",
+    "question_en": "How many credits can I transfer to AUI from another university?",
     "language": "fr",
     "topic": "transfer credits",
     "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 51}]
@@ -30,6 +31,7 @@
   {
     "id": "plagiarism_fr",
     "question": "Qu'est-ce que le plagiat selon le règlement de l'AUI ?",
+    "question_en": "What is considered plagiarism at AUI?",
     "language": "fr",
     "topic": "academic integrity",
     "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 245}]
@@ -54,6 +56,7 @@
   {
     "id": "add_drop_fr",
     "question": "Comment ajouter ou supprimer un cours à l'AUI ?",
+    "question_en": "How do I add or drop a course at AUI?",
     "language": "fr",
     "topic": "registration",
     "expected": [{"source": "academic_catalog_2024_2025", "chunk_index": 232}]
@@ -82,6 +85,7 @@
   {
     "id": "scholarship_conditions_fr",
     "question": "Quelles sont les conditions pour conserver une bourse Al Akhawayn ?",
+    "question_en": "What are the conditions for keeping an Al Akhawayn scholarship?",
     "language": "fr",
     "topic": "fellowships",
     "expected": [{"source": "graduate_scholarships", "chunk_index": 0}]
