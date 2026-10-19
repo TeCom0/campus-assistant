@@ -263,6 +263,20 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       Run-1 numbers unchanged after the change (checked). Known limit: text streamed before
       a mid-stream refusal would be followed by the retry's text in /chat (not seen: all 6
       refused generations were pure tool calls).
+    - **Run 2 judged 2026-10-19** (second baseline, same frozen judge; calibration 9/9 first;
+      run 2 re-split identical; 30 calls, ~$0.058): main **7/23 = 30.4%** (CI 15.6-50.9; EN
+      5/12, FR 2/11), 3 crashes, regression 3/4, false refusals 3/27 (scholarship_conditions_fr,
+      intl_scholarships_fr, mth1305_fr), missed refusal 1/3 = fulbright_en, a JUDGE error (the
+      answer declines; same as run 1's instructor_en) -> 0/7 by hand over both runs.
+      **Runs 1+2 combined: main 17/47 = 36.2% (CI 24.0-50.5; EN 9/24 = 37.5%, FR 8/23 =
+      34.8%)**, 5 crashes, false refusals 5/55, regression 6/8 -> report_runs_1_2.json.
+      error_analysis_run2.md + error_causes_run2.json: 21 failures, causes PROPOSED by Claude,
+      **awaiting Youness's review**: judge_artifact 8, citation_placement 4, crash 4,
+      french_retrieval 2, embellishment 1, uncitable_tool 1, and a proposed NEW cause
+      `misread` 1 (w_grade_en#4: cited passage contradicts the claim; not yet in CAUSES --
+      add it only if confirmed). w_grade_en#3 flagged borderline (judge_artifact vs
+      embellishment). If confirmed as proposed: by hand 4/23 main answers fail (all EN).
+      README not updated yet: do it once causes are confirmed (one edit for both baselines).
     - **A. Forced-answer crash** (2 failures; ~9% of answers over runs 1-2): in the forced
       path (graph.py `_agent_node`, after MAX_TOOL_ROUNDS) catch Groq's 400 "Tool choice is
       none, but model called a tool", retry once with "tools unavailable, answer in plain
