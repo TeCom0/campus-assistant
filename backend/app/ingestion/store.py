@@ -29,7 +29,11 @@ def load_chunks() -> list[dict]:
         return [json.loads(line) for line in f]
 
 
-def chunk_row(chunk: dict, vector) -> tuple:
+DELETE_MODEL_SQL = "DELETE FROM document_chunks WHERE model_name = %s"
+COUNT_MODEL_SQL = "SELECT count(*) FROM document_chunks WHERE model_name = %s"
+
+
+def chunk_row(chunk: dict, vector, model_name: str = EMBEDDING_MODEL_NAME) -> tuple:
     """One UPSERT_SQL row. level/section are read strictly: a chunks.jsonl
     written before they existed fails here instead of loading as "general"."""
     return (
@@ -40,29 +44,75 @@ def chunk_row(chunk: dict, vector) -> tuple:
         chunk["language"],
         chunk["level"],
         chunk["section"],
-        EMBEDDING_MODEL_NAME,
+        model_name,
         Vector(vector),
     )
 
 
-def store_chunks(chunks: list[dict]) -> None:
+def replace_rows(conn, rows: list[tuple], model_name: str) -> int:
+    """Delete every chunk of `model_name` and insert `rows`, in one transaction;
+    returns how many rows were deleted.
+
+    The upsert alone keys on (source, chunk_index, model_name), so after a
+    re-chunk that produces fewer chunks, the old extra rows would stay and
+    still be searched. One transaction: if an insert fails, the delete is
+    undone too and the table is left as it was.
+    """
+    with conn.transaction():
+        deleted = conn.execute(DELETE_MODEL_SQL, (model_name,)).rowcount
+        with conn.cursor() as cur:
+            cur.executemany(UPSERT_SQL, rows)
+    return deleted
+
+
+def _embed_all(chunks: list[dict]) -> list:
+    vectors = []
+    for i in range(0, len(chunks), BATCH_SIZE):
+        vectors.extend(embed_passages([c["text"] for c in chunks[i : i + BATCH_SIZE]]))
+        print(f"embedded {min(i + BATCH_SIZE, len(chunks))}/{len(chunks)} chunks")
+    return vectors
+
+
+def store_chunks(chunks: list[dict], replace: bool = False) -> None:
     conn = get_connection(register_vector_type=False)
     init_schema(conn)
 
-    with conn.cursor() as cur:
-        for i in range(0, len(chunks), BATCH_SIZE):
-            batch = chunks[i : i + BATCH_SIZE]
-            vectors = embed_passages([c["text"] for c in batch])
-
-            rows = [chunk_row(c, vector) for c, vector in zip(batch, vectors, strict=True)]
-            cur.executemany(UPSERT_SQL, rows)
-            print(f"stored {min(i + BATCH_SIZE, len(chunks))}/{len(chunks)} chunks")
+    if replace:
+        # Embed first (CPU, ~1-2 min), so the transaction isn't held open meanwhile.
+        vectors = _embed_all(chunks)
+        rows = [chunk_row(c, v) for c, v in zip(chunks, vectors, strict=True)]
+        deleted = replace_rows(conn, rows, EMBEDDING_MODEL_NAME)
+        print(f"replaced: deleted {deleted} old chunks, inserted {len(rows)}")
+    else:
+        with conn.cursor() as cur:
+            for i in range(0, len(chunks), BATCH_SIZE):
+                batch = chunks[i : i + BATCH_SIZE]
+                vectors = embed_passages([c["text"] for c in batch])
+                rows = [chunk_row(c, vector) for c, vector in zip(batch, vectors, strict=True)]
+                cur.executemany(UPSERT_SQL, rows)
+                print(f"stored {min(i + BATCH_SIZE, len(chunks))}/{len(chunks)} chunks")
+        in_table = conn.execute(COUNT_MODEL_SQL, (EMBEDDING_MODEL_NAME,)).fetchone()[0]
+        if in_table > len(chunks):
+            print(
+                f"WARNING: the table has {in_table} chunks for this model but chunks.jsonl has "
+                f"{len(chunks)}: stale rows from an earlier chunking remain. Re-run with --replace."
+            )
 
     conn.close()
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="Delete this model's chunks and insert chunks.jsonl, in one transaction "
+        "(needed after re-chunking)",
+    )
+    args = parser.parse_args()
     all_chunks = load_chunks()
     print(f"loaded {len(all_chunks)} chunks from {CHUNKS_PATH}")
-    store_chunks(all_chunks)
+    store_chunks(all_chunks, replace=args.replace)
     print("done")
