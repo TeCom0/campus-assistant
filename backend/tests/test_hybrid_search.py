@@ -18,6 +18,8 @@ class _Hit:
     chunk_index: int
     pages: list[int]
     text: str
+    section: str | None = None
+    level: str = "general"
 
 
 def _hits(*chunk_indexes: int) -> list[_Hit]:

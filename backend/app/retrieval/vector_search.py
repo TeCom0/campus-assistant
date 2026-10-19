@@ -15,6 +15,8 @@ class SearchResult:
     pages: list[int]
     text: str
     distance: float  # cosine distance: 0 = identical direction, 2 = opposite. Lower is better.
+    section: str | None = None  # nearest heading (app/ingestion/chunk.py), for source cards
+    level: str = "general"  # general / undergraduate / graduate, for source cards
 
 
 def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
@@ -24,7 +26,7 @@ def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
     conn = get_connection()
     rows = conn.execute(
         """
-        SELECT source, chunk_index, pages, text, embedding <=> %s AS distance
+        SELECT source, chunk_index, pages, text, embedding <=> %s AS distance, section, level
         FROM document_chunks
         ORDER BY embedding <=> %s
         LIMIT %s
@@ -34,7 +36,15 @@ def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
     conn.close()
 
     return [
-        SearchResult(source=r[0], chunk_index=r[1], pages=r[2], text=r[3], distance=r[4])
+        SearchResult(
+            source=r[0],
+            chunk_index=r[1],
+            pages=r[2],
+            text=r[3],
+            distance=r[4],
+            section=r[5],
+            level=r[6],
+        )
         for r in rows
     ]
 

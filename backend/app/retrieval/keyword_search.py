@@ -19,6 +19,8 @@ class SearchResult:
     pages: list[int]
     text: str
     score: float  # ts_rank: higher is better (unlike vector_search's distance)
+    section: str | None = None  # nearest heading (app/ingestion/chunk.py), for source cards
+    level: str = "general"  # general / undergraduate / graduate, for source cards
 
 
 def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
@@ -27,7 +29,7 @@ def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
     rows = conn.execute(
         """
         SELECT source, chunk_index, pages, text,
-               ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score
+               ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score, section, level
         FROM document_chunks
         WHERE text_search @@ websearch_to_tsquery('english', %s)
         ORDER BY score DESC
@@ -38,7 +40,16 @@ def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
     conn.close()
 
     return [
-        SearchResult(source=r[0], chunk_index=r[1], pages=r[2], text=r[3], score=r[4]) for r in rows
+        SearchResult(
+            source=r[0],
+            chunk_index=r[1],
+            pages=r[2],
+            text=r[3],
+            score=r[4],
+            section=r[5],
+            level=r[6],
+        )
+        for r in rows
     ]
 
 

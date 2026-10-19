@@ -89,7 +89,14 @@ def search_documents(
         if is_new:
             parts.append(f"[{number}] (source: {r.source}, pages: {r.pages})\n{r.text}")
             artifact.append(
-                {"marker": number, "source": r.source, "pages": r.pages, "text": r.text}
+                {
+                    "marker": number,
+                    "source": r.source,
+                    "pages": r.pages,
+                    "section": r.section,
+                    "level": r.level,
+                    "text": r.text,
+                }
             )
         else:
             # Its text is already in an earlier tool result for this question;
@@ -173,7 +180,14 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
     # Returned on a repeated lookup too, unlike search_documents: the text can
     # differ (a second lookup may add the chain), and a claim citing [marker]
     # may rest on either version. keep_cited still lists the marker once.
-    return text, [{"marker": marker, "source": CATALOG_SOURCE, "pages": pages, "text": text}]
+    citation = {
+        "marker": marker,
+        "source": CATALOG_SOURCE,
+        "pages": pages,
+        "section": f"Course {code_}",  # shown on its source card
+        "text": text,
+    }
+    return text, [citation]
 
 
 # Walks the prerequisite graph from one course. Each row carries the path

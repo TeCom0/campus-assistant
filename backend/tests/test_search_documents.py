@@ -27,6 +27,8 @@ class _Hit:
     chunk_index: int
     pages: list[int]
     text: str
+    section: str | None = None
+    level: str = "general"
 
 
 @pytest.fixture

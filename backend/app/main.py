@@ -7,7 +7,7 @@ from typing import Literal
 import groq
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
 from app.agent.citations import (
@@ -23,6 +23,7 @@ from app.agent.tool_labels import build_tool_call_label
 from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
 from app.db.connection import get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message
+from app.sources import link_target, with_display_info
 
 
 @asynccontextmanager
@@ -45,6 +46,17 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 _compiled_graph = build_graph()
+
+
+@app.get("/sources/{source_id}", response_model=None)
+def open_source(source_id: str, page: int | None = None) -> RedirectResponse | JSONResponse:
+    """A source card's link: the document at the cited page, or its fallback
+    page if the document's URL doesn't answer (app/sources.py). Not a question,
+    so not counted against the demo limits."""
+    target = link_target(source_id, page)
+    if target is None:
+        return JSONResponse(status_code=404, content={"message": "Unknown source"})
+    return RedirectResponse(target, status_code=302)
 
 
 @app.get("/health")
@@ -131,7 +143,9 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                                 if artifact:
                                     citations.extend(artifact)
 
-            cited = without_passage_text(keep_cited(citations, "".join(answer_parts)))
+            cited = with_display_info(
+                without_passage_text(keep_cited(citations, "".join(answer_parts)))
+            )
             yield _sse("citations", {"citations": cited})
             yield _sse("done", {})
 
