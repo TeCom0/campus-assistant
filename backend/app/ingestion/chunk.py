@@ -34,6 +34,11 @@ LEVEL_HEADINGS = {
     "AL AKHAWAYN GRADUATE STUDIES": "graduate",
     "ACADEMIC CENTERS AND INSTITUTES": "general",  # Language Center, faculty list
 }
+# How a level is written in a chunk's "Section:" line: the catalog's own part
+# names. No words for "general": the part before the undergraduate studies
+# mixes university-wide policies with financial aid for both levels, so a
+# label like "All students" would sometimes be false.
+LEVEL_LABELS = {"undergraduate": "Undergraduate Studies", "graduate": "Graduate Studies"}
 # Sources with one level throughout (web pages have no part headings).
 SOURCE_LEVELS = {"graduate_scholarships": "graduate"}
 DEFAULT_LEVEL = "general"
@@ -144,6 +149,19 @@ def assign_sections(source: str, lines: list[str]) -> list[tuple[str, str | None
     return sections
 
 
+def section_line(level: str, section: str | None, first_line: str) -> str | None:
+    """The "Section: ..." line a chunk's text starts with, or None if it adds nothing.
+
+    In the text, not only in metadata: the embedding, the keyword index
+    (generated from `text`) and the model all read the text. The heading is
+    left out when the chunk already starts with it.
+    """
+    parts = [LEVEL_LABELS[level]] if level in LEVEL_LABELS else []
+    if section and section != first_line:
+        parts.append(section)
+    return "Section: " + " > ".join(parts) if parts else None
+
+
 def chunk_text(source: str, text: str) -> list[Chunk]:
     """Chunk one document's text into overlapping, line-aligned windows."""
     lines: list[tuple[int | None, str]] = []
@@ -168,6 +186,9 @@ def chunk_text(source: str, text: str) -> list[Chunk]:
         # The section in effect at the chunk's first line; a heading further
         # down is already in the chunk's own text.
         level, section = sections[current[0][0]]
+        prefix = section_line(level, section, current[0][2])
+        if prefix:
+            chunk_str = prefix + "\n" + chunk_str
         chunks.append(
             Chunk(
                 source=source,

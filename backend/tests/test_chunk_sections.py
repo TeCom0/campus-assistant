@@ -17,7 +17,9 @@ from app.ingestion.chunk import (
     chunk_text,
     is_heading,
     looks_like_heading,
+    section_line,
 )
+from app.ingestion.store import chunk_row
 
 CATALOG = "academic_catalog_2024_2025"
 SENTENCE = "Every student is responsible for knowing these regulations."
@@ -150,5 +152,43 @@ def test_the_undergraduate_repeat_rules_chunk_is_tagged_although_its_heading_is_
     text = (PROCESSED_DIR / f"{CATALOG}.txt").read_text(encoding="utf-8")
     chunk = next(c for c in chunk_text(CATALOG, text) if "a C- or lower has been earned" in c.text)
 
-    assert "Repeat Policy" not in chunk.text  # the heading is in the previous chunk
+    first_line, body = chunk.text.split("\n", 1)
+    assert "Repeat Policy" not in body  # the heading is in the previous chunk
     assert (chunk.level, chunk.section) == ("undergraduate", "Repeat Policy")
+    assert first_line == "Section: Undergraduate Studies > Repeat Policy"  # so the text says it
+
+
+@pytest.mark.parametrize(
+    ("level", "section", "first_line", "expected"),
+    [
+        ("undergraduate", "Repeat Policy", "SGPA ≥ 2.0", "Section: Undergraduate Studies > Repeat Policy"),
+        ("graduate", None, "text", "Section: Graduate Studies"),
+        ("general", "Transfer Credit Maximums", "text", "Section: Transfer Credit Maximums"),
+        ("general", None, "text", None),  # nothing to add
+        # The chunk starts with its own heading: not repeated.
+        ("general", "Plagiarism", "Plagiarism", None),
+        ("graduate", "Repeat Policy", "Repeat Policy", "Section: Graduate Studies"),
+    ],
+)  # fmt: skip
+def test_section_line(level, section, first_line, expected):
+    assert section_line(level, section, first_line) == expected
+
+
+def test_chunk_text_starts_with_the_section_line_and_keeps_the_body():
+    body = [SENTENCE, "Repeat Policy", TEXT]
+    chunk = chunk_text(CATALOG, "\n".join(["AL AKHAWAYN GRADUATE STUDIES", *body]))[0]
+    assert chunk.text == "Section: Graduate Studies\nAL AKHAWAYN GRADUATE STUDIES\n" + "\n".join(
+        body
+    )
+    # General level, no heading yet: no prefix, the text is unchanged.
+    assert chunk_text(CATALOG, "\n".join(body))[0].text == "\n".join(body)
+
+
+def test_store_row_carries_level_and_section_and_rejects_old_chunks():
+    chunk = {"source": CATALOG, "chunk_index": 3, "text": "t", "pages": [1], "language": "en",
+             "level": "graduate", "section": "Repeat Policy"}  # fmt: skip
+    row = chunk_row(chunk, [0.0] * 384)
+    assert row[5:7] == ("graduate", "Repeat Policy")
+    old = {k: v for k, v in chunk.items() if k not in ("level", "section")}
+    with pytest.raises(KeyError):
+        chunk_row(old, [0.0] * 384)

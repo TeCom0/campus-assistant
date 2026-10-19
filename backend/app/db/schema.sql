@@ -25,6 +25,17 @@ ALTER TABLE document_chunks
 CREATE INDEX IF NOT EXISTS document_chunks_text_search_idx
     ON document_chunks USING GIN (text_search);
 
+-- Where the chunk sits in its document (app/ingestion/chunk.py): the level
+-- the rules apply to, and the nearest heading above its first line. Both are
+-- also written into `text` as a "Section: ..." line, so search and the model
+-- see them; the columns allow filtering by level in SQL. Added like
+-- text_search, so re-running this file on an existing table is safe.
+ALTER TABLE document_chunks
+    ADD COLUMN IF NOT EXISTS level TEXT NOT NULL DEFAULT 'general'
+    CHECK (level IN ('general', 'undergraduate', 'graduate'));
+ALTER TABLE document_chunks
+    ADD COLUMN IF NOT EXISTS section TEXT;
+
 -- Structured course data (code, title, credits, prerequisites), for the
 -- query_courses agent tool. Deliberately doesn't store full course
 -- descriptions -- that free text is already in document_chunks (Phase 1)

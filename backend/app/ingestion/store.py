@@ -14,17 +14,35 @@ CHUNKS_PATH = Path(__file__).resolve().parents[3] / "data" / "processed" / "chun
 BATCH_SIZE = 64
 
 UPSERT_SQL = """
-    INSERT INTO document_chunks (source, chunk_index, text, pages, language, model_name, embedding)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO document_chunks
+        (source, chunk_index, text, pages, language, level, section, model_name, embedding)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (source, chunk_index, model_name)
     DO UPDATE SET text = EXCLUDED.text, pages = EXCLUDED.pages,
-                  language = EXCLUDED.language, embedding = EXCLUDED.embedding
+                  language = EXCLUDED.language, level = EXCLUDED.level,
+                  section = EXCLUDED.section, embedding = EXCLUDED.embedding
 """
 
 
 def load_chunks() -> list[dict]:
     with open(CHUNKS_PATH, encoding="utf-8") as f:
         return [json.loads(line) for line in f]
+
+
+def chunk_row(chunk: dict, vector) -> tuple:
+    """One UPSERT_SQL row. level/section are read strictly: a chunks.jsonl
+    written before they existed fails here instead of loading as "general"."""
+    return (
+        chunk["source"],
+        chunk["chunk_index"],
+        chunk["text"],
+        chunk["pages"],
+        chunk["language"],
+        chunk["level"],
+        chunk["section"],
+        EMBEDDING_MODEL_NAME,
+        Vector(vector),
+    )
 
 
 def store_chunks(chunks: list[dict]) -> None:
@@ -36,18 +54,7 @@ def store_chunks(chunks: list[dict]) -> None:
             batch = chunks[i : i + BATCH_SIZE]
             vectors = embed_passages([c["text"] for c in batch])
 
-            rows = [
-                (
-                    c["source"],
-                    c["chunk_index"],
-                    c["text"],
-                    c["pages"],
-                    c["language"],
-                    EMBEDDING_MODEL_NAME,
-                    Vector(vector),
-                )
-                for c, vector in zip(batch, vectors, strict=True)
-            ]
+            rows = [chunk_row(c, vector) for c, vector in zip(batch, vectors, strict=True)]
             cur.executemany(UPSERT_SQL, rows)
             print(f"stored {min(i + BATCH_SIZE, len(chunks))}/{len(chunks)} chunks")
 

@@ -331,7 +331,22 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       311 graduate, 314 general. 1142/1161 chunks have a section. Chunk 282 (C- rules) ->
       undergraduate > Repeat Policy; 786 (B- rule) -> graduate. chunks.jsonl NOT regenerated
       yet (step e). Tests: test_chunk_sections.py (real lines + whole-catalog checks).
-    - **C, steps (c)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
+    - **C, step (c) DONE 2026-10-19 (code only, DB untouched)**: chunk text now starts with
+      `chunk.section_line()`: "Section: Undergraduate Studies > Repeat Policy" (level words
+      from LEVEL_LABELS, the catalog's part names; NONE for general -- the pre-undergraduate
+      part mixes university-wide policy with financial aid for both levels; the heading is
+      dropped when the chunk already starts with it; no line at all when nothing to add).
+      In the text so the embedding, the generated text_search column and the model all see
+      it. schema.sql: `level TEXT NOT NULL DEFAULT 'general' CHECK (...)` + `section TEXT`,
+      ADD COLUMN IF NOT EXISTS (safe on the existing table). store.py writes/upserts both via
+      `chunk_row()`, read strictly (an old chunks.jsonl without them -> KeyError, not
+      "general"). In memory on the real docs: bodies identical to today's chunks.jsonl;
+      1130/1161 chunks get a Section line (max 104 chars); tokens max 396 (limit 512), 0 over.
+      Chunk 245 (plagiarism) gets "Section: Cheating" (its first lines; "Plagiarism" is
+      in its text). **Re-load needs a full replace, not the upsert**: store.py upserts by
+      (source, chunk_index, model_name), so stale rows would survive if the chunk count
+      shrinks -- handle in step (e).
+    - **C, steps (d)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
       worse, STOP and show Youness before going further.** Explain each step before coding.
