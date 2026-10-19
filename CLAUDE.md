@@ -88,9 +88,35 @@ and evaluation.
 - [wip  ] Phase 7: README, architecture diagram, faithfulness baseline, deployment, demo video
   (README + diagram done) -- finished through the Ship plan below
 
+## Ship plan REVISED (Youness, 2026-10-19) -- supersedes the 2026-10-15 steps 3-7 below
+
+Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
+- [ ] **2 (finish).** Fixes A, B, C(i) done. Run 3 (started 2026-10-19; if Groq's daily limit
+  stops it, it resumes the next day -- Youness won't use the app until it finishes) -> judge
+  with the frozen rules -> error analysis (causes proposed by Claude, confirmed by Youness)
+  -> README before/after table vs. the runs 1+2 baseline.
+- [ ] **3. Minimal protection** (no access code): per-IP rate limit + global daily question
+  cap stored in Postgres; a friendly "demo limit reached, try again tomorrow" message in the UI.
+- [ ] **4. UI polish, bounded checklist**: welcoming empty state with 3-4 clickable example
+  questions (EN + FR); smooth streaming with clear tool-status labels; citations as clean
+  clickable source cards; polished loading / error / limit-reached states; mobile-friendly
+  with dark mode; a subtle "unofficial student project, not an AUI service" disclaimer.
+  **Propose a visual direction first (colors, type, layout) and show Youness before building.**
+- [ ] **5. Deploy on Azure for Students**: Docker Compose, Caddy with automatic HTTPS,
+  Youness's Namecheap domain, .env only on the server, then load the database.
+- [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
+  unanswerable question, on desktop and mobile.
+- [ ] **7. Go public**: fix the pytest hang (open issues), gitleaks over the full history, then
+  Youness makes the repo public.
+- **README "Future work"** (added 2026-10-19): run 4, Fix D (citation placement), the
+  search-time level filter (the real fix for Fix C's failing targeted checks).
+- Not in this order (ask Youness when reached): the demo video and the final README/CLAUDE.md
+  cleanup (old steps 5 and 7).
+
 ## Ship plan (agreed 2026-10-15) -- the finish line
 
-Supersedes "Next steps (agreed 2026-10-11)" below where they differ. Done = the live HTTPS URL
+Supersedes "Next steps (agreed 2026-10-11)" below where they differ. **Steps 3-7 and the
+"Done =" line are superseded by the 2026-10-19 revision above.** Done = the live HTTPS URL
 shows the unofficial-project disclaimer, requires the access code and enforces the daily cap;
 the README reports the baseline and after-fix faithfulness numbers with the judge's measured
 agreement next to them; a full-history secrets scan is clean; the repo is public; a demo video

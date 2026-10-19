@@ -390,6 +390,19 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   to keep requests small.
 - **No authentication or rate limiting yet**, needed before a public deployment.
 
+## Future work
+
+- **A search-time level filter (undergraduate vs. graduate).** Every chunk is tagged with its
+  level (a `level` column and its "Section:" line), but search doesn't use it yet. The two
+  targeted retrieval checks still fail: for an undergraduate repeat-policy question the graduate
+  rule ranks first, and one chunk holds only part of a scholarship-duration sentence. Filtering
+  or boosting by the level the question names (or asking the student) is the real fix for the
+  first; the section lines alone don't reorder these results.
+- **A second after-fix run (run 4)** to measure run-to-run variance, which was large between the
+  two baseline runs (French 50% → 18%).
+- **Citation placement (6 failures in the baseline):** the fact is in a retrieved passage, but
+  the answer cites a different one.
+
 ## Data
 
 Only public AUI documents are used (listed with URLs in `data/sources.md`); no personal student
