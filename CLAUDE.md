@@ -165,6 +165,13 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
     where possible (update frontend/src/exampleQuestions.json). Then step 5 (deploy).
     README states the examples were selected from several generations and hand-checked, so
     not representative -- the evaluation numbers are.
+    **Regenerated 2026-10-19 19:24-19:32 UTC (Groq's daily limit was NOT hit -- the TPD
+    window seems rolling, not a midnight reset)**: 3 attempts each, round-robin, into
+    scratchpad regen/<id>/attempt<n>/ (session-only). Claude's check: attempt 3 is the only
+    clean one for all three (transfer_credits_en 3; add_drop_fr 3, nit "trimestre régulier";
+    academic_probation_fr 3, card section reads "Repeat Policy" -- first-line rule).
+    Review artifact WqzhkwVzo9Swk82GQGg6Xf. **Awaiting Youness's pick per question**; then
+    `--out <regen/<id>/attemptN> --approve <id>`, commit, then step 5 (deploy).
   - FOUND: aui.ma/academic-catalogs now lists "Academic Catalog 2024-2025 V2" and a 2026
     catalog; we ingested the original 2024-2025 PDF (still HTTP 200). **Decided (Youness):
     don't re-ingest before shipping**; the UI shows "Answers are based on the Academic
