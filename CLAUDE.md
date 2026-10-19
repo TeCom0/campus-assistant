@@ -361,6 +361,22 @@ of the deployed version exists. Anything not listed here goes to "Future work" i
       1228 chunks (graduate_scholarships 13, prestigious 4); the "9 / semesters" sentence is
       whole; all 12 retrieval anchors are in some chunk (in memory). Tests:
       test_chunk_boundaries.py. chunks.jsonl still NOT regenerated.
+    - **DB BACKUP before Fix C's re-load (2026-10-19)**:
+      `C:\dev\backups\campus_before_fixC_2026-10-19.dump` (pg_dump -Fc of the whole
+      campus_assistant DB, 2,653,843 bytes, sha256 starts d15e5ebd3f08569d; outside the repo).
+      Contents: document_chunks 1161 (all embedded, 1 model), courses 660,
+      course_prerequisites 526. Verified: the host copy restores into a scratch DB with
+      exactly those counts, and the clean restore below works over a modified table (scratch
+      DB, then dropped). **To roll back** (repo root, PowerShell or Git Bash, Docker up; no
+      double quotes on purpose -- PS 5.1 mangles them):
+      ```
+      docker compose cp C:/dev/backups/campus_before_fixC_2026-10-19.dump db:/tmp/restore.dump
+      docker compose exec db sh -c 'pg_restore -U $POSTGRES_USER -d $POSTGRES_DB --clean --if-exists --no-owner /tmp/restore.dump'
+      docker compose exec db sh -c 'psql -U $POSTGRES_USER -d $POSTGRES_DB -At -c "select count(*) from document_chunks"'
+      ```
+      The last line should print 1161. The DB then holds the pre-Fix-C chunks (no
+      level/section columns); the code at HEAD still chunks the new way, so don't re-run
+      the ingestion commands without reverting chunk.py too.
     - **C, steps (e)-(f) NEXT** (Youness, 2026-10-19): before the re-load, pg_dump the DB to a
       file OUTSIDE the repo and record the exact restore command here; after re-loading, run
       --check-anchors then the eval and compare with 91.7% / 100% / 0.715. **If retrieval gets
