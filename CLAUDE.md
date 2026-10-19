@@ -132,6 +132,13 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   clickable source cards; polished loading / error / limit-reached states; mobile-friendly
   with dark mode; a subtle "unofficial student project, not an AUI service" disclaimer.
   **Propose a visual direction first (colors, type, layout) and show Youness before building.**
+  Added 2026-10-19: (a) the 3-4 empty-state example questions (EN + FR) are served from
+  PRE-GENERATED answers stored in the repo -- produced once by the real agent, committed with
+  their citations; clicking one costs no Groq tokens, is NOT counted toward the daily cap or
+  the per-IP limit, and is shown with the same streaming animation and source cards as a live
+  answer, so the demo works even after the cap is reached; cached answers are marked
+  internally so they are never counted in the evaluation. (b) Fix the limit notice's
+  dark-mode contrast.
 - [ ] **5. Deploy on Azure for Students**: Docker Compose, Caddy with automatic HTTPS,
   Youness's Namecheap domain, .env only on the server, then load the database.
 - [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
