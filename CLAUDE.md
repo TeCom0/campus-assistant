@@ -139,6 +139,26 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   answer, so the demo works even after the cap is reached; cached answers are marked
   internally so they are never counted in the evaluation. (b) Fix the limit notice's
   dark-mode contrast.
+  **Progress 2026-10-19** (visual direction approved: artifact 1oBUR2rJhRWXfamXbbc6CE):
+  - 4a (3911733): citations carry title, section path ("Undergraduate Studies › Repeat
+    Policy", from chunk level + section now returned by both searches) and a link through
+    GET /sources/{source}?page=N (app/sources.py): 302 to the PDF #page=N, or to the landing
+    page https://aui.ma/academic-catalogs if the PDF doesn't answer (HEAD, cached 1 h).
+  - 4b (87d19f7): the new UI (tokens in index.css, components/, IBM Plex via @fontsource,
+    remark-gfm tables, pending/clickable citation chips, source cards, states, theme toggle,
+    reduced motion, favicon/title). Limit 429 body + SSE limit event now carry a localized
+    `title`. Screenshots taken against a scratchpad fixture (real API, agent replaced by a
+    replay of run-3 answers -- no Groq tokens).
+  - 4d generator (e4824b4): `python -m app.generate_examples --out <review dir>` writes
+    <id>.json + review.md outside the repo; `--approve <ids>` copies into
+    frontend/src/examples/ (none saved yet). Questions: frontend/src/exampleQuestions.json.
+    **Generated 2026-10-19 (review artifact JQFvFDGmdBgsrbnku5gxQZ; files in the session
+    scratchpad examples_review/): acc2302_prereqs_en clean; transfer_credits_en,
+    add_drop_fr, academic_probation_fr each have unsupported or wrong details. Awaiting
+    Youness's decision per example -- nothing saved without his OK.**
+  - FOUND: aui.ma/academic-catalogs now lists "Academic Catalog 2024-2025 V2" and a 2026
+    catalog; we ingested the original 2024-2025 PDF (still HTTP 200). Decide before go-live
+    whether to re-ingest.
 - [ ] **5. Deploy on Azure for Students**: Docker Compose, Caddy with automatic HTTPS,
   Youness's Namecheap domain, .env only on the server, then load the database.
 - [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
