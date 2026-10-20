@@ -11,15 +11,38 @@ unless marked **on the VM**. Replace `<vm>` with `azureuser@<the VM's IP>` and
 
 ## 1. The VM
 
-- Ubuntu 24.04 LTS, **Standard_B2s** (2 vCPUs, 4 GiB RAM), 30 GiB disk. The API
-  uses ~0.4 GiB idle and more once the embedding model is loaded; building its
-  image (CPU torch) needs headroom, which 2 GiB doesn't leave.
+- Ubuntu 24.04 LTS, **Standard_B2s** (2 vCPUs, 4 GiB RAM), 30 GiB Standard SSD.
+  The API uses ~1.1 GiB once the embedding model is loaded; building its image
+  (CPU torch) needs headroom, which 2 GiB doesn't leave.
 - Login by SSH key only (no password).
 - Inbound ports: 80 and 443 from anywhere; 22 from your own IP only.
 
+On **Azure for Students** (found 2026-10-20):
+
+- A fresh subscription has the Compute, Network and Storage resource providers
+  unregistered, and `az vm list-skus` / `list-usage` then return misleading or
+  empty results. Register them first (free, creates nothing):
+  `az provider register -n Microsoft.Compute` (same for `Microsoft.Network`,
+  `Microsoft.Storage`), and wait for `Registered`.
+- A policy limits deployments to a few regions (`az policy assignment list`;
+  on 2026-10-20: austriaeast, francecentral, polandcentral, denmarkeast,
+  spaincentral), and a size can still be `NotAvailableForSubscription` inside
+  them -- check with `az vm list-skus --location <region> --size Standard_B2s
+  --all` (an empty `restrictions` list = usable). On 2026-10-20 B2s was usable
+  only in **denmarkeast**.
+- Pass `--subscription <id>` on every command if the account also has another
+  (e.g. Pay-As-You-Go) subscription.
+- Cost (Denmark East, 24/7): ~$37-45/month (VM ~$31-39, E4 disk $2.40, static
+  IP $3.65). A monthly budget with email alerts guards the credit.
+
 ## 2. DNS
 
-At the domain's DNS host (Namecheap: Domain List > Manage > Advanced DNS), add an
+Without a custom domain yet, use Azure's free DNS label on the public IP
+(`az vm create ... --public-ip-address-dns-name campus-assistant` gives
+`campus-assistant.<region>.cloudapp.azure.com`); Caddy gets a Let's Encrypt
+certificate for it like for any domain.
+
+With a custom domain, at its DNS host (Namecheap: Domain List > Manage > Advanced DNS), add an
 **A record** for the host you want (`@` for the bare domain, or e.g. `campus`)
 pointing to the VM's public IP. Check it before step 5, because Caddy needs it
 to get the certificate:
@@ -102,6 +125,21 @@ desktop and phone.
 Copy the new commit as in step 4 (the `.env` and the database volume stay),
 then run the `up -d --build` line again. Caddy keeps its certificates in the
 `caddy_data` volume; don't delete it, or Let's Encrypt's rate limits apply.
+
+If SSH times out, check whether your own public IP changed (home connections
+often get a new one) and update the rule:
+
+    az network nsg rule update -g campus-assistant-rg --nsg-name campus-nsg -n allow-ssh-from-me --source-address-prefixes <new IP>/32
+
+## Deployed (2026-10-20)
+
+Azure for Students, Denmark East, Standard_B2s, at
+https://campus-assistant.denmarkeast.cloudapp.azure.com (resource group
+`campus-assistant-rg`, VM `campus-vm`, NSG `campus-nsg`, SSH key
+`~/.ssh/campus_azure`). Let's Encrypt certificate obtained in ~5 s; HTTP
+redirects to HTTPS; only 80/443 reachable; the database dump was restored with
+`question_log` data excluded (1161 chunks, 660 courses, 526 prerequisites). A
+VM reboot brought the site back by itself in 40 s (`restart: unless-stopped`).
 
 ## Checked locally (2026-10-19)
 

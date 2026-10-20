@@ -189,7 +189,7 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
     don't re-ingest before shipping**; the UI shows "Answers are based on the Academic
     Catalog 2024–2025" (disclaimer under the composer); re-ingest + re-run the evaluations
     is in README Future work.
-- [ ] **5. Deploy on Azure for Students**: Docker Compose, Caddy with automatic HTTPS,
+- [x] **5. Deploy on Azure for Students** (DONE 2026-10-20, see "Current status"): Docker Compose, Caddy with automatic HTTPS,
   Youness's Namecheap domain, .env only on the server, then load the database.
   **5a done 2026-10-19 (2d189a6)**: docker-compose.prod.yml (only Caddy published; db/api
   private via `ports: !reset []`; UI built with VITE_API_URL=/api; TRUST_PROXY_HEADERS=true;
@@ -205,8 +205,9 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   subscription, no Azure for Students -- nothing created, and **do not use Pay-As-You-Go**;
   (2) the domain name; (3) approve VM size/region (proposed Standard_B2s, Ubuntu 24.04,
   France Central). See "Current status" below.
-- [ ] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
-  unanswerable question, on desktop and mobile.
+- [x] **6. Smoke test on the live URL**: one English, one French, one prerequisite and one
+  unanswerable question, on desktop and mobile. **Done 2026-10-20** -- details and the
+  two findings in "Current status".
 - [ ] **7. Go public**: fix the pytest hang (open issues), gitleaks over the full history, then
   Youness makes the repo public.
 - **README "Future work"** (added 2026-10-19): run 4, Fix D (citation placement), the
@@ -630,9 +631,48 @@ more hand labels; pinning `ubuntu-24.04` in CI.
 
 ## Current status
 
-**END OF SESSION 2026-10-19 -- START HERE NEXT SESSION.** Ship plan (revised 2026-10-19,
-top of this file): steps 2, 3 and 4 DONE; step 5a DONE; **step 5 BLOCKED on three decisions
-from Youness**.
+**SESSION 2026-10-20 -- START HERE NEXT SESSION.** Ship plan steps 5 and 6 DONE: the demo
+is LIVE at **https://campus-assistant.denmarkeast.cloudapp.azure.com** (not announced yet).
+- Subscription verified: Azure for Students (quotaId AzureForStudents_2018-01-01, spending
+  limit on, default); every az command passes `--subscription <its id>` (`az account list`).
+  Pay-As-You-Go untouched.
+- **Region changed (Youness's choice): Denmark East**, not France Central. The student
+  subscription's policy allows only austriaeast/francecentral/polandcentral/denmarkeast/
+  spaincentral (West Europe impossible), and B2s was NotAvailableForSubscription everywhere
+  except denmarkeast. Compute/Network/Storage providers had to be registered first.
+- Estimated cost ~$37-45/month (B2s ~$31-39 -- no published Denmark East price, range from
+  nearby regions; E4 Standard SSD $2.40; static IP $3.65) -> the $100 credit lasts ~2-2.5
+  months 24/7. **Budget `campus-assistant-monthly`: $45/month, alerts 50/80/100% actual +
+  100% forecast to Youness's AUI address (the CLI login).**
+- Resources: group campus-assistant-rg (VM campus-vm, NSG campus-nsg: 80/443 from anywhere,
+  22 from Youness's IP only -- his IP is dynamic, it changed mid-session; DEPLOY.md has the
+  update command). SSH key ~/.ssh/campus_azure (no passphrase; add one with ssh-keygen -p).
+  Free DNS label for now; the Namecheap domain (pending student verification) comes later:
+  A record + DOMAIN in the server .env + CORS follows DOMAIN, then `up -d`.
+- Runbook followed step by step: Docker 29.9 / Compose v5.6; commit a6514ad copied with git
+  archive; server .env with new secrets generated on the VM + only GROQ_API_KEY; DB dump
+  restored (1161/1161 embedded chunks, 660 courses, 526 prerequisites; question_log data
+  excluded); Let's Encrypt cert in ~5 s; 308 http->https; HSTS/nosniff; 8000/5432/8080/2019
+  unreachable; a reboot brought the site back in 40 s. API ~1.1 GiB RAM, 2.3 GiB free.
+- **Smoke test (5 live questions + 1 example replay)**: EN plagiarism -> cited answer, 3
+  source cards; prerequisite CSC 3326 -> matches the catalog exactly, chain table;
+  unanswerable (CSC 3326's instructor) -> declined, nothing invented; phone width (390 px,
+  iframe -- Chrome window was maximized): layout OK, no horizontal scroll, FR example replay
+  made 0 API calls and wasn't counted (question_log 4 -> 4), FR follow-up used the history
+  and is supported by chunk 284 (two small imprecisions: "moyenne générale" for semester GPA;
+  the transcript-notation sentence stretched).
+  **Findings, NOT fixed:** (1) FR "Quelles sont les conditions pour garder ma bourse ?" ->
+  false refusal after 3 searches (query_en "scholarship retention conditions" sent every
+  time, so Fix B worked mechanically; a retrieval/answer miss -- candidate for Future work or
+  a fix before announcing); (2) **UI: literal `<br>` shows in table cells** -- the model
+  writes HTML line breaks inside Markdown tables and react-markdown (no raw HTML, on
+  purpose) prints them; fix candidate: turn `<br>` into a line break in the renderer, still
+  without enabling raw HTML.
+- Next: decide on the two findings, then step 7 (pytest hang, gitleaks, go public), demo
+  video, Namecheap domain switch.
+
+**Previous session (2026-10-19)**: steps 2, 3 and 4 DONE; step 5a DONE; step 5 was BLOCKED
+on three decisions from Youness (resolved 2026-10-20 above).
 - Done this session: Fixes A, B, C(i) + run 3 judged (main 23.1% vs baseline 36.2%, CIs
   overlap; crashes 6 -> 0, false refusals 5/55 -> 0/30) and the README before/after table;
   demo protection (daily cap 30 + per-IP 5/10 min in Postgres, friendly 429s); the new UI
