@@ -209,7 +209,9 @@ Goal: ship a polished, deployed MVP fast. **No run 4, no access code.** Order:
   unanswerable question, on desktop and mobile. **Done 2026-10-20** -- details and the
   two findings in "Current status".
 - [ ] **7. Go public**: fix the pytest hang (open issues), gitleaks over the full history, then
-  Youness makes the repo public.
+  Youness makes the repo public. **2026-10-21: hang fixed (ce529c2), gitleaks clean (148
+  commits), public-exposure review done** -- remaining: Youness's README/CLAUDE.md cleanup
+  decision, then he flips visibility (see "Current status").
 - **README "Future work"** (added 2026-10-19): run 4, Fix D (citation placement), the
   search-time level filter (the real fix for Fix C's failing targeted checks).
 - Not in this order (ask Youness when reached): the demo video and the final README/CLAUDE.md
@@ -631,7 +633,36 @@ more hand labels; pinning `ubuntu-24.04` in CI.
 
 ## Current status
 
-**SESSION 2026-10-20 -- START HERE NEXT SESSION.** Ship plan steps 5 and 6 DONE: the demo
+**SESSION 2026-10-21 -- START HERE NEXT SESSION.**
+- **`<br>` fix DEPLOYED** (f44b0e0): remark plugin `remarkHtmlBreaks` (frontend/src/
+  markdownPlugins.ts) turns plain `<br>` HTML nodes into Markdown break nodes; raw HTML still
+  off, every other tag still escaped. First frontend tests: vitest 5.0.3 (pinned), `npm test`,
+  run in CI. (npm 11.4.2 crashes adding vitest -- "reading 'edgesOut'", an arborist peer-set
+  bug; `npx npm@11.20.0 install` worked, and `npm ci` with 11.4.2 accepts the lockfile.)
+  Live bundle checked to contain the plugin; not checked with a live question (tokens/cap).
+  The VM runs f44b0e0 (ce529c2 = backend timeout, not deployed; harmless to deploy later).
+  SSH to the VM by its DNS name (known_hosts has that, not the IP).
+- **FR scholarship false refusal: NOT retrieved -> cause + proposed fix shown to Youness,
+  NOTHING changed, decision pending.** Target = catalog chunk 154 (p. 70, "Continuation of a
+  scholarship depends upon ... SGPA of 3.00/4.00 for undergraduates and 3.50/4.00 for
+  graduates"). Two local agent runs on the exact question (both answered, did not refuse):
+  4 searches, chunk 154 in none of the top 5s. Measured ranks of chunk 154 (hybrid, alone):
+  "How do I keep my scholarship?" >40 (English too!), "conditions for keeping scholarship"
+  15, same + " Al Akhawayn University" >40, "scholarship retention conditions" 3, the FR
+  question >40 (its neighbours: Finance (FIN) courses -- "bourse" = stock exchange). Run 1
+  quoted the thresholds from chunk 139 (p. 65-66), a tuition-DISCOUNT renewal table; run 2
+  invented "Assez Bien". Adding "Scholarship Renewal Policy" to chunk 154's Section line
+  (in memory) barely moved it (26 -> 16, other phrasings unchanged). The retrieval eval
+  passes only because scholarship_conditions_* anchor the graduate page.
+- **Step 7**: pytest hang fixed (ce529c2, see open issues); gitleaks v8.24.0 over all 148
+  commits: no leaks (control on .env: 3 found; .env never committed); exposure review: no
+  secrets in Actions (no repo secrets configured), single author identity, no issues/PRs/
+  tags/other branches, no Youness AUI address or IPs/subscription id in any commit, only
+  public catalog emails, deleted-from-HEAD files = Vite template assets. **Open before going
+  public (Youness decides)**: README status line stale + no live link/CI badge; CLAUDE.md is
+  ~1200 lines of session notes (artifact ids, budget/IP remarks, personal working notes).
+
+**Previous session (2026-10-20).** Ship plan steps 5 and 6 DONE: the demo
 is LIVE at **https://campus-assistant.denmarkeast.cloudapp.azure.com** (not announced yet).
 - Subscription verified: Azure for Students (quotaId AzureForStudents_2018-01-01, spending
   limit on, default); every az command passes `--subscription <its id>` (`az account list`).
@@ -1087,8 +1118,11 @@ jobs on every push to main and every PR.
   depends on the OS version; pin `ubuntu-24.04` if a run breaks around then.
 
 **Open issues / decisions to remember:**
-- *pytest hangs when Postgres is unreachable* (found 2026-10-15, **fix before the repo goes
-  public**, Ship plan step 6): with Docker Desktop stopped, `pytest` stalled at "collecting ..."
+- *pytest hangs when Postgres is unreachable* -- **FIXED 2026-10-21 (ce529c2)**; the cause
+  guessed below was wrong: nothing held the port, psycopg on Windows never notices a refused
+  connection (raw socket refused in ~2 s, psycopg still waiting after 60 s). connect_timeout
+  in get_connection() + database_reachable() for the skip checks; suite with Docker stopped:
+  43 s, 16 skipped. Original note (found 2026-10-15): with Docker Desktop stopped, `pytest` stalled at "collecting ..."
   (no output after 280 s) instead of skipping the DB tests; with the db container up the suite
   ran in 22 s. Cause (read, not yet tested): tests/test_query_courses.py's `_db_available()`
   runs at collection time and calls `get_connection()` -> `psycopg.connect(DATABASE_URL,
