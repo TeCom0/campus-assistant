@@ -34,3 +34,6 @@ Thumbs.db
 # Docker
 *.log
 *.dump
+
+# Full development/session log, kept locally only (CLAUDE.md is the public summary)
+SESSION_LOG.md

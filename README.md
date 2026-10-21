@@ -445,14 +445,17 @@ Open http://localhost:5173. (Stop the `api` container first if it's running: bot
 
 ```powershell
 cd backend
-pytest -q          # 50 tests; the Postgres ones skip if the database isn't running
+pytest -q          # 295 tests; the Postgres ones skip within seconds if the database is down
 ruff check . ; ruff format --check .
+
+cd ..\frontend
+npm test           # vitest: Markdown rendering of answers
 ```
 
 Every push and pull request runs three GitHub Actions jobs (`.github/workflows/ci.yml`): ruff,
 pytest against a real pgvector service container (seeded with the course data first, so the
-database tests run instead of skipping), and the frontend lint + type-check + build. The agent
-tests use a fake model, so CI makes no LLM calls.
+database tests run instead of skipping), and the frontend lint + tests + type-check + build.
+The agent tests use a fake model, so CI makes no LLM calls.
 
 ## Project structure
 
