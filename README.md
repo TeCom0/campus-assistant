@@ -7,9 +7,13 @@ are the prerequisites for ACC 2302?"* — including the full prerequisite chain.
 
 An unofficial student project, not an official AUI service.
 
-**Status:** the chat app, agent, CI and Docker setup are done (Phases 0–6), and a faithfulness
-baseline is measured (see Evaluation). Next: fixes for the main faithfulness problems, a public
-deployment for students, and a demo video.
+**Live demo:** https://campus-assistant.denmarkeast.cloudapp.azure.com (30 questions a day in
+total; the example questions answer instantly and don't count).
+**Demo video:** *coming soon.*
+
+**Status:** deployed. The chat app, agent, tests, CI and Docker setup are done; answer
+faithfulness was measured before and after three targeted fixes (see Evaluation), and the
+remaining known problems are listed under Known limitations and Future work.
 
 ---
 
@@ -94,7 +98,7 @@ flowchart LR
 | Embeddings | `intfloat/multilingual-e5-small` via sentence-transformers, local CPU |
 | Database | PostgreSQL 16 + pgvector; Postgres full-text search for keywords |
 | Frontend | React 19 + TypeScript, Vite, react-markdown |
-| Quality | pytest (163 tests), ruff, oxlint, retrieval and answer-faithfulness evaluation sets |
+| Quality | pytest (295 tests), vitest, ruff, oxlint, retrieval and answer-faithfulness evaluation sets |
 | Infra | Docker Compose (db + api + frontend), GitHub Actions CI |
 
 ## Design decisions worth knowing
@@ -107,7 +111,9 @@ flowchart LR
   argument). On the first turn the student's own question is searched too, which counters the
   agent padding its queries. Each phrasing gets a vector and a keyword list, and RRF fuses them
   all; repeated phrasings are searched once. The question reaches the tool through LangGraph's
-  `InjectedState`, hidden from the model's schema, so the model can't rewrite it.
+  `InjectedState`, hidden from the model's schema, so the model can't rewrite it. The
+  university's name ("Al Akhawayn University", "l'AUI", ...) is stripped from every phrasing in
+  code: all documents are AUI's, and the agent's padding with it pushed the right passage down.
 - **Rules that must hold are enforced in code, not only in the prompt.** The model ignored "at
   most two searches" in testing, so the tool budget is enforced in the graph: after 3 tool rounds
   the model is called with no tools bound. Same for the answer language (detected in code and
@@ -153,6 +159,30 @@ original boundaries were kept, by a decision rule fixed before measuring. Two ta
 still fail with the kept chunks: for "What is the repeat policy for undergraduate students?" the
 graduate rule ranks above the undergraduate one, and one chunk holds only part of the "nine
 semesters" scholarship sentence. Only the heading-aware variant passed both.
+
+**Two questions added later, and the university name stripped (2026-10-21).** A live French
+question ("Quelles sont les conditions pour garder ma bourse ?") was refused, and the
+scholarship renewal rule (catalog p. 70, "Continuation of a scholarship depends upon...") turned
+out not to be retrieved for everyday wording, in English either. The set's two
+scholarship-conditions questions expect the graduate scholarships page, so they had not caught
+it. The set gained "How
+do I keep my scholarship?" and "Comment garder ma bourse ?", expecting that passage; both miss
+(not in the top 10) with every method. The same day the university's name was stripped from
+search queries (see Design decisions). On the 14 questions:
+
+| Method | Hit@3 | Hit@5 | MRR |
+|---|---|---|---|
+| Hybrid, before stripping | 71.4% | 71.4% | 0.617 |
+| Hybrid, after | 71.4% | 78.6% | 0.657 |
+| Hybrid + English version, before | 85.7% | 85.7% | 0.702 |
+| **Hybrid + English version, after** | 78.6% | 85.7% | **0.717** |
+
+The agent sees the top 5, so Hit@5 is what matters most: unchanged for the agent's method, up
+for plain hybrid. One question got worse ("transferable *to AUI*", rank 2 → 5, where the name
+carries meaning); two got better. The new pair still misses: stripping only helps when the
+name is in the query. The agent's own padded searches for the live question moved the renewal
+passage from below rank 40 to ranks 29-37, so better but still far from the top 5 (see Known
+limitations).
 
 Run it with `python -m app.evaluation.run_retrieval_eval` (in `backend/`, database seeded).
 
@@ -453,8 +483,15 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   baseline), but one French answer still missed a passage because its searches dropped half of
   the question.
 - **The agent sometimes pads its search queries** ("MTH 1305 Al Akhawayn University course
-  description"), which can push the right passage down the ranking. The student's own question
-  is now searched alongside on the first turn; follow-ups rely on the agent's query.
+  description"), which can push the right passage down the ranking. The university's name is
+  now stripped in code and the student's own question is searched alongside on the first turn;
+  other padding words remain, and follow-ups rely on the agent's query.
+- **Everyday wording can miss a passage written in the catalog's vocabulary.** "How do I keep my
+  scholarship?" (or "Comment garder ma bourse ?") doesn't retrieve the scholarship renewal rule
+  (p. 70), which says "continuation" and "renewal"; in French, "bourse" also pulls in finance
+  courses (stock exchange). A live French question about it was refused once; in two local
+  re-runs the agent answered from a neighbouring *discount* renewal table or invented a detail.
+  "scholarship renewal" or "retention" phrasings do find it.
 - **Free-tier LLM limits.** Groq's daily token limit caps usage; history is capped at 10 messages
   to keep requests small.
 - **One catalog edition.** Answers come from the original Academic Catalog 2024–2025; newer
@@ -479,6 +516,11 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 - **Citation placement (Fix D), now the largest remaining cause:** 4 of run 3's 11 failures (6
   in the baseline). The fact is in a retrieved passage, but the answer cites a different one,
   including summary list lines that carry no marker of their own.
+- **A multilingual reranker.** Retrieve a wider pool (e.g. the top 40 of the fused ranking) and
+  reorder it with a small multilingual cross-encoder, which reads the query and each passage
+  together instead of comparing two vectors, so it can match "keep my scholarship" to
+  "continuation of a scholarship". Measure it on the retrieval eval (the "keep my scholarship"
+  pair first), and measure its RAM and latency on the 4 GiB demo VM before shipping it.
 
 ## Data
 

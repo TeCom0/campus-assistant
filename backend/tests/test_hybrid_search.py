@@ -9,7 +9,13 @@ from dataclasses import dataclass
 import pytest
 
 from app.retrieval import hybrid_search
-from app.retrieval.hybrid_search import RRF_K, search_hybrid, search_hybrid_multi
+from app.retrieval.hybrid_search import (
+    RRF_K,
+    search_hybrid,
+    search_hybrid_multi,
+    strip_university_name,
+    unique_queries,
+)
 
 
 @dataclass
@@ -96,3 +102,67 @@ def test_no_queries_give_no_results(stub_searches):
     calls = stub_searches(vector={}, keyword={})
     assert search_hybrid_multi([], top_k=5) == []
     assert calls == []
+
+
+@pytest.mark.parametrize(
+    "query, expected",
+    [
+        # Logged agent queries (2026-10-21).
+        (
+            "conditions for keeping scholarship Al Akhawayn University",
+            "conditions for keeping scholarship",
+        ),
+        ("MTH 1305 Al Akhawayn University course description", "MTH 1305 course description"),
+        (
+            "conditions pour garder ma bourse Al Akhawayn University",
+            "conditions pour garder ma bourse",
+        ),
+        (
+            "Which AUI student received the Rhodes Scholarship?",
+            "Which student received the Rhodes Scholarship?",
+        ),
+        ("What is AUI's plagiarism policy?", "What is plagiarism policy?"),
+        ("Al-Akhawayn University in Ifrane add/drop deadline", "add/drop deadline"),
+        ("bourses de l'Université Al Akhawayn d'Ifrane", "bourses de"),
+        (
+            "conditions pour conserver une bourse Al Akhawayn ?",
+            "conditions pour conserver une bourse ?",
+        ),
+        ("aui scholarships", "scholarships"),
+        # French elided article, and the eval questions' forms.
+        (
+            "Comment ajouter ou supprimer un cours à l'AUI ?",
+            "Comment ajouter ou supprimer un cours à ?",
+        ),
+        ("le règlement de l’AUI", "le règlement de"),
+        ("la bourse d'Al Akhawayn", "la bourse"),
+        ("What is considered plagiarism at AUI?", "What is considered plagiarism at ?"),
+    ],
+)
+def test_the_university_name_is_stripped(query, expected):
+    assert strip_university_name(query) == expected
+
+
+def test_words_that_only_contain_the_name_are_kept():
+    # "aui" inside a word, and no name at all: unchanged.
+    assert strip_university_name("Sauid's AUIX course") == "Sauid's AUIX course"
+    assert strip_university_name("How do I keep my scholarship?") == "How do I keep my scholarship?"
+
+
+def test_a_query_that_is_only_the_name_is_kept():
+    # Searching nothing would return nothing; the name is better than that.
+    assert strip_university_name("Al Akhawayn University") == "Al Akhawayn University"
+    assert strip_university_name("AUI?") == "AUI?"
+
+
+def test_queries_differing_only_by_the_name_are_searched_once(stub_searches):
+    calls = stub_searches(vector={}, keyword={})
+    search_hybrid_multi(["repeat policy AUI", "Repeat policy", "repeat policy at Al Akhawayn"], 5)
+
+    assert calls == [
+        ("vector", "repeat policy"),
+        ("keyword", "repeat policy"),
+        ("vector", "repeat policy at"),
+        ("keyword", "repeat policy at"),
+    ]
+    assert unique_queries(["MTH 1305 AUI", "MTH 1305"]) == ["MTH 1305"]

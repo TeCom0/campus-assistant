@@ -86,5 +86,20 @@
     "language": "fr",
     "topic": "fellowships",
     "expected": [{"source": "graduate_scholarships", "anchor": "Al Akhawayn scholarships are predicated on the following conditions"}]
+  },
+  {
+    "id": "keep_scholarship_en",
+    "question": "How do I keep my scholarship?",
+    "language": "en",
+    "topic": "scholarship renewal",
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "Continuation of a scholarship depends upon the student demonstrating excellence"}]
+  },
+  {
+    "id": "keep_scholarship_fr",
+    "question": "Comment garder ma bourse ?",
+    "question_en": "How do I keep my scholarship?",
+    "language": "fr",
+    "topic": "scholarship renewal",
+    "expected": [{"source": "academic_catalog_2024_2025", "anchor": "Continuation of a scholarship depends upon the student demonstrating excellence"}]
   }
 ]

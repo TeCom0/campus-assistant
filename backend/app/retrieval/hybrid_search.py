@@ -7,6 +7,7 @@ keyword search's ts_rank are on incompatible scales (different units,
 different ranges, not directly comparable or summable).
 """
 
+import re
 from dataclasses import dataclass
 
 from app.retrieval.keyword_search import search_keyword
@@ -38,14 +39,45 @@ class HybridResult:
     keyword_rank: int | None
 
 
-def unique_queries(queries: list[str]) -> list[str]:
-    """The queries in order, without blanks or repeats (ignoring case and spacing).
+# The university's name in the forms the agent and students write it: "Al
+# Akhawayn University (in Ifrane)", "Al-Akhawayn", "Université Al Akhawayn
+# (d'Ifrane)", "AUI", with the French elided article ("l'AUI", "d'Al
+# Akhawayn") or an English possessive ("AUI's"). A preposition before it stays
+# ("transfer to ?"): removing those too changed no rank in the retrieval eval.
+UNIVERSITY_NAME_RE = re.compile(
+    r"(?:\b[ld]['’])?"
+    r"(?:\buniversit[ée]\s+al[\s-]?akhawayn(?:\s+d['’]ifrane)?"
+    r"|\bal[\s-]?akhawayn(?:\s+university)?(?:\s+(?:in|of)\s+ifrane)?"
+    r"|\baui)"
+    r"(?:['’]s)?\b",
+    re.IGNORECASE,
+)
 
-    For an English question the agent's English version is usually the query
-    itself; searching it twice would double every score and change nothing.
+
+def strip_university_name(query: str) -> str:
+    """The query without the university's name, or unchanged if nothing else is left.
+
+    Every document is AUI's, so the name tells search nothing, and the agent
+    pads its queries with it ("MTH 1305 Al Akhawayn University course
+    description"): measured 2026-10-21, adding " Al Akhawayn University" to
+    "conditions for keeping scholarship" moved the renewal-policy passage
+    from rank 15 to below 40, behind chunks that mention the name often.
+    """
+    stripped = " ".join(UNIVERSITY_NAME_RE.sub(" ", query).split())
+    # "AUI?" alone would leave only "?": keep the query when no word is left.
+    return stripped if any(c.isalnum() for c in stripped) else query
+
+
+def unique_queries(queries: list[str]) -> list[str]:
+    """The queries in order, without the university's name, blanks or repeats.
+
+    Repeats ignore case and spacing. For an English question the agent's
+    English version is usually the query itself; searching it twice would
+    double every score and change nothing. The name is stripped first, so
+    two queries that differ only by it are searched once.
     """
     unique, seen = [], set()
-    for query in queries:
+    for query in map(strip_university_name, queries):
         key = " ".join(query.split()).casefold()
         if key and key not in seen:
             seen.add(key)
