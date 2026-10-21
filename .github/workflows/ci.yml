@@ -108,6 +108,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Vitest, in Node (no browser): renders Markdown to an HTML string.
+      - name: Test
+        run: npm test
+
       # tsc -b type-checks the whole app, then Vite builds it.
       - name: Type-check and build
         run: npm run build

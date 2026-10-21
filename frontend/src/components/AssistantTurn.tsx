@@ -1,8 +1,8 @@
 import type { MouseEvent } from "react";
 import Markdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { API_URL } from "../chatStream";
 import { EXAMPLE_QUESTIONS, savedExample, type ExampleQuestion } from "../examples";
+import { ANSWER_REMARK_PLUGINS } from "../markdownPlugins";
 import type { AssistantMessage, Step } from "../messages";
 import { prefersReducedMotion } from "../theme";
 import type { Citation } from "../types";
@@ -47,7 +47,8 @@ function jumpToSource(event: MouseEvent<HTMLAnchorElement>, href: string) {
   card.classList.add("flash");
 }
 
-// No raw HTML: react-markdown escapes it unless a plugin allows it. Links
+// No raw HTML: react-markdown escapes it unless a plugin allows it (only
+// "<br>" is turned into a line break, see markdownPlugins.ts). Links
 // other than citation chips open in a new tab.
 const markdownComponents: Components = {
   a: ({ href, children }) =>
@@ -186,8 +187,7 @@ export function AssistantTurn({
         // While streaming, the caret is drawn by CSS after the last paragraph or
         // list item, so it sits at the end of the text, not on a line of its own.
         <div className={streaming ? "answer streaming" : "answer"}>
-          {/* remark-gfm: tables, which the agent often uses for lists of rules or courses. */}
-          <Markdown components={markdownComponents} remarkPlugins={[remarkGfm]}>
+          <Markdown components={markdownComponents} remarkPlugins={ANSWER_REMARK_PLUGINS}>
             {linkCitationMarkers(message.text, message.citations, messageIndex, streaming)}
           </Markdown>
         </div>
