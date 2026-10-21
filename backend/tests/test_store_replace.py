@@ -10,22 +10,14 @@ import psycopg
 import pytest
 
 from app.config import EMBEDDING_DIM
-from app.db.connection import get_connection, init_schema
+from app.db.connection import database_reachable, get_connection, init_schema
 from app.ingestion.store import UPSERT_SQL, chunk_row, replace_rows, update_sections
 
 MODEL = "test-replace-model"
 OTHER_MODEL = "test-other-model"
 
 
-def _db_available() -> bool:
-    try:
-        get_connection().close()
-        return True
-    except psycopg.OperationalError:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
+pytestmark = pytest.mark.skipif(not database_reachable(), reason="Postgres not reachable")
 
 
 def _chunk(index: int, text: str, level: str = "general") -> dict:

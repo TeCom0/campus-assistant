@@ -10,13 +10,12 @@ from datetime import UTC, datetime, timedelta
 
 import groq
 import httpx
-import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import main
-from app.db.connection import get_connection, init_schema
+from app.db.connection import database_reachable, get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip
 
 NOON = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
@@ -42,15 +41,7 @@ def test_ips_are_stored_only_as_a_keyed_hash():
     assert "203.0.113.7" not in hash_ip("203.0.113.7")
 
 
-def _db_available() -> bool:
-    try:
-        get_connection().close()
-        return True
-    except psycopg.OperationalError:
-        return False
-
-
-needs_db = pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
+needs_db = pytest.mark.skipif(not database_reachable(), reason="Postgres not reachable")
 
 
 @pytest.fixture

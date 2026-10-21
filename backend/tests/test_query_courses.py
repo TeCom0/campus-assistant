@@ -4,23 +4,13 @@ Needs the Postgres container (seeded with app.ingestion.courses); skipped
 when it isn't reachable, so the rest of the suite still runs without it.
 """
 
-import psycopg
 import pytest
 
 from app.agent.citations import reset_citation_counter
 from app.agent.tools import _prerequisite_chain, query_courses
-from app.db.connection import get_connection
+from app.db.connection import database_reachable, get_connection
 
-
-def _db_available() -> bool:
-    try:
-        get_connection().close()
-        return True
-    except psycopg.OperationalError:
-        return False
-
-
-pytestmark = pytest.mark.skipif(not _db_available(), reason="Postgres not reachable")
+pytestmark = pytest.mark.skipif(not database_reachable(), reason="Postgres not reachable")
 
 
 def _chain_text(code: str) -> str:
