@@ -434,6 +434,397 @@ a.card:hover {
   color: var(--accent);
 }
 
+/* --- Under the hood ------------------------------------------------------------ */
+
+.uth {
+  background: var(--trace-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.uth > summary {
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  list-style: none;
+}
+
+.uth > summary::-webkit-details-marker {
+  display: none;
+}
+
+.uth-title {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* A caret that turns when the panel opens. */
+.uth-title::before {
+  content: "▸";
+  font-size: 10px;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+
+.uth[open] .uth-title::before {
+  transform: rotate(90deg);
+}
+
+.uth-stats {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Every grid in the panel gets one minmax(0, 1fr) column: a grid item
+   otherwise grows to its widest content, and the results table would push
+   the page sideways on a phone instead of scrolling in .res-scroll. */
+.uth-body {
+  border-top: 1px solid var(--line);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.uth-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.uth h3,
+.uth h4 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.uth-note {
+  margin: 0;
+  color: var(--notice-ink);
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-line);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.uth-none {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tl-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.seg {
+  display: block;
+  height: 100%;
+  flex: none;
+}
+
+.tl-bar .seg-llm {
+  background: var(--accent);
+}
+
+.tl-bar .seg-tools {
+  background: var(--seg-tool);
+}
+
+.tl-bar .seg-fallback {
+  background: var(--muted);
+}
+
+.tl-bar .seg-stopped {
+  background: var(--error-line);
+}
+
+.tl-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tl-legend li::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 5px;
+  background: var(--accent);
+}
+
+.tl-legend .seg-tools::before {
+  background: var(--seg-tool);
+}
+
+.tl-legend .seg-fallback::before {
+  background: var(--muted);
+}
+
+.tl-legend .seg-stopped::before {
+  background: var(--error-line);
+}
+
+.tl-legend .tl-first::before {
+  background: none;
+  border: 1px solid var(--muted);
+}
+
+.uth-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.uth-step {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 11px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  min-width: 0;
+}
+
+.step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
+.step-n {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 4px;
+  padding: 0 5px;
+}
+
+.step-head code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.step-head .ms {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.kv {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+}
+
+.kv dt {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 1px;
+}
+
+.kv dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
+.phrasings {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.phrasings li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.phrasings .q {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 5px;
+  overflow-wrap: anywhere;
+}
+
+.phrasings s {
+  color: var(--muted);
+}
+
+.phrasings .origin {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.res-scroll {
+  overflow-x: auto;
+}
+
+.res {
+  width: 100%;
+  min-width: 440px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.res th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.res td {
+  padding: 5px 6px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+
+.res tr:last-child td {
+  border-bottom: 0;
+}
+
+.res .n {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* At most 3 lines of a passage, so a row stays easy to scan. */
+.res .psg small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.score b {
+  display: block;
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.score b i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.used,
+.unused {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.used {
+  color: var(--ok);
+}
+
+.unused {
+  color: var(--muted);
+}
+
+.tok {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.tok div {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 9px;
+  display: grid;
+  min-width: 0;
+}
+
+.tok b {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.tok span {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.uth-foot {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+
 /* --- Interrupted and limit states ---------------------------------------------- */
 
 .state {
@@ -611,6 +1002,72 @@ a.card:hover {
   .examples,
   .cards {
     grid-template-columns: 1fr;
+  }
+
+  .tok {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* The results table as one block per passage: rank and passage on top,
+     then a row of labelled figures (RRF, Vector, Keyword, cited). The
+     header row is hidden; each figure carries its label (data-label). */
+  .res {
+    min-width: 0;
+  }
+
+  .res thead {
+    display: none;
+  }
+
+  .res tbody {
+    display: grid;
+    gap: 0;
+  }
+
+  .res tr {
+    display: grid;
+    grid-template-columns: 18px repeat(4, auto);
+    justify-content: start;
+    gap: 2px 8px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .res tr:last-child {
+    border-bottom: 0;
+  }
+
+  .res td {
+    padding: 0;
+    border: 0;
+  }
+
+  .res .rank {
+    grid-row: 1 / span 2;
+    text-align: left;
+  }
+
+  .res .psg {
+    grid-column: 2 / -1;
+  }
+
+  .res .first-metric {
+    grid-column: 2;
+  }
+
+  .res .metric {
+    text-align: left;
+  }
+
+  /* No room for the bar on a phone; the score itself stays. */
+  .res .score b {
+    display: none;
+  }
+
+  .res .metric[data-label]::before {
+    content: attr(data-label) " ";
+    color: var(--muted);
+    font-size: 10px;
   }
 }
 

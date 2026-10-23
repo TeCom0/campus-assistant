@@ -22,6 +22,9 @@
   --error-line: #e3a1a1;
   --ok: #1f7a4d;
   --shimmer: #e7ebf0;
+  /* Under the hood panel: its ground, and the timeline's tool segments. */
+  --trace-bg: #f0f3f8;
+  --seg-tool: #8aa6d8;
 
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -49,6 +52,8 @@
     --error-line: #7a2f33;
     --ok: #6fcf97;
     --shimmer: #1e2632;
+    --trace-bg: #121821;
+    --seg-tool: #3e5a8c;
     color-scheme: dark;
   }
 }
@@ -72,6 +77,8 @@
   --error-line: #7a2f33;
   --ok: #6fcf97;
   --shimmer: #1e2632;
+  --trace-bg: #121821;
+  --seg-tool: #3e5a8c;
   color-scheme: dark;
 }
 

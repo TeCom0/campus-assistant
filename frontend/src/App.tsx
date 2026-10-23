@@ -58,6 +58,9 @@ export default function App() {
       updateLastAssistant((m) => ({ ...m, steps: [...m.steps, { tool: ev.tool, label: ev.label }] }));
     } else if (ev.type === "citations") {
       updateLastAssistant((m) => ({ ...m, citations: ev.citations }));
+    } else if (ev.type === "trace") {
+      const { type: _type, ...trace } = ev;
+      updateLastAssistant((m) => ({ ...m, trace }));
     } else if (ev.type === "done") {
       updateLastAssistant((m) => ({ ...m, status: "done" }));
     } else if (ev.type === "error") {

@@ -1,4 +1,4 @@
-import type { Citation } from "./types";
+import type { Citation, Trace } from "./types";
 
 export interface UserMessage {
   role: "user";
@@ -16,6 +16,9 @@ export interface AssistantMessage {
   text: string;
   steps: Step[];
   citations: Citation[];
+  // The "Under the hood" panel's data; absent until the trace event arrives
+  // (and on answers from before it existed).
+  trace?: Trace;
   // "limited": the demo's daily cap, the per-IP limit or the LLM provider's
   // limit -- shown as a calm notice, not as a broken answer. Like
   // "interrupted", it isn't sent back as history (only "done" is).

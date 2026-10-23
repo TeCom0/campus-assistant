@@ -7,6 +7,7 @@ import type { AssistantMessage, Step } from "../messages";
 import { prefersReducedMotion } from "../theme";
 import type { Citation } from "../types";
 import { AlertIcon, CheckIcon, ClockIcon } from "./icons";
+import { UnderTheHood } from "./UnderTheHood";
 
 // Source card ids include the message index: markers restart at [1] in every
 // answer, so "source-1" alone would repeat and every chip would jump to the
@@ -230,6 +231,8 @@ export function AssistantTurn({
       {message.citations.length > 0 && (
         <Sources citations={message.citations} messageIndex={messageIndex} />
       )}
+
+      {message.trace && <UnderTheHood trace={message.trace} citations={message.citations} />}
     </article>
   );
 }
