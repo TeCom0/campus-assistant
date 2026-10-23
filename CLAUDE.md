@@ -121,8 +121,12 @@ known_hosts).
 - All phases done and deployed. Repo is public, CI badge in the README. Faithfulness: run 3
   (after fixes A-C) 6/26 main answers with an unsupported cited claim vs. 17/47 at baseline
   (confidence intervals overlap); details in the README.
-- Left: demo video; switch to the Namecheap domain (A record + `DOMAIN` in the server `.env`,
-  then `up -d`).
+- Left: demo video; the Namecheap domain, waiting on Namecheap's verification. The VM's public
+  IP is static (Standard SKU, 9.205.31.42), so an A record to it is safe. The Azure address stays
+  the official link: the new hostname is added as a second site address in `deploy/Caddyfile`
+  (no CORS change: the UI calls `/api` on its own origin); deploy only once it resolves.
+- is-a.dev was checked (2026-10-23) and doesn't fit: its terms and PR template exclude AI
+  chatbots and course-oriented sites, and it bans AI-assisted pull requests.
 - Open problems (README "Known limitations" / "Future work"): everyday wording missing passages
   written in the catalog's vocabulary (candidate: a multilingual reranker), citation placement
   (Fix D), the undergraduate/graduate level filter, a re-ingest of the newer catalog editions.
