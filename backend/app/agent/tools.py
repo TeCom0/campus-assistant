@@ -13,14 +13,22 @@ run (so a second tool call picks up where the first left off, never
 restarting at [1]), and gives a passage returned again its earlier number.
 """
 
+import time
 from typing import Annotated
 
-from langchain_core.tools import tool
+from langchain_core.tools import InjectedToolCallId, tool
 from langgraph.prebuilt import InjectedState
 
 from app.agent.citations import citation_number_for
+from app.agent.trace import record_tool_step, snippet
 from app.db.connection import get_connection
-from app.retrieval.hybrid_search import search_hybrid_multi, unique_queries
+from app.retrieval.hybrid_search import (
+    RRF_K,
+    query_key,
+    search_hybrid_multi,
+    strip_university_name,
+    unique_queries,
+)
 
 CATALOG_SOURCE = "academic_catalog_2024_2025"
 
@@ -48,11 +56,47 @@ def search_queries(query: str, query_en: str, messages) -> list[str]:
 
     Also used by the evaluation to record what each search really searched.
     """
-    queries = [query, query_en]
+    candidates = _candidate_queries(query, query_en, messages)
+    return unique_queries([text for _, text in candidates])  # drops blanks and repeats
+
+
+def _candidate_queries(query: str, query_en: str, messages) -> list[tuple[str, str]]:
+    """(origin, text) for each phrasing search_queries starts from, before repeats are dropped."""
+    candidates = [("query", query), ("query_en", query_en)]
     questions = [m for m in messages if m.type == "human"]
     if len(questions) == 1:
-        queries.append(str(questions[0].content))
-    return unique_queries(queries)  # drops blanks and repeats (case, spacing)
+        candidates.append(("question", str(questions[0].content)))
+    return candidates
+
+
+def search_phrasings(query: str, query_en: str, messages) -> list[dict]:
+    """search_queries, with where each phrasing came from, for the trace.
+
+    `origins` lists every candidate a phrasing stands for ("query",
+    "query_en", "question"): an English question's query and query_en are
+    often the same and searched once. `as_written` is the first of them as
+    the agent or student wrote it, before the university's name was stripped.
+    """
+    candidates = _candidate_queries(query, query_en, messages)
+    phrasings = []
+    for text in search_queries(query, query_en, messages):
+        written = [
+            (origin, raw)
+            for origin, raw in candidates
+            if query_key(strip_university_name(raw)) == query_key(text)
+        ]
+        phrasings.append(
+            {
+                "text": text,
+                "origins": [origin for origin, _ in written],
+                "as_written": written[0][1],
+            }
+        )
+    return phrasings
+
+
+def _ms_since(started: float) -> int:
+    return round((time.perf_counter() - started) * 1000)
 
 
 @tool(response_format="content_and_artifact")
@@ -66,6 +110,11 @@ def search_documents(
         "The same search in English (the documents are in English). If the query is "
         "already in English, repeat it.",
     ] = "",
+    # The model's id for this call, filled in by ToolNode and hidden from the
+    # model's schema like `state`. Only the trace uses it: ToolNode runs a
+    # round's calls in parallel, and the id puts their steps back in the
+    # model's order (trace.in_call_order). None when called directly (tests).
+    tool_call_id: Annotated[str | None, InjectedToolCallId] = None,
 ) -> tuple[str, list[dict]]:
     """Search Al Akhawayn University's academic catalog and scholarship pages.
 
@@ -76,16 +125,32 @@ def search_documents(
     """
     # query_en defaults to "" so a call without it still searches; the schema
     # bound to the model marks it required (see graph.MODEL_TOOLS).
+    started = time.perf_counter()
     queries = search_queries(query, query_en, state["messages"])
     print(f"[search_documents] searching: {queries}")
     results = search_hybrid_multi(queries, top_k=5)
-    if not results:
-        return "No relevant passages found in the university documents.", []
 
     parts = []
     artifact = []
-    for r in results:
+    ranked = []  # for the trace only
+    for rank, r in enumerate(results, start=1):
         number, is_new = citation_number_for((r.source, r.chunk_index))
+        ranked.append(
+            {
+                "rank": rank,
+                "marker": number,
+                "new": is_new,  # False: already returned by an earlier search
+                "source": r.source,
+                "pages": r.pages,
+                "level": r.level,
+                "section": r.section,
+                "sections": r.sections,
+                "snippet": snippet(r.text),
+                "rrf_score": round(r.rrf_score, 4),
+                "vector_rank": r.vector_rank,
+                "keyword_rank": r.keyword_rank,
+            }
+        )
         if is_new:
             parts.append(f"[{number}] (source: {r.source}, pages: {r.pages})\n{r.text}")
             artifact.append(
@@ -103,11 +168,35 @@ def search_documents(
             # Its text is already in an earlier tool result for this question;
             # sending it again would only spend tokens.
             parts.append(f"[{number}] (same passage as returned by an earlier search)")
+
+    # Each phrasing has a vector list and a keyword list. A passage first in
+    # every list scores lists / (RRF_K + 1): the most any passage can score
+    # in this search, which the panel scales its score bars to.
+    ranked_lists = 2 * len(queries)
+    record_tool_step(
+        "search_documents",
+        {
+            "args": {"query": query, "query_en": query_en},
+            "phrasings": search_phrasings(query, query_en, state["messages"]),
+            "ranked_lists": ranked_lists,
+            "max_rrf_score": round(ranked_lists / (RRF_K + 1), 4),
+            "results": ranked,
+            "duration_ms": _ms_since(started),
+        },
+        call_id=tool_call_id,
+    )
+    if not results:
+        return "No relevant passages found in the university documents.", []
     return "\n\n".join(parts), artifact
 
 
 @tool(response_format="content_and_artifact")
-def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, list[dict]]:
+def query_courses(
+    code: str,
+    follow_prerequisites: bool = False,
+    # Hidden from the model's schema, as in search_documents.
+    tool_call_id: Annotated[str | None, InjectedToolCallId] = None,
+) -> tuple[str, list[dict]]:
     """Look up a specific AUI course by its code (e.g. "ACC 2302") in the structured
     course catalog. Returns its title, credits, and prerequisites/corequisites exactly
     as stated in the catalog.
@@ -120,6 +209,24 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
     Use this tool, not search_documents, whenever the question names or implies a
     specific course code or asks about prerequisite chains.
     """
+    started = time.perf_counter()
+    text, artifact, lookup = _look_up_course(code, follow_prerequisites)
+    record_tool_step(
+        "query_courses",
+        {
+            "args": {"code": code, "follow_prerequisites": follow_prerequisites},
+            **lookup,
+            "duration_ms": _ms_since(started),
+        },
+        call_id=tool_call_id,
+    )
+    return text, artifact
+
+
+def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[dict], dict]:
+    """query_courses' work: (the text the model reads, the citations, what was
+    found, for the trace). `found` is "course", "no_description" (referenced
+    as a prerequisite but with no course entry) or "not_found"."""
     conn = get_connection()
     code = code.strip().upper()
     row = conn.execute(
@@ -138,11 +245,19 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
         conn.close()
         if is_referenced:
             return (
-                f"{code} is {NO_DESCRIPTION_NOTE}. Other parts of the catalog (e.g. program "
-                "requirements) may still mention it: try search_documents, or suggest "
-                "checking with an academic advisor."
-            ), []
-        return f"No course found with code '{code}' in AUI's course catalog.", []
+                (
+                    f"{code} is {NO_DESCRIPTION_NOTE}. Other parts of the catalog (e.g. program "
+                    "requirements) may still mention it: try search_documents, or suggest "
+                    "checking with an academic advisor."
+                ),
+                [],
+                {"found": "no_description"},
+            )
+        return (
+            f"No course found with code '{code}' in AUI's course catalog.",
+            [],
+            {"found": "not_found"},
+        )
 
     code_, dept, title, credits, prereq_text, coreq_text, page = row
     # Same course looked up twice (e.g. again with follow_prerequisites) keeps
@@ -159,8 +274,10 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
     if coreq_text:
         lines.append(f"Corequisites: {coreq_text}")
 
+    chain_length = None  # not looked up
     if follow_prerequisites:
         chain = _prerequisite_chain(conn, code_)
+        chain_length = len(chain)
         if chain:
             lines.append(
                 f"Full prerequisite chain for [{marker}], each course listed once with its own "
@@ -188,7 +305,14 @@ def query_courses(code: str, follow_prerequisites: bool = False) -> tuple[str, l
         "section": f"Course {code_}",  # shown on its source card
         "text": text,
     }
-    return text, [citation]
+    lookup = {
+        "found": "course",
+        "marker": marker,
+        "title": title,
+        "pages": pages,
+        "chain_length": chain_length,
+    }
+    return text, [citation], lookup
 
 
 # Walks the prerequisite graph from one course. Each row carries the path

@@ -37,17 +37,32 @@ def start_trace() -> None:
     _trace_var.set(_Trace())
 
 
-def record_tool_step(tool: str, details: dict) -> None:
-    """Record one tool call: its name and what it did. A no-op unless a trace was started."""
+def record_tool_step(tool: str, details: dict, call_id: str | None = None) -> None:
+    """Record one tool call: its name, the model's id for the call, and what it did.
+
+    A no-op unless a trace was started.
+    """
     trace = _trace_var.get()
     if trace is not None:
-        trace.steps.append({"tool": tool, **details})
+        trace.steps.append({"tool": tool, "call_id": call_id, **details})
 
 
 def trace_steps() -> list[dict] | None:
     """The steps recorded so far, in the order recorded; None if no trace was started."""
     trace = _trace_var.get()
     return None if trace is None else list(trace.steps)
+
+
+def in_call_order(steps: list[dict], call_ids: list[str]) -> list[dict]:
+    """The steps in the order the model made the calls.
+
+    ToolNode runs the calls of one round in parallel, so steps are recorded
+    in the order the tools finish. `call_ids` is the model's order (its
+    tool_calls, round after round). A step with an unknown id keeps its
+    recorded place after the known ones.
+    """
+    position = {call_id: i for i, call_id in enumerate(call_ids)}
+    return sorted(steps, key=lambda step: position.get(step["call_id"], len(call_ids)))
 
 
 # The panel shows the start of each retrieved passage. ~200 characters for up

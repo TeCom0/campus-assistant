@@ -7,16 +7,19 @@ by ToolNode exactly as in the agent. Vector and keyword searches are stubs
 that record each query, so no database or embedding model is needed.
 """
 
+import contextvars
 from dataclasses import dataclass
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
 from app.agent import graph
 from app.agent.citations import reset_citation_counter
-from app.agent.tools import search_documents, search_queries
+from app.agent.tools import query_courses, search_documents, search_phrasings, search_queries
+from app.agent.trace import start_trace, trace_steps
 from app.evaluation.generate_faithfulness_answers import searches
 from app.retrieval import hybrid_search
 
@@ -122,6 +125,82 @@ def test_model_schema_requires_query_en_and_hides_the_state():
     assert parameters["required"] == ["query", "query_en"]
     assert set(parameters["properties"]) == {"query", "query_en"}
     assert "default" not in parameters["properties"]["query_en"]
+
+
+def test_query_courses_schema_hides_the_call_id():
+    parameters = convert_to_openai_tool(query_courses)["function"]["parameters"]
+    assert set(parameters["properties"]) == {"code", "follow_prerequisites"}
+
+
+def _run_search_full(conversation: list, args: dict) -> tuple[str, list]:
+    """Like _run_search, also returning the artifact (the citations)."""
+    tool_node_graph = StateGraph(MessagesState)
+    tool_node_graph.add_node("tools", ToolNode([search_documents]))
+    tool_node_graph.add_edge(START, "tools")
+    call = AIMessage("", tool_calls=[{"id": "1", "name": "search_documents", "args": args}])
+    reset_citation_counter()
+    message = tool_node_graph.compile().invoke({"messages": [*conversation, call]})["messages"][-1]
+    return message.content, message.artifact
+
+
+def test_tracing_changes_nothing_the_model_or_the_evaluation_reads(searched):
+    args = {"query": "conditions bourse AUI", "query_en": "scholarship renewal conditions"}
+    # No trace started, as in an evaluation run.
+    untraced = contextvars.Context().run(_run_search_full, FIRST_TURN_FR, args)
+
+    def traced_run():
+        start_trace()
+        return _run_search_full(FIRST_TURN_FR, args), trace_steps()
+
+    traced, steps = contextvars.Context().run(traced_run)
+
+    assert traced == untraced  # same text for the model, same citations
+    assert len(steps) == 1
+
+
+def test_search_records_its_phrasings_scores_and_call_id(searched):
+    start_trace()
+    _run_search(
+        FIRST_TURN_FR,
+        {"query": "conditions bourse AUI", "query_en": "scholarship renewal conditions"},
+    )
+    [step] = trace_steps()
+
+    assert step["tool"] == "search_documents"
+    assert step["call_id"] == "1"  # injected by ToolNode from the model's call
+    assert step["args"] == {
+        "query": "conditions bourse AUI",
+        "query_en": "scholarship renewal conditions",
+    }
+    assert step["phrasings"] == [
+        {"text": "conditions bourse", "origins": ["query"], "as_written": "conditions bourse AUI"},
+        {
+            "text": "scholarship renewal conditions",
+            "origins": ["query_en"],
+            "as_written": "scholarship renewal conditions",
+        },
+        {
+            "text": FIRST_TURN_FR[0].content,
+            "origins": ["question"],
+            "as_written": FIRST_TURN_FR[0].content,
+        },
+    ]
+    # 3 phrasings x (vector + keyword); best possible score 6 / 61.
+    assert step["ranked_lists"] == 6
+    assert step["max_rrf_score"] == 0.0984
+    first = step["results"][0]
+    assert first["rank"] == 1
+    assert first["marker"] == 1 and first["new"] is True
+    assert first["vector_rank"] == 1 and first["keyword_rank"] is None  # stub keyword finds nothing
+    assert first["snippet"].startswith("passage")
+    assert isinstance(step["duration_ms"], int)
+
+
+def test_a_phrasing_searched_once_lists_every_origin_it_stands_for():
+    question = [HumanMessage("What is plagiarism?")]
+    [phrasing] = search_phrasings("What is plagiarism?", "what is  plagiarism?", question)
+
+    assert phrasing["origins"] == ["query", "query_en", "question"]
 
 
 def test_eval_records_each_search_with_the_agents_translation():

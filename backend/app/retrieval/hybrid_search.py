@@ -68,6 +68,11 @@ def strip_university_name(query: str) -> str:
     return stripped if any(c.isalnum() for c in stripped) else query
 
 
+def query_key(query: str) -> str:
+    """What two queries must share to count as a repeat: case and spacing ignored."""
+    return " ".join(query.split()).casefold()
+
+
 def unique_queries(queries: list[str]) -> list[str]:
     """The queries in order, without the university's name, blanks or repeats.
 
@@ -78,7 +83,7 @@ def unique_queries(queries: list[str]) -> list[str]:
     """
     unique, seen = [], set()
     for query in map(strip_university_name, queries):
-        key = " ".join(query.split()).casefold()
+        key = query_key(query)
         if key and key not in seen:
             seen.add(key)
             unique.append(query)

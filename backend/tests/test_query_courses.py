@@ -8,6 +8,7 @@ import pytest
 
 from app.agent.citations import reset_citation_counter
 from app.agent.tools import _prerequisite_chain, query_courses
+from app.agent.trace import start_trace, trace_steps
 from app.db.connection import database_reachable, get_connection
 
 pytestmark = pytest.mark.skipif(not database_reachable(), reason="Postgres not reachable")
@@ -63,6 +64,27 @@ def test_direct_lookup_of_unknown_code_still_says_not_found():
     reset_citation_counter()
     text, _ = query_courses.func("ZZZ 9999")
     assert text == "No course found with code 'ZZZ 9999' in AUI's course catalog."
+
+
+def test_lookups_are_recorded_for_the_trace():
+    reset_citation_counter()
+    start_trace()
+    query_courses.func("acc 2302", follow_prerequisites=True)
+    query_courses.func("MTH 1305")
+    query_courses.func("ZZZ 9999")
+    found, no_description, not_found = trace_steps()
+
+    assert found["tool"] == "query_courses"
+    # The code as the model wrote it, not as looked up.
+    assert found["args"] == {"code": "acc 2302", "follow_prerequisites": True}
+    assert found["found"] == "course"
+    assert found["marker"] == 1
+    assert found["title"] == "Accounting Principles II"
+    assert found["pages"] == [222]
+    assert found["chain_length"] >= 4  # ACC 2301, MTH 1305, MTH 1303, MTH 1304, ...
+    assert no_description["found"] == "no_description"
+    assert not_found["found"] == "not_found"
+    assert isinstance(not_found["duration_ms"], int)
 
 
 def test_each_course_is_listed_once():
