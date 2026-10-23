@@ -138,9 +138,13 @@ flowchart LR
 
 ## Evaluation
 
-Retrieval is measured on 12 hand-labelled questions (8 English, 4 French), each with a verbatim
-sentence of the answer as an anchor (`eval/retrieval_eval_set.json`). A result is a hit if its
-text contains the anchor, so the labels survive re-chunking:
+Retrieval is measured on hand-labelled questions, each with a verbatim sentence of the answer as
+an anchor (`eval/retrieval_eval_set.json`). A result is a hit if its text contains the anchor, so
+the labels survive re-chunking. The set started with 12 questions and has 14 since 2026-10-21;
+each table says which set it was measured on.
+
+**Original 12-question set (8 English, 4 French), measured before 2026-10-21 (university name
+not yet stripped):**
 
 | Method | Hit@3 | MRR | Hit@3 with section lines | MRR with section lines |
 |---|---|---|---|---|
@@ -170,10 +174,16 @@ scholarship-conditions questions expect the graduate scholarships page, so they 
 it. The set gained "How
 do I keep my scholarship?" and "Comment garder ma bourse ?", expecting that passage; both miss
 (not in the top 10) with every method. The same day the university's name was stripped from
-search queries (see Design decisions). On the 14 questions:
+search queries (see Design decisions).
+
+**Current 14-question set (12 original + 2 added 2026-10-21), today's system:** the "after"
+row is what `search_documents` does. Vector and keyword alone don't strip the name, so they have
+one row each (re-measured 2026-10-23).
 
 | Method | Hit@3 | Hit@5 | MRR |
 |---|---|---|---|
+| Vector alone (pgvector, cosine) | 64.3% | 64.3% | 0.594 |
+| Keyword alone (Postgres full-text) | 14.3% | 14.3% | 0.143 |
 | Hybrid, before stripping | 71.4% | 71.4% | 0.617 |
 | Hybrid, after | 71.4% | 78.6% | 0.657 |
 | Hybrid + English version, before | 85.7% | 85.7% | 0.702 |
