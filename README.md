@@ -1,5 +1,7 @@
 # Campus AI Assistant
 
+[![CI](https://github.com/TeCom0/campus-assistant/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/TeCom0/campus-assistant/actions/workflows/ci.yml)
+
 A bilingual (English/French) assistant for Al Akhawayn University (AUI) students. It answers
 questions about academic policies, the course catalog and scholarships, **cites the page each
 answer comes from**, and uses an agent with tools to look up structured course data, e.g. *"What
