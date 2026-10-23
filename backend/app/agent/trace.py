@@ -18,6 +18,8 @@ an object the caller created does: the copied context holds a reference to
 that same object, not a copy of it.
 """
 
+import time
+from collections.abc import Callable
 from contextvars import ContextVar
 
 
@@ -63,6 +65,96 @@ def in_call_order(steps: list[dict], call_ids: list[str]) -> list[dict]:
     """
     position = {call_id: i for i, call_id in enumerate(call_ids)}
     return sorted(steps, key=lambda step: position.get(step["call_id"], len(call_ids)))
+
+
+class RunTrace:
+    """What /chat sees of one run, for its trace event: when each LLM call and
+    tool round ended, the tokens each LLM call used, and the model's
+    tool-call ids in order.
+
+    The graph runs its nodes one after another, and the "updates" stream
+    sends a chunk as each node finishes, so a segment of the timeline starts
+    where the previous one ended. `clock` is a parameter so tests can use a
+    fake one.
+    """
+
+    def __init__(self, clock: Callable[[], float] = time.perf_counter) -> None:
+        self._clock = clock
+        self._started = clock()
+        self._last_ms = 0
+        self.timeline: list[dict] = []
+        self.call_ids: list[str] = []
+        self.first_token_ms: int | None = None
+
+    def _now_ms(self) -> int:
+        return round((self._clock() - self._started) * 1000)
+
+    def _segment(self, kind: str, **details) -> None:
+        now = self._now_ms()
+        self.timeline.append({"kind": kind, "start_ms": self._last_ms, "end_ms": now, **details})
+        self._last_ms = now
+
+    def token(self) -> None:
+        """A piece of answer text was streamed (only the first one is timed)."""
+        if self.first_token_ms is None:
+            self.first_token_ms = self._now_ms()
+
+    def agent_message(self, message) -> None:
+        """The agent node finished: one LLM call, or the answer built in code
+        when the forced answer failed (graph._fallback_answer: no LLM, no tokens)."""
+        self.call_ids.extend(call["id"] for call in message.tool_calls)
+        if message.response_metadata.get("fallback"):
+            self._segment("fallback")
+            return
+        usage = message.usage_metadata  # None if the provider didn't report it
+        self._segment(
+            "llm",
+            tool_calls=[call["name"] for call in message.tool_calls],
+            input_tokens=usage["input_tokens"] if usage else None,
+            output_tokens=usage["output_tokens"] if usage else None,
+            reasoning_tokens=(usage.get("output_token_details") or {}).get("reasoning")
+            if usage
+            else None,
+        )
+
+    def tools_done(self) -> None:
+        """The tools node finished one round of tool calls."""
+        self._segment("tools")
+
+    def stopped(self) -> None:
+        """The run ended in an error before the node in progress finished."""
+        self._segment("stopped")
+
+    @property
+    def fell_back(self) -> bool:
+        return any(segment["kind"] == "fallback" for segment in self.timeline)
+
+    def event(self, status: str) -> dict:
+        """The trace for the browser. `status`: "done", "fallback", "limit" or "error".
+
+        Token totals add up only what the provider reported; `tokens_complete`
+        says whether every LLM call reported, so a missing figure is never
+        shown as a smaller one.
+        """
+        llm_calls = [s for s in self.timeline if s["kind"] == "llm"]
+
+        def known_sum(key: str) -> int:
+            return sum(s[key] for s in llm_calls if s[key] is not None)
+
+        return {
+            "status": status,
+            "steps": in_call_order(trace_steps() or [], self.call_ids),
+            "timeline": self.timeline,
+            "totals": {
+                "duration_ms": self._last_ms,
+                "first_token_ms": self.first_token_ms,
+                "llm_calls": len(llm_calls),
+                "input_tokens": known_sum("input_tokens"),
+                "output_tokens": known_sum("output_tokens"),
+                "reasoning_tokens": known_sum("reasoning_tokens"),
+                "tokens_complete": all(s["input_tokens"] is not None for s in llm_calls),
+            },
+        }
 
 
 # The panel shows the start of each retrieved passage. ~200 characters for up

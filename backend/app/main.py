@@ -20,7 +20,8 @@ from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
-from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
+from app.agent.trace import RunTrace, start_trace
+from app.config import CORS_ORIGINS, GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
 from app.db.connection import get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.sources import link_target, with_display_info
@@ -79,6 +80,29 @@ def _sse(event_type: str, data: dict) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+MODEL = GROQ_MODEL if LLM_PROVIDER == "groq" else GEMINI_MODEL
+
+
+def _trace_event(run: RunTrace, status: str) -> str | None:
+    """The "Under the hood" trace as an SSE event, or None if it can't be built.
+
+    Display data only: if building it fails, the answer (or the error event)
+    must still reach the student, so the failure is logged and no trace is sent.
+    """
+    try:
+        trace = run.event(status)
+        trace["model"] = {"provider": LLM_PROVIDER, "name": MODEL}
+        # Retrieved passages get the same title and section path as source cards.
+        trace["steps"] = [
+            {**step, "results": with_display_info(step["results"])} if "results" in step else step
+            for step in trace["steps"]
+        ]
+        return _sse("trace", trace)
+    except Exception as e:  # noqa: BLE001 -- see the docstring
+        print(f"[chat] could not build the trace: {e!r}")
+        return None
+
+
 def admit_question(http_request: Request) -> Decision:
     """Record the question against the demo limits, or refuse it (app/limits.py)."""
     conn = get_connection()
@@ -108,6 +132,11 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
 
     async def event_stream():
         reset_citation_counter()
+        # The tools record into this request's trace; `run` times the nodes.
+        # The trace event goes before the final done/error event, so that one
+        # stays last, and carries the steps recorded up to wherever the run stopped.
+        start_trace()
+        run = RunTrace()
         citations: list[dict] = []
         # Everything streamed as answer text, so the citations event can list
         # only the markers the answer actually uses. A marker can arrive split
@@ -129,12 +158,14 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                     if metadata.get("langgraph_node") == "agent" and msg_chunk.content:
                         text = normalize_brackets(msg_chunk.content)
                         answer_parts.append(text)
+                        run.token()
                         yield _sse("token", {"text": text})
 
                 elif stream_mode == "updates":
                     for node_name, node_output in chunk.items():
                         if node_name == "agent":
                             for msg in node_output.get("messages", []):
+                                run.agent_message(msg)
                                 for tc in getattr(msg, "tool_calls", None) or []:
                                     label = build_tool_call_label(tc["name"], tc["args"], language)
                                     yield _sse(
@@ -142,6 +173,7 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                                         {"tool": tc["name"], "args": tc["args"], "label": label},
                                     )
                         elif node_name == "tools":
+                            run.tools_done()
                             for msg in node_output.get("messages", []):
                                 artifact = getattr(msg, "artifact", None)
                                 if artifact:
@@ -151,6 +183,8 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                 without_passage_text(keep_cited(citations, "".join(answer_parts)))
             )
             yield _sse("citations", {"citations": cited})
+            if trace := _trace_event(run, "fallback" if run.fell_back else "done"):
+                yield trace
             yield _sse("done", {})
 
         except groq.RateLimitError as e:
@@ -165,6 +199,9 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                 "title": title(kind, language),
                 "message": message(kind, language),
             }
+            run.stopped()
+            if trace := _trace_event(run, "limit"):
+                yield trace
             yield _sse("error", limit_event)
 
         except Exception as e:  # noqa: BLE001 -- deliberately broad: any failure
@@ -172,6 +209,9 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
             # not a silently dropped connection. Full detail logged server-side
             # only; the client gets a generic message, not internal exception text.
             print(f"[chat] error while streaming answer: {e!r}")
+            run.stopped()
+            if trace := _trace_event(run, "error"):
+                yield trace
             yield _sse("error", {"message": "Something went wrong while generating the answer."})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
