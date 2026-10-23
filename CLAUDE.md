@@ -116,13 +116,13 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `up -d --build`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-10-21)
+## Current status (2026-10-23)
 
-- All phases done and deployed. Faithfulness: run 3 (after fixes A-C) 6/26 main answers with an
-  unsupported cited claim vs. 17/47 at baseline (confidence intervals overlap); details in the
-  README.
-- Next: Youness makes the repo public and adds the CI badge; demo video; switch to the Namecheap
-  domain (A record + `DOMAIN` in the server `.env`, then `up -d`).
+- All phases done and deployed. Repo is public, CI badge in the README. Faithfulness: run 3
+  (after fixes A-C) 6/26 main answers with an unsupported cited claim vs. 17/47 at baseline
+  (confidence intervals overlap); details in the README.
+- Left: demo video; switch to the Namecheap domain (A record + `DOMAIN` in the server `.env`,
+  then `up -d`).
 - Open problems (README "Known limitations" / "Future work"): everyday wording missing passages
   written in the catalog's vocabulary (candidate: a multilingual reranker), citation placement
   (Fix D), the undergraduate/graduate level filter, a re-ingest of the newer catalog editions.
