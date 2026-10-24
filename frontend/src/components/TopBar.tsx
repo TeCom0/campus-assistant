@@ -1,6 +1,15 @@
+import type { View } from "../view";
 import { MoonIcon, SunIcon } from "./icons";
 
-export function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme: () => void }) {
+export function TopBar({
+  theme,
+  onToggleTheme,
+  view,
+}: {
+  theme: string;
+  onToggleTheme: () => void;
+  view: View;
+}) {
   const next = theme === "dark" ? "light" : "dark";
   return (
     <header className="topbar">
@@ -11,6 +20,15 @@ export function TopBar({ theme, onToggleTheme }: { theme: string; onToggleTheme:
           <span className="pill-short">Unofficial</span>
         </span>
         <span className="spacer" />
+        {/* Plain links to the two hashes (view.ts): the browser's own history and back button. */}
+        <nav className="nav" aria-label="Pages">
+          <a href="#" aria-current={view === "chat" ? "page" : undefined}>
+            Chat
+          </a>
+          <a href="#about" aria-current={view === "about" ? "page" : undefined}>
+            About
+          </a>
+        </nav>
         <button
           type="button"
           className="icon-btn"

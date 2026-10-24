@@ -33,6 +33,7 @@
 .brand {
   font-weight: 600;
   letter-spacing: -0.005em;
+  white-space: nowrap;
 }
 
 .pill {
@@ -432,6 +433,182 @@ a.card:hover {
 .open {
   font-size: 12px;
   color: var(--accent);
+}
+
+/* --- Pages nav (top bar) ------------------------------------------------------- */
+
+.nav {
+  display: flex;
+  gap: 2px;
+}
+
+.nav a {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 4px 9px;
+  border-radius: 7px;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.nav a:hover {
+  color: var(--ink);
+}
+
+.nav a[aria-current="page"] {
+  color: var(--ink);
+  background: var(--accent-soft);
+}
+
+/* --- About page ------------------------------------------------------------------ */
+
+.about {
+  display: grid;
+  gap: 28px;
+  padding-top: 2vh;
+  animation: fade-up 0.3s ease-out both;
+}
+
+.about-head {
+  display: grid;
+  gap: 12px;
+}
+
+.about h1 {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  max-width: 24ch;
+}
+
+.about h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.about-lead {
+  margin: 0;
+  color: var(--muted);
+  max-width: 62ch;
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 12px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+
+a.link-btn:hover {
+  border-color: var(--accent);
+}
+
+.link-btn.primary {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Not a link yet: dashed, and nothing happens on hover. */
+.link-btn.off {
+  color: var(--muted);
+  border-style: dashed;
+}
+
+.about-section {
+  display: grid;
+  gap: 10px;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.result {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+}
+
+.result b {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-label {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.result-detail {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.about-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 68ch;
+}
+
+.about-note a {
+  color: var(--accent);
+}
+
+.limits {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+  max-width: 64ch;
+}
+
+.chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chips li {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 9px;
 }
 
 /* --- Under the hood ------------------------------------------------------------ */
@@ -1006,6 +1183,20 @@ a.card:hover {
 
   .tok {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* No room for both links next to the Unofficial pill: a phone shows only
+     the link to the other page. */
+  .nav a[aria-current="page"] {
+    display: none;
+  }
+
+  .about h1 {
+    font-size: 23px;
   }
 
   /* The results table as one block per passage: rank and passage on top,

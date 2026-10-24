@@ -5,10 +5,12 @@ import { AssistantTurn } from "./components/AssistantTurn";
 import { Composer } from "./components/Composer";
 import { EmptyState } from "./components/EmptyState";
 import { TopBar } from "./components/TopBar";
+import { AboutPage } from "./components/AboutPage";
 import { replayExample, savedExample, type ExampleQuestion } from "./examples";
 import type { AssistantMessage, Message } from "./messages";
 import { useTheme } from "./theme";
 import type { ChatEvent, HistoryMessage } from "./types";
+import { useView } from "./view";
 
 const CONNECTION_LOST = "The connection to the assistant dropped. Check your connection and try again.";
 // The server's error event says only that something went wrong (details stay in its log).
@@ -20,6 +22,7 @@ const STICK_TO_BOTTOM_PX = 140;
 
 export default function App() {
   const [theme, toggleTheme] = useTheme();
+  const view = useView();
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [busy, setBusy] = useState(false);
@@ -39,6 +42,14 @@ export default function App() {
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" });
     }
   }, [messages]);
+
+  // Switching views: the About page opens at its top; the chat comes back at
+  // its latest answer. The conversation lives here in App, so it survives.
+  useEffect(() => {
+    document.title = view === "about" ? "About · Campus Assistant" : "Campus Assistant";
+    stickToBottom.current = view === "chat";
+    window.scrollTo({ top: view === "about" ? 0 : document.documentElement.scrollHeight });
+  }, [view]);
 
   // Applies a change to the most recent assistant message, immutably.
   function updateLastAssistant(change: (m: AssistantMessage) => AssistantMessage) {
@@ -136,9 +147,11 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar theme={theme} onToggleTheme={toggleTheme} />
+      <TopBar theme={theme} onToggleTheme={toggleTheme} view={view} />
       <main className="main">
-        {messages.length === 0 ? (
+        {view === "about" ? (
+          <AboutPage />
+        ) : messages.length === 0 ? (
           <EmptyState onAsk={askExample} />
         ) : (
           <div className="thread">
@@ -161,13 +174,15 @@ export default function App() {
           </div>
         )}
       </main>
-      <Composer
-        value={question}
-        onChange={setQuestion}
-        onSubmit={submitTyped}
-        busy={busy}
-        placeholder={messages.length === 0 ? "Ask a question in English or French" : "Ask a follow-up question"}
-      />
+      {view === "chat" && (
+        <Composer
+          value={question}
+          onChange={setQuestion}
+          onSubmit={submitTyped}
+          busy={busy}
+          placeholder={messages.length === 0 ? "Ask a question in English or French" : "Ask a follow-up question"}
+        />
+      )}
     </div>
   );
 }
