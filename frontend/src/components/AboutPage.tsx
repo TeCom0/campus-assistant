@@ -1,4 +1,6 @@
 import { DEMO_VIDEO_URL, LIMITATIONS, REPO_URL, RESULTS, STACK } from "../about";
+import { ArchitectureDiagram } from "./ArchitectureDiagram";
+import { IntervalChart } from "./IntervalChart";
 import { GitHubIcon } from "./icons";
 
 // The About page (#about): what the project is, its measured results with
@@ -45,6 +47,7 @@ export function AboutPage() {
             </div>
           ))}
         </div>
+        <IntervalChart />
         <p className="about-note">
           Retrieval: 14 hand-labelled questions, each with a verbatim answer sentence as its anchor.
           Faithfulness: every cited claim checked against its passage by an LLM judge from another
@@ -54,6 +57,11 @@ export function AboutPage() {
           </a>
           .
         </p>
+      </section>
+
+      <section className="about-section" aria-labelledby="arch-section-title">
+        <h2 id="arch-section-title">How it works</h2>
+        <ArchitectureDiagram />
       </section>
 
       <section className="about-section" aria-labelledby="limits-title">
