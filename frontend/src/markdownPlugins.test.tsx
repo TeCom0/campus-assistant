@@ -42,3 +42,31 @@ describe("remarkHtmlBreaks", () => {
     expect(render("`a<br>b`")).toBe("<p><code>a&lt;br&gt;b</code></p>");
   });
 });
+
+describe("remarkInlineCitations", () => {
+  // Shape from faithfulness run 2 (add/drop answer): the model ends the line
+  // with two spaces (a hard line break) and puts the marker on the next line.
+  // AssistantTurn has already turned "[1]" into a link to its card.
+  const BULLET = "- Fill in the Add/Drop Form before you can start the process.  \n   [1](#source-0-1)";
+
+  it("keeps a marker on the line it cites", () => {
+    expect(render(BULLET)).toBe(
+      '<ul>\n<li>Fill in the Add/Drop Form before you can start the process. <a href="#source-0-1">1</a></li>\n</ul>',
+    );
+  });
+
+  it("also joins pending and unlinked markers, and a backslash break", () => {
+    expect(render("Done.  \n[2](#pending-2)")).toBe('<p>Done. <a href="#pending-2">2</a></p>');
+    expect(render("Done.\\\n[7]")).toBe("<p>Done. [7]</p>");
+  });
+
+  it("keeps every other line break", () => {
+    expect(render("first  \nsecond")).toBe("<p>first<br/>\nsecond</p>");
+    expect(render("first  \n[a link](https://example.com)")).toContain("<br/>");
+  });
+
+  it("leaves a marker in its own paragraph alone", () => {
+    // It cites the whole list above, not only the last bullet.
+    expect(render("- a\n- b\n\n[1](#source-0-1)")).toContain('<p><a href="#source-0-1">1</a></p>');
+  });
+});
