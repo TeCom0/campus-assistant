@@ -118,10 +118,9 @@ known_hosts).
 
 ## Current status (2026-10-30)
 
-- Showcase work (Under the hood panel, About page, first screen) done; the live demo runs the
-  About page and Under the hood (0a1fd7a) plus the citation-chip fix (70b814c). Waiting on:
-  the author's review of the regenerated examples (with their trace), then the README
-  screenshot and one deploy of the first screen + approved examples.
+- Showcase work (Under the hood panel, About page, first screen) done and deployed (e77a80b,
+  2026-10-30). Two examples (ACC 2302, transfer credits) were regenerated with their trace;
+  the two French ones keep their 2026-10-19 answers and replay without a panel.
 - All phases done and deployed. Repo is public, CI badge in the README. Faithfulness: run 3
   (after fixes A-C) 6/26 main answers with an unsupported cited claim vs. 17/47 at baseline
   (confidence intervals overlap); details in the README.
