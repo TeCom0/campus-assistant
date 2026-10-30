@@ -1,5 +1,6 @@
+import { REPO_URL } from "../about";
 import type { View } from "../view";
-import { MoonIcon, SunIcon } from "./icons";
+import { GitHubIcon, MoonIcon, SunIcon } from "./icons";
 
 export function TopBar({
   theme,
@@ -14,7 +15,10 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <span className="brand">Campus Assistant</span>
+        <span className="brand">
+          <span className="brand-mark" aria-hidden="true" />
+          Campus Assistant
+        </span>
         <span className="pill">
           <span className="pill-long">Unofficial student project</span>
           <span className="pill-short">Unofficial</span>
@@ -29,6 +33,16 @@ export function TopBar({
             About
           </a>
         </nav>
+        <a
+          className="icon-btn github"
+          href={REPO_URL}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Source on GitHub"
+          title="Source on GitHub"
+        >
+          <GitHubIcon />
+        </a>
         <button
           type="button"
           className="icon-btn"

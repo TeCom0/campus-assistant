@@ -25,6 +25,8 @@
   /* Under the hood panel: its ground, and the timeline's tool segments. */
   --trace-bg: #f0f3f8;
   --seg-tool: #8aa6d8;
+  /* The first screen's faint dot grid. */
+  --grid-dot: rgba(43, 92, 184, 0.08);
 
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -54,6 +56,7 @@
     --shimmer: #1e2632;
     --trace-bg: #121821;
     --seg-tool: #3e5a8c;
+    --grid-dot: rgba(126, 166, 240, 0.09);
     color-scheme: dark;
   }
 }
@@ -79,6 +82,7 @@
   --shimmer: #1e2632;
   --trace-bg: #121821;
   --seg-tool: #3e5a8c;
+  --grid-dot: rgba(126, 166, 240, 0.09);
   color-scheme: dark;
 }
 

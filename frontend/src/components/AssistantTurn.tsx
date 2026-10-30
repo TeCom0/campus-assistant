@@ -1,9 +1,10 @@
 import type { MouseEvent } from "react";
 import Markdown, { type Components } from "react-markdown";
+import { pagesLabel, stepsSummary } from "../answerFormat";
 import { API_URL } from "../chatStream";
 import { EXAMPLE_QUESTIONS, savedExample, type ExampleQuestion } from "../examples";
 import { ANSWER_REMARK_PLUGINS } from "../markdownPlugins";
-import type { AssistantMessage, Step } from "../messages";
+import type { AssistantMessage } from "../messages";
 import { prefersReducedMotion } from "../theme";
 import type { Citation } from "../types";
 import { AlertIcon, CheckIcon, ClockIcon } from "./icons";
@@ -65,22 +66,6 @@ const markdownComponents: Components = {
       </a>
     ),
 };
-
-function pagesLabel(pages: number[] | null): string {
-  if (!pages || pages.length === 0) return "";
-  if (pages.length === 1) return `p. ${pages[0]}`;
-  const consecutive = pages.every((p, i) => i === 0 || p === pages[i - 1] + 1);
-  return consecutive ? `p. ${pages[0]}–${pages[pages.length - 1]}` : `p. ${pages.join(", ")}`;
-}
-
-function stepsSummary(steps: Step[]): string {
-  const searches = steps.filter((s) => s.tool === "search_documents").length;
-  const lookups = steps.filter((s) => s.tool === "query_courses").length;
-  const parts = [];
-  if (searches) parts.push(`${searches} ${searches === 1 ? "search" : "searches"}`);
-  if (lookups) parts.push(`${lookups} course ${lookups === 1 ? "lookup" : "lookups"}`);
-  return parts.join(" · ") || `${steps.length} steps`;
-}
 
 function Steps({ message }: { message: AssistantMessage }) {
   const { steps, status, text } = message;
