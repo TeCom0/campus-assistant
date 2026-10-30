@@ -95,17 +95,39 @@ export function originLabel(phrasing: Phrasing): string {
   return phrasing.origins.map((origin) => ORIGIN_LABELS[origin]).join(" = ");
 }
 
+// A word's letters and digits, with the punctuation around them:
+// "(l'AUI)?" -> "(", "l'AUI", ")?".
+const PUNCTUATION_AROUND = /^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u;
+
 // The phrasing as written, word by word, marking the words search left out
-// (the university's name): "comment ajouter … cours ~~AUI~~". null when
-// nothing was removed, or when the two can't be lined up word by word.
-export function writtenWords(phrasing: Phrasing): { word: string; removed: boolean }[] | null {
+// (the university's name): "comment ajouter … cours ~~AUI~~". The name can
+// be part of a word: search keeps the punctuation around it ("transfer to
+// AUI?" was searched as "transfer to ?"), so that word comes back in pieces,
+// `attached` to the one before ("to ~~AUI~~?"). null when nothing was
+// removed, or when the two can't be lined up word by word.
+export function writtenWords(
+  phrasing: Phrasing,
+): { word: string; removed: boolean; attached: boolean }[] | null {
   const searched = phrasing.text.split(/\s+/).filter(Boolean);
   const words = [];
   let next = 0;
+  const takeNext = (text: string) => {
+    const same = next < searched.length && text.toLowerCase() === searched[next].toLowerCase();
+    if (same) next += 1;
+    return same;
+  };
   for (const word of phrasing.as_written.split(/\s+/).filter(Boolean)) {
-    const kept = next < searched.length && word.toLowerCase() === searched[next].toLowerCase();
-    if (kept) next += 1;
-    words.push({ word, removed: !kept });
+    if (takeNext(word)) {
+      words.push({ word, removed: false, attached: false });
+      continue;
+    }
+    const [, lead, core, trail] = PUNCTUATION_AROUND.exec(word)!;
+    const keepLead = lead !== "" && takeNext(lead);
+    const keepTrail = trail !== "" && takeNext(trail);
+    if (keepLead) words.push({ word: lead, removed: false, attached: false });
+    const removed = (keepLead ? "" : lead) + core + (keepTrail ? "" : trail);
+    words.push({ word: removed, removed: true, attached: keepLead });
+    if (keepTrail) words.push({ word: trail, removed: false, attached: true });
   }
   if (next !== searched.length || !words.some((w) => w.removed)) return null;
   return words;

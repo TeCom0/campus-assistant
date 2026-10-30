@@ -54,7 +54,7 @@ function PhrasingText({ phrasing }: { phrasing: Phrasing }) {
     <span className="q">
       {words.map((w, i) => (
         <span key={i}>
-          {i > 0 && " "}
+          {i > 0 && !w.attached && " "}
           {w.removed ? <s title="Removed before searching">{w.word}</s> : w.word}
         </span>
       ))}

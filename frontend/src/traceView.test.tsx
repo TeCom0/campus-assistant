@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { UnderTheHood } from "./components/UnderTheHood";
+import type { SavedExample } from "./examples";
+import transferCredits from "./examples/transfer_credits_en.json";
 import {
   formatMs,
   passageUse,
@@ -65,6 +67,10 @@ const TRACE: Trace = {
   model: { provider: "groq", name: "openai/gpt-oss-20b" },
 };
 
+// The saved example whose question "How many credits can I transfer to AUI?"
+// was searched as "How many credits can I transfer to ?".
+const TRANSFER = transferCredits as SavedExample;
+
 describe("summaryParts", () => {
   it("counts tool calls, phrasings searched, time and tokens", () => {
     expect(summaryParts(TRACE)).toEqual(["1 tool call", "2 queries", "2.0 s", "2,398 tokens"]);
@@ -124,6 +130,23 @@ describe("writtenWords", () => {
     expect(words?.filter((w) => w.removed).map((w) => w.word)).toEqual(["AUI"]);
   });
 
+  it("marks the name inside a word, keeping its punctuation", () => {
+    const step = TRANSFER.trace!.steps[0] as SearchStep;
+    const question = step.phrasings.find((p) => p.origins.includes("question"))!;
+    expect(writtenWords(question)?.slice(-3)).toEqual([
+      { word: "to", removed: false, attached: false },
+      { word: "AUI", removed: true, attached: false },
+      { word: "?", removed: false, attached: true },
+    ]);
+    const quoted = writtenWords({ text: "credits ( ).", origins: ["question"], as_written: "credits (AUI)." });
+    expect(quoted?.map((w) => [w.word, w.removed, w.attached])).toEqual([
+      ["credits", false, false],
+      ["(", false, false],
+      ["AUI", true, true],
+      [").", false, true],
+    ]);
+  });
+
   it("is null when nothing was removed", () => {
     expect(writtenWords(search([]).phrasings[1])).toBeNull();
   });
@@ -148,6 +171,14 @@ describe("UnderTheHood", () => {
     expect(html).toContain('<s title="Removed before searching">AUI</s>');
     expect(html).toContain("cited [1]");
     expect(html).toContain("not cited");
+  });
+
+  it("strikes out the name in the transfer-credits example, with no space before the ?", () => {
+    const shown = renderToStaticMarkup(
+      <UnderTheHood trace={TRANSFER.trace!} citations={TRANSFER.citations} savedAt={TRANSFER.generated_at} />,
+    );
+    expect(shown).toContain('<s title="Removed before searching">AUI</s>');
+    expect(shown.replace(/<[^>]+>/g, "")).toContain("How many credits can I transfer to AUI?");
   });
 
   it("says when the run stopped early", () => {
