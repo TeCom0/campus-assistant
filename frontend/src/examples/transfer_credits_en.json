@@ -3,7 +3,7 @@
   "question": "How many credits can I transfer to AUI?",
   "language": "en",
   "cached_example": true,
-  "generated_at": "2026-10-19T19:30:30+00:00",
+  "generated_at": "2026-10-30T00:12:48+00:00",
   "model": "openai/gpt-oss-20b",
   "tool_calls": [
     {
@@ -12,10 +12,10 @@
     },
     {
       "tool": "search_documents",
-      "label": "Searching documents for \"graduate transfer credit maximum\""
+      "label": "Searching documents for \"graduate credit transfer limit\""
     }
   ],
-  "answer": "The AUI academic catalog specifies separate limits for undergraduate and graduate transfer credits:\n\n* **Undergraduate programs** – up to **68 semester credits** can be transferred to AUI. [3]\n* **Graduate programs** – up to **12 semester credits** can be transferred toward a graduate degree. [6]\n\nIf you’re applying as a transfer student, be sure to check the specific program’s requirements and confirm the credit conversion rules with the Office of Enrollment.",
+  "answer": "The maximum amount of credit you can bring into AUI is:\n\n- **Undergraduate programs**: up to **68 semester credits** can be transferred. [3]  \n- **Graduate programs**: up to **12 semester credits** can be transferred toward the degree. [6]",
   "citations": [
     {
       "marker": 3,
@@ -26,6 +26,10 @@
       ],
       "section": "Transfer Credit Maximums → Visiting (Non-Degree Seeking) Students",
       "level": "general",
+      "sections": [
+        "Transfer Credit Maximums",
+        "Visiting (Non-Degree Seeking) Students"
+      ],
       "title": "Academic Catalog 2024–2025",
       "link": "/sources/academic_catalog_2024_2025?page=31"
     },
@@ -37,8 +41,356 @@
       ],
       "section": "Al Akhawayn University in Ifrane → Transfer Graduate Students → Visiting Graduate Students → …",
       "level": "general",
+      "sections": [
+        "Al Akhawayn University in Ifrane",
+        "Transfer Graduate Students",
+        "Visiting Graduate Students",
+        "Standardized Tests"
+      ],
       "title": "Academic Catalog 2024–2025",
       "link": "/sources/academic_catalog_2024_2025?page=38"
     }
-  ]
+  ],
+  "trace": {
+    "status": "done",
+    "steps": [
+      {
+        "tool": "search_documents",
+        "call_id": "fc_e3696684-a08d-4670-9c6b-0cb4b4535344",
+        "args": {
+          "query": "credit transfer limit",
+          "query_en": "credit transfer limit"
+        },
+        "phrasings": [
+          {
+            "text": "credit transfer limit",
+            "origins": [
+              "query",
+              "query_en"
+            ],
+            "as_written": "credit transfer limit"
+          },
+          {
+            "text": "How many credits can I transfer to ?",
+            "origins": [
+              "question"
+            ],
+            "as_written": "How many credits can I transfer to AUI?"
+          }
+        ],
+        "ranked_lists": 4,
+        "max_rrf_score": 0.0656,
+        "results": [
+          {
+            "rank": 1,
+            "marker": 1,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31
+            ],
+            "level": "general",
+            "section": "Credit Type → In Progress (IP) Courses at the Sending Institution",
+            "sections": [
+              "Credit Type",
+              "In Progress (IP) Courses at the Sending Institution"
+            ],
+            "snippet": "non-semester credit institutions are converted to semester credits during the evaluation procedure. For example, a five-credit course earned at a quarter credit institution transfers to AUI as three…",
+            "rrf_score": 0.045,
+            "vector_rank": 2,
+            "keyword_rank": 1,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          },
+          {
+            "rank": 2,
+            "marker": 2,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              94,
+              95
+            ],
+            "level": "general",
+            "section": "Mission → Exchange and Study Abroad Programs → Transfer of Credits",
+            "sections": [
+              "Mission",
+              "Exchange and Study Abroad Programs",
+              "Transfer of Credits"
+            ],
+            "snippet": "at home, strategic partnerships, and related services to members of the AUI community. Exchange and Study Abroad Programs Studying abroad is a key part of most AUI students’ experience, and there are…",
+            "rrf_score": 0.0419,
+            "vector_rank": 16,
+            "keyword_rank": 2,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=94"
+          },
+          {
+            "rank": 3,
+            "marker": 3,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31,
+              32
+            ],
+            "level": "general",
+            "section": "Transfer Credit Maximums → Visiting (Non-Degree Seeking) Students",
+            "sections": [
+              "Transfer Credit Maximums",
+              "Visiting (Non-Degree Seeking) Students"
+            ],
+            "snippet": "Transfer Credit Maximums For undergraduate programs, a maximum of 68 semester credits are transferable to AUI. Applicants for the programs in the School of Science and Engineering who have attended…",
+            "rrf_score": 0.0328,
+            "vector_rank": 1,
+            "keyword_rank": null,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          },
+          {
+            "rank": 4,
+            "marker": 4,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31
+            ],
+            "level": "general",
+            "section": "In Progress (IP) Courses at the Sending Institution → Minimum Grades for Transferable Courses → Transfer Credit Maximums",
+            "sections": [
+              "In Progress (IP) Courses at the Sending Institution",
+              "Minimum Grades for Transferable Courses",
+              "Transfer Credit Maximums"
+            ],
+            "snippet": "programs or B for graduate programs is subsequently earned by the admission candidate and AUI receives an official record of the final grade in the course. Minimum Grades for Transferable Courses…",
+            "rrf_score": 0.0317,
+            "vector_rank": 3,
+            "keyword_rank": null,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          },
+          {
+            "rank": 5,
+            "marker": 5,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31
+            ],
+            "level": "general",
+            "section": "Admission Criteria for Transfer Students → Credit Type",
+            "sections": [
+              "Admission Criteria for Transfer Students",
+              "Credit Type"
+            ],
+            "snippet": "Al Akhawayn University www.aui.ma 2024- 2025 31 Undergraduate level courses are not transferable as graduate-level courses. Transferring students who have successfully earned more than 60 credits in…",
+            "rrf_score": 0.031,
+            "vector_rank": 4,
+            "keyword_rank": null,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          }
+        ],
+        "duration_ms": 285
+      },
+      {
+        "tool": "search_documents",
+        "call_id": "fc_84a1f778-2b88-42dc-8d1b-2af51d27ee25",
+        "args": {
+          "query": "graduate credit transfer limit",
+          "query_en": "graduate credit transfer limit"
+        },
+        "phrasings": [
+          {
+            "text": "graduate credit transfer limit",
+            "origins": [
+              "query",
+              "query_en"
+            ],
+            "as_written": "graduate credit transfer limit"
+          },
+          {
+            "text": "How many credits can I transfer to ?",
+            "origins": [
+              "question"
+            ],
+            "as_written": "How many credits can I transfer to AUI?"
+          }
+        ],
+        "ranked_lists": 4,
+        "max_rrf_score": 0.0656,
+        "results": [
+          {
+            "rank": 1,
+            "marker": 1,
+            "new": false,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31
+            ],
+            "level": "general",
+            "section": "Credit Type → In Progress (IP) Courses at the Sending Institution",
+            "sections": [
+              "Credit Type",
+              "In Progress (IP) Courses at the Sending Institution"
+            ],
+            "snippet": "non-semester credit institutions are converted to semester credits during the evaluation procedure. For example, a five-credit course earned at a quarter credit institution transfers to AUI as three…",
+            "rrf_score": 0.0325,
+            "vector_rank": 2,
+            "keyword_rank": 1,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          },
+          {
+            "rank": 2,
+            "marker": 6,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              38
+            ],
+            "level": "general",
+            "section": "Al Akhawayn University in Ifrane → Transfer Graduate Students → Visiting Graduate Students → …",
+            "sections": [
+              "Al Akhawayn University in Ifrane",
+              "Transfer Graduate Students",
+              "Visiting Graduate Students",
+              "Standardized Tests"
+            ],
+            "snippet": "www.aui.ma 2024- 2025 38 Transfer Graduate Students To be considered for admission, graduate transfer students must have a minimum grade point average of 3.00 on a 4.00 grading scale and be in good…",
+            "rrf_score": 0.032,
+            "vector_rank": 1,
+            "keyword_rank": null,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=38"
+          },
+          {
+            "rank": 3,
+            "marker": 3,
+            "new": false,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31,
+              32
+            ],
+            "level": "general",
+            "section": "Transfer Credit Maximums → Visiting (Non-Degree Seeking) Students",
+            "sections": [
+              "Transfer Credit Maximums",
+              "Visiting (Non-Degree Seeking) Students"
+            ],
+            "snippet": "Transfer Credit Maximums For undergraduate programs, a maximum of 68 semester credits are transferable to AUI. Applicants for the programs in the School of Science and Engineering who have attended…",
+            "rrf_score": 0.032,
+            "vector_rank": 1,
+            "keyword_rank": null,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          },
+          {
+            "rank": 4,
+            "marker": 4,
+            "new": false,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              31
+            ],
+            "level": "general",
+            "section": "In Progress (IP) Courses at the Sending Institution → Minimum Grades for Transferable Courses → Transfer Credit Maximums",
+            "sections": [
+              "In Progress (IP) Courses at the Sending Institution",
+              "Minimum Grades for Transferable Courses",
+              "Transfer Credit Maximums"
+            ],
+            "snippet": "programs or B for graduate programs is subsequently earned by the admission candidate and AUI receives an official record of the final grade in the course. Minimum Grades for Transferable Courses…",
+            "rrf_score": 0.032,
+            "vector_rank": 2,
+            "keyword_rank": null,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=31"
+          },
+          {
+            "rank": 5,
+            "marker": 7,
+            "new": true,
+            "source": "academic_catalog_2024_2025",
+            "pages": [
+              314
+            ],
+            "level": "graduate",
+            "section": "Graduate Studies › Summer Session Course Load → Additional Course Credits → Minimum Residency → …",
+            "sections": [
+              "Summer Session Course Load",
+              "Additional Course Credits",
+              "Minimum Residency",
+              "Time Limitations",
+              "Grading Policies and Academic Progress"
+            ],
+            "snippet": "Center courses. Graduate students who are not cleared with the Language Center are not allowed to register for summer session in regular courses. Additional Course Credits No course counted toward…",
+            "rrf_score": 0.0313,
+            "vector_rank": 7,
+            "keyword_rank": 1,
+            "title": "Academic Catalog 2024–2025",
+            "link": "/sources/academic_catalog_2024_2025?page=314"
+          }
+        ],
+        "duration_ms": 292
+      }
+    ],
+    "timeline": [
+      {
+        "kind": "llm",
+        "start_ms": 0,
+        "end_ms": 1539,
+        "tool_calls": [
+          "search_documents"
+        ],
+        "input_tokens": 887,
+        "output_tokens": 64,
+        "reasoning_tokens": 32
+      },
+      {
+        "kind": "tools",
+        "start_ms": 1539,
+        "end_ms": 1834
+      },
+      {
+        "kind": "llm",
+        "start_ms": 1834,
+        "end_ms": 2371,
+        "tool_calls": [
+          "search_documents"
+        ],
+        "input_tokens": 2030,
+        "output_tokens": 134,
+        "reasoning_tokens": 100
+      },
+      {
+        "kind": "tools",
+        "start_ms": 2371,
+        "end_ms": 2666
+      },
+      {
+        "kind": "llm",
+        "start_ms": 2666,
+        "end_ms": 3454,
+        "tool_calls": [],
+        "input_tokens": 2557,
+        "output_tokens": 332,
+        "reasoning_tokens": 265
+      }
+    ],
+    "totals": {
+      "duration_ms": 3454,
+      "first_token_ms": 3384,
+      "llm_calls": 3,
+      "input_tokens": 5474,
+      "output_tokens": 530,
+      "reasoning_tokens": 397,
+      "tokens_complete": true
+    },
+    "model": {
+      "provider": "groq",
+      "name": "openai/gpt-oss-20b"
+    }
+  }
 }

@@ -13,6 +13,8 @@ An unofficial student project, not an official AUI service.
 total; the example questions answer instantly and don't count).
 **Demo video:** *coming soon.*
 
+![An example answer with its citations, source cards and the open "Under the hood" panel: the run's timeline, the agent's search queries, and the passages ranked by hybrid search](docs/screenshot-under-the-hood.png)
+
 **Status:** deployed. The chat app, agent, tests, CI and Docker setup are done; answer
 faithfulness was measured before and after three targeted fixes (see Evaluation), and the
 remaining known problems are listed under Known limitations and Future work.
@@ -380,9 +382,13 @@ answer declines.)
 
 **The saved example answers are not a quality sample.** The four example answers on the empty
 state were selected from up to 3 attempts each and checked by hand against their cited passages
-before being saved, with no edits to their text. 6 of the 9 attempts in that round had an error
-(an unsupported or wrong detail), and the first answers to the same three questions had been
-rejected too. So the saved examples are better than an average answer. The evaluation numbers above are the
+before being saved, with no edits to their text. In the first round (2026-10-19), 6 of the 9
+attempts had an error (an unsupported or wrong detail), and the first answers to the same three
+questions had been rejected too. In the second round (2026-10-30), run to record each example's
+"Under the hood" trace, 7 of 11 attempts had an error, 1 more was rejected for a true but uncited
+sentence, and 3 were clean: two of those replaced their earlier answers (ACC 2302 prerequisites,
+transfer credits). The two French examples have no clean new attempt, so they keep their first-round
+answers, which have no trace. So the saved examples are better than an average answer. The evaluation numbers above are the
 representative ones. Saved examples are marked `cached_example` and kept out of `eval/results/`,
 so no evaluation counts them.
 
