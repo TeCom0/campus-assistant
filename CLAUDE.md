@@ -116,8 +116,12 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `up -d --build`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-10-23)
+## Current status (2026-10-30)
 
+- Showcase work (Under the hood panel, About page, first screen) done; the live demo runs the
+  About page and Under the hood (0a1fd7a) plus the citation-chip fix (70b814c). Waiting on:
+  the author's review of the regenerated examples (with their trace), then the README
+  screenshot and one deploy of the first screen + approved examples.
 - All phases done and deployed. Repo is public, CI badge in the README. Faithfulness: run 3
   (after fixes A-C) 6/26 main answers with an unsupported cited claim vs. 17/47 at baseline
   (confidence intervals overlap); details in the README.

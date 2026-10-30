@@ -37,6 +37,15 @@ remaining known problems are listed under Known limitations and Future work.
   answers were saved in advance and are replayed without an LLM call, so they work even after
   the daily demo limit. They are labelled "Example answer, saved in advance" (see Evaluation for
   how they were chosen).
+- **"Under the hood" on every answer**: a collapsed panel with the run's timeline (LLM calls and
+  tool rounds), each tool call's arguments, the phrasings actually searched, the passages fused
+  by reciprocal rank fusion with their scores and vector/keyword ranks (cited ones marked), and
+  the tokens used. It comes from a request-scoped recorder that only `/chat` and the example
+  generator start, so it adds no LLM call and the evaluation never sees it; saved examples carry
+  the trace recorded when they were generated.
+- **An About page** (`#about`) with an architecture diagram, the evaluation results and their
+  confidence intervals, and the known limitations. Its figures are tested against this README,
+  so the two can't drift apart.
 
 ## Architecture
 
@@ -457,11 +466,11 @@ Open http://localhost:5173. (Stop the `api` container first if it's running: bot
 
 ```powershell
 cd backend
-pytest -q          # 295 tests; the Postgres ones skip within seconds if the database is down
+pytest -q          # 322 tests; the Postgres ones skip within seconds if the database is down
 ruff check . ; ruff format --check .
 
 cd ..\frontend
-npm test           # vitest: Markdown rendering of answers
+npm test           # vitest (43): answer rendering, citation chips, trace panel, replay, About figures vs. README
 ```
 
 Every push and pull request runs three GitHub Actions jobs (`.github/workflows/ci.yml`): ruff,
@@ -481,7 +490,8 @@ backend/
     db/           connection helper, schema.sql
     main.py       FastAPI app: /health, /chat (SSE)
   tests/
-frontend/src/     App.tsx (chat UI), chatStream.ts (SSE client), types.ts
+frontend/src/     App.tsx (chat UI), chatStream.ts (SSE client), components/ (answer, Under the
+                  hood panel, About page, diagrams), examples/ (saved example answers)
 eval/             retrieval evaluation set
 data/             sources.md (document URLs); raw/ and processed/ are generated
 ```
