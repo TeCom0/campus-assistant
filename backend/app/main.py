@@ -20,8 +20,8 @@ from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
-from app.agent.trace import RunTrace, start_trace
-from app.config import CORS_ORIGINS, GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
+from app.agent.trace import RunTrace, display_trace, start_trace
+from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
 from app.db.connection import get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.sources import link_target, with_display_info
@@ -80,9 +80,6 @@ def _sse(event_type: str, data: dict) -> str:
     return f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-MODEL = GROQ_MODEL if LLM_PROVIDER == "groq" else GEMINI_MODEL
-
-
 def _trace_event(run: RunTrace, status: str) -> str | None:
     """The "Under the hood" trace as an SSE event, or None if it can't be built.
 
@@ -90,14 +87,7 @@ def _trace_event(run: RunTrace, status: str) -> str | None:
     must still reach the student, so the failure is logged and no trace is sent.
     """
     try:
-        trace = run.event(status)
-        trace["model"] = {"provider": LLM_PROVIDER, "name": MODEL}
-        # Retrieved passages get the same title and section path as source cards.
-        trace["steps"] = [
-            {**step, "results": with_display_info(step["results"])} if "results" in step else step
-            for step in trace["steps"]
-        ]
-        return _sse("trace", trace)
+        return _sse("trace", display_trace(run, status))
     except Exception as e:  # noqa: BLE001 -- see the docstring
         print(f"[chat] could not build the trace: {e!r}")
         return None

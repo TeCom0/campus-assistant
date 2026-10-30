@@ -214,7 +214,21 @@ function Tokens({ trace }: { trace: Trace }) {
   );
 }
 
-export function UnderTheHood({ trace, citations }: { trace: Trace; citations: Citation[] }) {
+// "30 Oct 2026", for the note under a replayed example's trace.
+function savedDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// `savedAt`: set on a replayed example, whose trace was recorded when it was saved.
+export function UnderTheHood({
+  trace,
+  citations,
+  savedAt,
+}: {
+  trace: Trace;
+  citations: Citation[];
+  savedAt?: string;
+}) {
   const cited = new Set(citations.map((c) => c.marker));
   const note = STATUS_NOTES[trace.status];
   return (
@@ -235,6 +249,8 @@ export function UnderTheHood({ trace, citations }: { trace: Trace; citations: Ci
         )}
         <Tokens trace={trace} />
         <p className="uth-foot">
+          {savedAt &&
+            `Recorded when this example was saved (${savedDate(savedAt)}); the replay makes no API call. `}
           Shown for transparency only: the evaluation never reads this trace.
         </p>
       </div>

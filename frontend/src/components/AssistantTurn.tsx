@@ -232,7 +232,9 @@ export function AssistantTurn({
         <Sources citations={message.citations} messageIndex={messageIndex} />
       )}
 
-      {message.trace && <UnderTheHood trace={message.trace} citations={message.citations} />}
+      {message.trace && (
+        <UnderTheHood trace={message.trace} citations={message.citations} savedAt={message.savedAt} />
+      )}
     </article>
   );
 }

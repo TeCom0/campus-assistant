@@ -99,7 +99,7 @@ export default function App() {
     setMessages([
       ...historyFrom,
       { role: "user", text },
-      { role: "assistant", text: "", steps: [], citations: [], status: "streaming", example: !!saved },
+      { role: "assistant", text: "", steps: [], citations: [], status: "streaming", example: !!saved, savedAt: saved?.generated_at },
     ]);
 
     let finished = false;

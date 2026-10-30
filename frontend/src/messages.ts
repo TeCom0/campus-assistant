@@ -27,6 +27,8 @@ export interface AssistantMessage {
   errorTitle?: string;
   // Replayed from a saved example answer, not generated live.
   example?: boolean;
+  // When that example was generated (its trace was recorded in the same run).
+  savedAt?: string;
 }
 
 export type Message = UserMessage | AssistantMessage;

@@ -78,3 +78,48 @@ def test_a_per_minute_limit_is_waited_out_and_the_daily_limit_is_raised(monkeypa
     monkeypatch.setattr(generate_examples, "answer_example", daily)
     with pytest.raises(Exception, match="per day"):
         generate_examples.answer_with_retries(None, {"id": "x"})
+
+
+class _StreamingGraph:
+    """Streams one search and an answer the way the compiled graph does, with
+    the tool recording its step as search_documents does. No LLM call."""
+
+    def stream(self, *args, **kwargs):
+        from langchain_core.messages import AIMessage, AIMessageChunk, ToolMessage
+
+        from app.agent.trace import record_tool_step
+
+        call = {"id": "call_1", "name": "search_documents", "args": {"query": "transfer"}}
+        usage = {"input_tokens": 900, "output_tokens": 50, "total_tokens": 950}
+        yield (
+            "updates",
+            {"agent": {"messages": [AIMessage("", tool_calls=[call], usage_metadata=usage)]}},
+        )
+        record_tool_step("search_documents", {"results": []}, call_id="call_1")
+        citation = {
+            "marker": 1,
+            "source": "academic_catalog_2024_2025",
+            "pages": [118],
+            "text": "PASSAGE",
+        }
+        tool_message = ToolMessage("[1] PASSAGE", tool_call_id="call_1", artifact=[citation])
+        yield "updates", {"tools": {"messages": [tool_message]}}
+        yield "messages", (AIMessageChunk("Up to 68 credits [1]."), {"langgraph_node": "agent"})
+        answer = AIMessage("Up to 68 credits [1].", usage_metadata=usage)
+        yield "updates", {"agent": {"messages": [answer]}}
+
+
+def test_a_saved_example_carries_the_trace_of_its_own_run():
+    example = {"id": "x", "question": "How many credits can I transfer?", "language": "en"}
+    saved, _cited = generate_examples.answer_example(_StreamingGraph(), example)
+
+    assert saved["answer"] == "Up to 68 credits [1]."
+    assert [c["marker"] for c in saved["citations"]] == [1]
+    trace = saved["trace"]
+    assert trace["status"] == "done"
+    assert [s["call_id"] for s in trace["steps"]] == ["call_1"]
+    assert [s["kind"] for s in trace["timeline"]] == ["llm", "tools", "llm"]
+    assert trace["totals"]["llm_calls"] == 2
+    assert trace["totals"]["input_tokens"] == 1800
+    assert trace["totals"]["first_token_ms"] is not None
+    assert "model" in trace

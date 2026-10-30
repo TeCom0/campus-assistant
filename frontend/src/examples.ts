@@ -1,6 +1,6 @@
 import questions from "./exampleQuestions.json";
 import { prefersReducedMotion } from "./theme";
-import type { ChatEvent, Citation } from "./types";
+import type { ChatEvent, Citation, Trace } from "./types";
 
 // The example questions on the empty state (2 English, 2 French). The list is
 // a JSON file because the generator (backend/app/generate_examples.py) reads it too.
@@ -28,6 +28,9 @@ export interface SavedExample {
   tool_calls: { tool: string; label: string }[];
   answer: string;
   citations: Citation[];
+  // The "Under the hood" trace, recorded in the same run as the answer.
+  // Optional: examples saved before the trace existed have none.
+  trace?: Trace;
 }
 
 const saved = import.meta.glob<SavedExample>("./examples/*.json", {
@@ -64,5 +67,6 @@ export async function replayExample(
     }
   }
   onEvent({ type: "citations", citations: example.citations });
+  if (example.trace) onEvent({ type: "trace", ...example.trace });
   onEvent({ type: "done" });
 }

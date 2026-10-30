@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
 
 from app import main
+from app.agent import trace as trace_module
 from app.agent.trace import RunTrace, record_tool_step, trace_steps
 from app.evaluation import generate_faithfulness_answers
 from app.limits import Decision
@@ -181,7 +182,7 @@ def test_answered_question_sends_the_trace_between_citations_and_done(monkeypatc
     assert [name for name, _ in events][-3:] == ["citations", "trace", "done"]
     trace = _trace(events)
     assert trace["status"] == "done"
-    assert trace["model"]["name"] == main.MODEL
+    assert trace["model"]["name"] == trace_module.MODEL
     assert [s["kind"] for s in trace["timeline"]] == ["llm", "tools", "llm"]
     assert trace["totals"]["input_tokens"] == 2100
     [step] = trace["steps"]

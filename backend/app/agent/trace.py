@@ -22,6 +22,11 @@ import time
 from collections.abc import Callable
 from contextvars import ContextVar
 
+from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER
+from app.sources import with_display_info
+
+MODEL = GROQ_MODEL if LLM_PROVIDER == "groq" else GEMINI_MODEL
+
 
 class _Trace:
     __slots__ = ("steps",)
@@ -155,6 +160,22 @@ class RunTrace:
                 "tokens_complete": all(s["input_tokens"] is not None for s in llm_calls),
             },
         }
+
+
+def display_trace(run: RunTrace, status: str) -> dict:
+    """RunTrace.event plus what only the panel needs: the model, and each
+    retrieved passage's title and section path (the same as its source card).
+
+    /chat sends this as its trace event; the example generator saves it with
+    the example, so a replayed example shows the same panel as a live answer.
+    """
+    trace = run.event(status)
+    trace["model"] = {"provider": LLM_PROVIDER, "name": MODEL}
+    trace["steps"] = [
+        {**step, "results": with_display_info(step["results"])} if "results" in step else step
+        for step in trace["steps"]
+    ]
+    return trace
 
 
 # The panel shows the start of each retrieved passage. ~200 characters for up

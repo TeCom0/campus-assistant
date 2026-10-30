@@ -37,6 +37,7 @@ from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
+from app.agent.trace import RunTrace, display_trace, start_trace
 from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
 from app.evaluation.generate_faithfulness_answers import is_per_minute_limit
 from app.sources import with_display_info
@@ -47,14 +48,35 @@ SAVED_DIR = FRONTEND / "examples"
 
 
 def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
-    """(the file to replay, the cited passages with their text, for review)."""
+    """(the file to replay, the cited passages with their text, for review).
+
+    Streams the run the way /chat does, with a trace recorder and a RunTrace,
+    so the saved example carries the same "Under the hood" trace a live
+    answer gets: the same steps, timeline and tokens, recorded in this run.
+    """
     language = detect_language(example["question"])
     reset_citation_counter()
-    result = graph.invoke(
+    start_trace()
+    run = RunTrace()
+    messages = []  # the agent's and the tools' messages, in order
+    for stream_mode, chunk in graph.stream(
         {"messages": build_input_messages(example["question"], None)},
         config={"recursion_limit": MAX_AGENT_STEPS, "configurable": {"language": language}},
-    )
-    messages = result["messages"]
+        stream_mode=["messages", "updates"],
+    ):
+        if stream_mode == "messages":
+            msg_chunk, metadata = chunk
+            if metadata.get("langgraph_node") == "agent" and msg_chunk.content:
+                run.token()
+        elif stream_mode == "updates":
+            for node_name, node_output in chunk.items():
+                new_messages = node_output.get("messages", [])
+                messages.extend(new_messages)
+                if node_name == "agent":
+                    for msg in new_messages:
+                        run.agent_message(msg)
+                elif node_name == "tools":
+                    run.tools_done()
     answer = normalize_brackets(
         "".join(m.content for m in messages if m.type == "ai" and isinstance(m.content, str))
     )
@@ -78,6 +100,7 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
         "citations": [
             {k: v for k, v in c.items() if k != "text"} for c in with_display_info(cited)
         ],
+        "trace": display_trace(run, "fallback" if run.fell_back else "done"),
     }
     return saved, cited
 
