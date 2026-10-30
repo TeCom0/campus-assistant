@@ -39,6 +39,7 @@ from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
 from app.agent.trace import RunTrace, display_trace, start_trace
 from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
+from app.embeddings import embed_query
 from app.evaluation.generate_faithfulness_answers import is_per_minute_limit
 from app.sources import with_display_info
 
@@ -151,7 +152,14 @@ def generate(ids: list[str] | None, out: Path) -> bool:
     graph = build_graph()
     sections = []
     finished = True
-    for example in selected:
+    # The trace is timed, so each run should look like a question to the warm
+    # live server: load the embedding model first (a cold load added ~11 s to
+    # the first search), and let Groq's per-minute token window clear between
+    # examples (back to back, the client waited out 429s inside LLM calls).
+    embed_query("warm-up")
+    for i, example in enumerate(selected):
+        if i > 0:
+            time.sleep(PER_MINUTE_WAIT_SECONDS)
         try:
             saved, cited = answer_with_retries(graph, example)
         except RateLimitError as e:
