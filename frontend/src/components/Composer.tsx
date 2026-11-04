@@ -1,4 +1,5 @@
 import { useRef, type FormEvent, type KeyboardEvent } from "react";
+import { privacyNotice } from "../privacyNotice";
 import { SendIcon } from "./icons";
 
 const MAX_HEIGHT_PX = 160;
@@ -42,6 +43,7 @@ export function Composer({
   }
 
   const canSend = !busy && value.trim().length > 0;
+  const notice = privacyNotice(navigator.language);
   return (
     <div className="composer-dock">
       <form className="composer" onSubmit={submit}>
@@ -64,6 +66,9 @@ export function Composer({
           <SendIcon />
         </button>
       </form>
+      <p className="disclaimer" lang={notice.language}>
+        {notice.text}
+      </p>
       <p className="disclaimer">
         Answers are based on the Academic Catalog 2024–2025. Unofficial student project, not an
         AUI service. Answers can be wrong: check important details with the Registrar.
