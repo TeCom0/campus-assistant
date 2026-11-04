@@ -83,8 +83,9 @@ CI/CD, and evaluation.
 4. Generation: answer only from retrieved passages, cite them as `[N]`, say "I don't know" when
    the passages don't cover it. Citation numbers are per passage, once per request.
 5. API (`backend/app/main.py`): `/chat` (SSE: token, tool_call, citations, done, error),
-   `/health`, `/sources/{source}`. Demo limits (daily cap, per-IP limit) in Postgres
-   (`app/limits.py`).
+   `/health`, `/limits`, `/sources/{source}`. Demo limits (daily cap, per-IP limit) in Postgres
+   (`app/limits.py`). The cap's default is in `app/config.py`, `/limits` serves the value in force
+   to the About page, and tests pin the README and `.env.example` to the default.
 6. Frontend (`frontend/`): streaming chat with citation chips and source cards, example questions
    replayed from saved answers (no API call), dark mode.
 7. Evaluation (`backend/app/evaluation/`, `eval/`): retrieval eval (anchors, Hit@k, MRR) and the
@@ -96,6 +97,9 @@ CI/CD, and evaluation.
 - Only public university documents. No personal student data.
 - Secrets live in `.env` (gitignored); `.env.example` lists the variables.
 - On the server, IP addresses are stored only as an HMAC (`IP_HASH_SECRET`), deleted after 2 days.
+- Logs must hold no question text and no visitor IP: never print queries, messages or exception
+  text in the request path (exception type only). `tests/test_log_privacy.py` enforces it; the
+  README's Data section says what each container logs, so keep the two in step.
 
 ## How to run
 
@@ -116,8 +120,11 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `up -d --build`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-10-30)
+## Current status (2026-11-04)
 
+- Before the university proposal, deployed 2026-11-04: daily cap 35 (100 doesn't fit Groq's
+  200k tokens/day), a personal-information notice under the composer (language = browser's), and
+  logs without question text or visitor IPs (rotation on every container, Caddy log filter).
 - Showcase work (Under the hood panel, About page, first screen) done and deployed (e77a80b,
   2026-10-30). Two examples (ACC 2302, transfer credits) were regenerated with their trace;
   the two French ones keep their 2026-10-19 answers and replay without a panel.

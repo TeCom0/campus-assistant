@@ -494,7 +494,7 @@ backend/
     ingestion/    load -> clean -> chunk -> store; course extraction
     evaluation/   retrieval evaluation runner
     db/           connection helper, schema.sql
-    main.py       FastAPI app: /health, /chat (SSE)
+    main.py       FastAPI app: /health, /limits, /chat (SSE)
   tests/
 frontend/src/     App.tsx (chat UI), chatStream.ts (SSE client), components/ (answer, Under the
                   hood panel, About page, diagrams), examples/ (saved example answers)
@@ -555,8 +555,34 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 
 ## Data
 
-Only public AUI documents are used (listed with URLs in `data/sources.md`); no personal student
-data is stored. To enforce the demo limits, the server records when each question was asked and
-a keyed hash (HMAC-SHA256) of the visitor's IP address, never the address itself; those rows
-are deleted after 2 days. The server doesn't save questions, but each question and the retrieved passages
-are sent to the LLM provider (Groq, or Google for Gemini) to generate the answer.
+The knowledge base is public AUI documents only (listed with URLs in `data/sources.md`).
+
+**In the database.** The catalog passages, courses and prerequisites, plus one table for the demo
+limits, `question_log`: when each question was accepted and a keyed hash (HMAC-SHA256) of the
+visitor's IP address. Those rows are removed by the first question accepted after they turn 2 days
+old, so a row can outlast 2 days on a quiet site. The hash isn't anonymous: whoever holds the
+secret can test whether a given address matches. Questions and answers aren't stored; the
+conversation lives in the browser, which sends the recent messages with each question.
+
+**In the logs.** No question text and no visitor IP address, by design; `backend/tests/test_log_privacy.py`
+checks the code and the deployment files, and the deployed logs were read to confirm it after a
+live question and a provoked proxy error (2026-11-04).
+
+| Container | What it writes |
+| --- | --- |
+| API | Startup messages; one line per request with Caddy's internal address, the method, path and status; on a failure, the exception's type only. |
+| Caddy | Startup and certificate messages. No access log. On a proxy error: host, method, path, TLS details and status, with the client's address and request headers removed by a log filter. |
+| Frontend (nginx) | Startup messages and file-not-found errors with Caddy's internal address and the requested path. No access log. |
+| Postgres | Startup messages. Statement logging is off. |
+
+A path is logged as requested, so anything a client puts in a URL is logged too. The app itself
+sends questions only in the body of a POST request, which is never logged.
+
+**How long logs are kept.** There is no time limit. Each container keeps at most 3 files of 10 MB
+and drops the oldest, and recreating a container (a deploy can) deletes its log. At the demo's
+traffic the size limit may take months to reach.
+
+**Sent to a third party.** Each question, its recent conversation and the retrieved passages go to
+the LLM provider (Groq, or Google for Gemini) to generate the answer, under that provider's terms.
+The server must also read the visitor's IP address in memory to compute the hash. The chat asks
+visitors not to enter personal information.
