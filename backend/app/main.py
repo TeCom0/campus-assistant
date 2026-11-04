@@ -106,7 +106,7 @@ def _trace_event(run: RunTrace, status: str) -> str | None:
     try:
         return _sse("trace", display_trace(run, status))
     except Exception as e:  # noqa: BLE001 -- see the docstring
-        print(f"[chat] could not build the trace: {e!r}")
+        print(f"[chat] could not build the trace: {type(e).__name__}")
         return None
 
 
@@ -198,7 +198,7 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
             # Groq's own limit, hit mid-answer: say so kindly instead of the
             # generic error. "per minute" (tokens/min) clears within a minute;
             # anything else (tokens/day) only tomorrow.
-            print(f"[chat] Groq rate limit: {e!r}")
+            print(f"[chat] Groq rate limit: {type(e).__name__}")
             kind = "busy" if "per minute" in str(e) else "daily_cap"
             limit_event = {
                 "kind": "limit",
@@ -213,9 +213,10 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
 
         except Exception as e:  # noqa: BLE001 -- deliberately broad: any failure
             # mid-stream must still close the SSE stream with an error event,
-            # not a silently dropped connection. Full detail logged server-side
-            # only; the client gets a generic message, not internal exception text.
-            print(f"[chat] error while streaming answer: {e!r}")
+            # not a silently dropped connection. Only the exception's type is
+            # logged: its text can quote the student's question or the model's
+            # output. The client gets a generic message, not internal details.
+            print(f"[chat] error while streaming answer: {type(e).__name__}")
             run.stopped()
             if trace := _trace_event(run, "error"):
                 yield trace

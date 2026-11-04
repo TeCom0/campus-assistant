@@ -1,7 +1,16 @@
+# Every container's log: at most 3 files of 10 MB, then the oldest is dropped.
+# Docker's default keeps everything for as long as the container exists.
+x-logging: &rotated-logs
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    logging: *rotated-logs
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -21,6 +30,7 @@ services:
   api:
     build: ./backend
     restart: unless-stopped
+    logging: *rotated-logs
     # Same .env as local development (DB credentials, LLM keys)...
     env_file: .env
     # ...with these overriding it. Inside the Compose network Postgres is the
@@ -44,6 +54,7 @@ services:
         # not http://api:8000.
         VITE_API_URL: http://127.0.0.1:8000
     restart: unless-stopped
+    logging: *rotated-logs
     ports:
       - "8080:80"
     depends_on:

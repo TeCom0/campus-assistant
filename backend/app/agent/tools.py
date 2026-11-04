@@ -127,7 +127,6 @@ def search_documents(
     # bound to the model marks it required (see graph.MODEL_TOOLS).
     started = time.perf_counter()
     queries = search_queries(query, query_en, state["messages"])
-    print(f"[search_documents] searching: {queries}")
     results = search_hybrid_multi(queries, top_k=5)
 
     parts = []

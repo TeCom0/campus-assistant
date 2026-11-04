@@ -2,6 +2,26 @@
 # outside: it gets and renews the HTTPS certificate for {$DOMAIN} automatically
 # (Let's Encrypt; for DOMAIN=localhost, Caddy's own local CA), and serves the
 # UI and the API on one origin, so the browser needs no CORS.
+
+# Caddy writes no access log here, but an error (e.g. the API is down) logs the
+# whole request. The filter removes what identifies the visitor from every log
+# line. The headers go too: a client's own X-Forwarded-For, X-Real-IP or Referer
+# would otherwise be logged as sent. "remote" is on certificate validation lines.
+{
+	log default {
+		format filter {
+			wrap json
+			fields {
+				remote delete
+				request>remote_ip delete
+				request>remote_port delete
+				request>client_ip delete
+				request>headers delete
+			}
+		}
+	}
+}
+
 {$DOMAIN} {
 	encode zstd gzip
 
