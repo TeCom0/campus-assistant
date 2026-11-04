@@ -21,7 +21,13 @@ from app.agent.history import build_input_messages
 from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
 from app.agent.trace import RunTrace, display_trace, start_trace
-from app.config import CORS_ORIGINS, MAX_AGENT_STEPS
+from app.config import (
+    CORS_ORIGINS,
+    DAILY_QUESTION_CAP,
+    MAX_AGENT_STEPS,
+    PER_IP_LIMIT,
+    PER_IP_WINDOW_MINUTES,
+)
 from app.db.connection import get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.sources import link_target, with_display_info
@@ -63,6 +69,17 @@ def open_source(source_id: str, page: int | None = None) -> RedirectResponse | J
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/limits")
+def demo_limits() -> dict:
+    """The limits in force, so the About page states the server's real values
+    instead of a copy that can drift. Not a question, so not counted."""
+    return {
+        "daily_question_cap": DAILY_QUESTION_CAP,
+        "per_ip_limit": PER_IP_LIMIT,
+        "per_ip_window_minutes": PER_IP_WINDOW_MINUTES,
+    }
 
 
 class HistoryMessage(BaseModel):

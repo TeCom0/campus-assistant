@@ -3,7 +3,7 @@ rate limit, both counted from the question_log table in Postgres.
 
 Postgres, not memory, so the counts survive an API restart or redeploy. The
 check and the insert run in one transaction holding an advisory lock, so two
-simultaneous requests can't both read "29 of 30" and both get in. Refused
+simultaneous requests can't both read "one place left" and both get in. Refused
 questions aren't recorded, so a blocked visitor doesn't extend their own
 window. IPs are stored only as a keyed hash (HMAC-SHA256), and rows older
 than 2 days are deleted on each insert.

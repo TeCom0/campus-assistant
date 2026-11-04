@@ -6,7 +6,9 @@ fixed clock, so real question_log rows are never touched or counted. The
 /chat tests replace the limit check and the agent, so they make no LLM calls.
 """
 
+import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import groq
 import httpx
@@ -15,11 +17,47 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from app import main
+from app.config import DEFAULT_DAILY_QUESTION_CAP
 from app.db.connection import database_reachable, get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip
 
 NOON = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
 WINDOW = timedelta(minutes=10)
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+# --- One value for the daily cap ----------------------------------------------
+
+
+def test_the_limits_endpoint_serves_the_values_in_force(monkeypatch):
+    monkeypatch.setattr(main, "DAILY_QUESTION_CAP", 7)
+    monkeypatch.setattr(main, "PER_IP_LIMIT", 2)
+    monkeypatch.setattr(main, "PER_IP_WINDOW_MINUTES", 15)
+
+    response = TestClient(main.app).get("/limits")  # no startup, no DB
+
+    assert response.json() == {
+        "daily_question_cap": 7,
+        "per_ip_limit": 2,
+        "per_ip_window_minutes": 15,
+    }
+
+
+def test_the_readme_states_the_default_daily_cap():
+    readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    # "(35 questions a day", "accepts 35 a day", "accepts 35 questions a day"; not
+    # "allows ~40 questions a day", which is what the quota fits, not the cap.
+    stated = re.findall(r"(?:\(|accepts )(\d+)(?: questions)? a day", readme)
+    assert len(stated) == 3  # each place the README says it
+    assert set(stated) == {str(DEFAULT_DAILY_QUESTION_CAP)}
+
+
+def test_the_env_example_shows_the_default_daily_cap():
+    example = (REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+    assert f"# DAILY_QUESTION_CAP={DEFAULT_DAILY_QUESTION_CAP} " in example
+
+
+# --- Limits -------------------------------------------------------------------
 
 
 def _request(peer: str, forwarded: str | None = None) -> Request:

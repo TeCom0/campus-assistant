@@ -1,4 +1,5 @@
 import { DEMO_VIDEO_URL, LIMITATIONS, REPO_URL, RESULTS, STACK } from "../about";
+import { limitsSentence, useDemoLimits } from "../demoLimits";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
 import { IntervalChart } from "./IntervalChart";
 import { GitHubIcon } from "./icons";
@@ -7,6 +8,7 @@ import { GitHubIcon } from "./icons";
 // their caveats, its limitations and links. The figures live in about.ts,
 // checked against the README by about.test.ts.
 export function AboutPage() {
+  const limits = useDemoLimits();
   return (
     <article className="about" aria-labelledby="about-title">
       <header className="about-head">
@@ -81,8 +83,8 @@ export function AboutPage() {
           ))}
         </ul>
         <p className="about-note">
-          The live demo answers 30 questions a day in total, and 5 per visitor per 10 minutes. The
-          example questions are answers saved in advance: they answer instantly and don't count.
+          {limitsSentence(limits)} The example questions are answers saved in advance: they answer
+          instantly and don't count.
         </p>
       </section>
     </article>

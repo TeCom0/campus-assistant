@@ -62,8 +62,12 @@ MAX_AGENT_STEPS = 10
 
 # Demo protection (app/limits.py). The public demo shares one Groq free-tier
 # key: 200k tokens/day. Run 3 averaged ~4.8k tokens per question, so ~40
-# questions/day fit; the cap leaves a margin (follow-ups carry history).
-DAILY_QUESTION_CAP = int(os.environ.get("DAILY_QUESTION_CAP", "30"))
+# questions/day fit on average. Resampling run 3, 35 questions pass 200k on 0.7%
+# of days and 40 on 24%; follow-ups carry history, which that doesn't measure.
+# The one default: the API serves the value in use (GET /limits) to the About
+# page, and tests/test_limits.py checks the README and .env.example against it.
+DEFAULT_DAILY_QUESTION_CAP = 35
+DAILY_QUESTION_CAP = int(os.environ.get("DAILY_QUESTION_CAP", DEFAULT_DAILY_QUESTION_CAP))
 # Per client IP: keeps one visitor from using up the day's cap.
 PER_IP_LIMIT = int(os.environ.get("PER_IP_LIMIT", "5"))
 PER_IP_WINDOW_MINUTES = int(os.environ.get("PER_IP_WINDOW_MINUTES", "10"))

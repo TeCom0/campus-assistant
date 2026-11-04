@@ -9,7 +9,7 @@ are the prerequisites for ACC 2302?"* — including the full prerequisite chain.
 
 An unofficial student project, not an official AUI service.
 
-**Live demo:** https://campus-assistant.denmarkeast.cloudapp.azure.com (30 questions a day in
+**Live demo:** https://campus-assistant.denmarkeast.cloudapp.azure.com (35 questions a day in
 total; the example questions answer instantly and don't count).
 **Demo video:** *coming soon.*
 
@@ -140,7 +140,7 @@ flowchart LR
   (last 10 messages, old citation markers stripped), so there is no session store.
 - **The public demo is protected by limits stored in Postgres, not by accounts.** One free-tier
   Groq key allows ~40 questions a day (run 3 averaged ~4.8k tokens per question), so the API
-  accepts 30 a day in total and 5 per IP per 10 minutes, and refuses the rest with HTTP 429 and
+  accepts 35 a day in total and 5 per IP per 10 minutes, and refuses the rest with HTTP 429 and
   a friendly message before any LLM call. The check and the insert share one transaction with an
   advisory lock, so simultaneous requests can't overshoot the cap. Behind the proxy the client
   IP comes from the last `X-Forwarded-For` entry, and only when the proxy is trusted.
@@ -528,7 +528,7 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 - **One catalog edition.** Answers come from the original Academic Catalog 2024–2025; newer
   editions exist (see Future work), so a rule changed since then would be answered as it was.
 - **Small demo limits, no accounts.** The public demo shares one free-tier Groq key, so it
-  accepts 30 questions a day in total and 5 per visitor per 10 minutes (see Design decisions).
+  accepts 35 questions a day in total and 5 per visitor per 10 minutes (see Design decisions).
 
 ## Future work
 
