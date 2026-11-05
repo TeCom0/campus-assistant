@@ -1,0 +1,91 @@
+﻿
+=== vector ===
+id                           lang  rank   hit@3  hit@5 
+transfer_credits_en          en    1      yes    yes   
+transfer_credits_fr          fr    1      yes    yes   
+min_grade_transfer_en        en    1      yes    yes   
+plagiarism_en                en    1      yes    yes   
+plagiarism_fr                fr    1      yes    yes   
+grading_determination_en     en    6      no     no    
+add_drop_en                  en    2      yes    yes   
+add_drop_fr                  fr    -      no     no    
+rhodes_scholarship_en        en    1      yes    yes   
+mccall_macbain_en            en    2      yes    yes   
+scholarship_conditions_en    en    1      yes    yes   
+scholarship_conditions_fr    fr    7      no     no    
+keep_scholarship_en          en    -      no     no    
+keep_scholarship_fr          fr    -      no     no    
+
+Hit Rate@3: 9/14 (64.3%)
+Hit Rate@5: 9/14 (64.3%)
+MRR (top_k=10): 0.594
+
+=== keyword ===
+id                           lang  rank   hit@3  hit@5 
+transfer_credits_en          en    -      no     no    
+transfer_credits_fr          fr    -      no     no    
+min_grade_transfer_en        en    -      no     no    
+plagiarism_en                en    -      no     no    
+plagiarism_fr                fr    -      no     no    
+grading_determination_en     en    1      yes    yes   
+add_drop_en                  en    1      yes    yes   
+add_drop_fr                  fr    -      no     no    
+rhodes_scholarship_en        en    -      no     no    
+mccall_macbain_en            en    -      no     no    
+scholarship_conditions_en    en    -      no     no    
+scholarship_conditions_fr    fr    -      no     no    
+keep_scholarship_en          en    -      no     no    
+keep_scholarship_fr          fr    -      no     no    
+
+Hit Rate@3: 2/14 (14.3%)
+Hit Rate@5: 2/14 (14.3%)
+MRR (top_k=10): 0.143
+
+=== hybrid ===
+id                           lang  rank   hit@3  hit@5 
+transfer_credits_en          en    1      yes    yes   
+transfer_credits_fr          fr    1      yes    yes   
+min_grade_transfer_en        en    5      no     yes   
+plagiarism_en                en    1      yes    yes   
+plagiarism_fr                fr    2      yes    yes   
+grading_determination_en     en    2      yes    yes   
+add_drop_en                  en    1      yes    yes   
+add_drop_fr                  fr    1      yes    yes   
+rhodes_scholarship_en        en    1      yes    yes   
+mccall_macbain_en            en    1      yes    yes   
+scholarship_conditions_en    en    1      yes    yes   
+scholarship_conditions_fr    fr    -      no     no    
+keep_scholarship_en          en    -      no     no    
+keep_scholarship_fr          fr    -      no     no    
+
+Hit Rate@3: 10/14 (71.4%)
+Hit Rate@5: 11/14 (78.6%)
+MRR (top_k=10): 0.657
+
+=== hybrid + English ===
+id                           lang  rank   hit@3  hit@5 
+transfer_credits_en          en    1      yes    yes   
+transfer_credits_fr          fr    1      yes    yes   
+min_grade_transfer_en        en    5      no     yes   
+plagiarism_en                en    1      yes    yes   
+plagiarism_fr                fr    1      yes    yes   
+grading_determination_en     en    2      yes    yes   
+add_drop_en                  en    1      yes    yes   
+add_drop_fr                  fr    1      yes    yes   
+rhodes_scholarship_en        en    1      yes    yes   
+mccall_macbain_en            en    1      yes    yes   
+scholarship_conditions_en    en    1      yes    yes   
+scholarship_conditions_fr    fr    3      yes    yes   
+keep_scholarship_en          en    -      no     no    
+keep_scholarship_fr          fr    -      no     no    
+
+Hit Rate@3: 11/14 (78.6%)
+Hit Rate@5: 12/14 (85.7%)
+MRR (top_k=10): 0.717
+
+=== summary ===
+method             hit@3    hit@5    mrr     hit@3 by language
+vector             64.3   % 64.3   % 0.594   {'en': '7/9', 'fr': '2/5'}
+keyword            14.3   % 14.3   % 0.143   {'en': '2/9', 'fr': '0/5'}
+hybrid             71.4   % 78.6   % 0.657   {'en': '7/9', 'fr': '3/5'}
+hybrid + English   78.6   % 85.7   % 0.717   {'en': '7/9', 'fr': '4/5'}
