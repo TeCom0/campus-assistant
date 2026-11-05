@@ -132,14 +132,15 @@ note(`link: ${await sourceLink.getAttribute("href")} target=${await sourceLink.g
 const [popup] = await Promise.all([context.waitForEvent("page", { timeout: 20000 }), sourceLink.click()]);
 popup.on("download", (d) => note(`tab download: ${d.url().slice(0, 110)}`));
 await popup.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch((e) => note(`tab load: ${e.name}`));
-await popup.waitForTimeout(8000);
+// Waits on the app's own tab: a browser with no PDF viewer can close the new one.
+await page.waitForTimeout(8000);
 for (const hop of sourceHops) note(hop);
-note(`new tab ended at: ${popup.url()}`);
+note(`new tab ended at: ${popup.url()}${popup.isClosed() ? " (the tab closed itself)" : ""}`);
 note(`opener still on the app: ${page.url().startsWith(BASE)}`);
 context.off("response", onSourceResponse);
 context.off("request", onAnyRequest);
 context.off("requestfailed", onAnyFailed);
-await popup.close();
+if (!popup.isClosed()) await popup.close();
 
 // 4. About page (fetches /limits)
 step = "4 about page";
