@@ -152,8 +152,11 @@ known_hosts).
 ## Current status (2026-11-05)
 
 - Tier A1 of `docs/architecture.md` is in progress. A1.1 (no images in answers), A1.2 (browser
-  headers) and A1.3 (request limits) are deployed, and the CSP is enforced. Next is A1.4 alone, with
-  its written rollback plan, then A1.5. `docs/architecture.md` stays uncommitted until A1 is deployed.
+  headers), A1.3 (request limits) and A1.4 (the API connects as `campus_api`, migrations in a one-shot
+  `python -m app.db.migrate`, gate in `app.db.verify_role`, runbook in `deploy/DEPLOY.md`) are deployed,
+  and the CSP is enforced. A1.4 awaits Youness's acceptance; then delete `~/pre-a14.dump` on the VM.
+  Next is A1.5. `docs/architecture.md` stays uncommitted until A1 is deployed. Migrations and ingestion
+  still run as the owner superuser (section 2.3). The composer resize fix (0ae5afe) isn't deployed yet.
 - A1.3 limits: 64 KiB bodies in Caddy and in a pure ASGI middleware (`app/request_limits.py`); question
   1-2,000 characters, at most 20 messages, user 2,000 and assistant 6,000 characters, unknown fields
   refused. A rejected request gets a fixed 413 or 422, isn't counted and logs no body text. The UI has
