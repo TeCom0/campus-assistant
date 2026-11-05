@@ -2,7 +2,7 @@
 no database, no network, so CI checks them on every push.
 
 The policy starts from "nothing allowed" and adds only what the built app uses.
-Report-only for now: browsers log what it would block, and block nothing.
+It is enforced: a Report-Only header would block nothing.
 """
 
 import re
@@ -12,7 +12,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CADDYFILE = (REPO_ROOT / "deploy" / "Caddyfile").read_text(encoding="utf-8")
-CSP_HEADER = "Content-Security-Policy-Report-Only"
+CSP_HEADER = "Content-Security-Policy"
 
 EXPECTED_POLICY = {
     "default-src": ["'none'"],
@@ -43,6 +43,10 @@ def parsed_policy() -> dict[str, list[str]]:
 
 def test_policy_allows_only_what_the_app_uses():
     assert parsed_policy() == EXPECTED_POLICY
+
+
+def test_policy_is_enforced_not_report_only():
+    assert "Report-Only" not in CADDYFILE
 
 
 @pytest.mark.parametrize("weakening", ["'unsafe-inline'", "'unsafe-eval'", "*", "data:", "https:"])

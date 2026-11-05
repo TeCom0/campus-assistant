@@ -27,6 +27,11 @@
 
 	# The API, under /api (the prefix is stripped: the app knows /chat, /sources/...).
 	handle_path /api/* {
+		# First line of defence; the app has the same limit (MAX_BODY_BYTES), for
+		# the paths with no Caddy. KiB, not KB: Caddy reads 64KB as 64,000 bytes.
+		request_body {
+			max_size 64KiB
+		}
 		reverse_proxy api:8000 {
 			# Answers stream as server-sent events: pass each piece on at once.
 			flush_interval -1
@@ -43,9 +48,10 @@
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		# Which sources the page may load: nothing by default, then only what the
-		# built app uses. Report-only: browsers log what it would block and block
-		# nothing, so a mistake here can't break the page before it's checked.
-		Content-Security-Policy-Report-Only "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+		# built app uses. Enforced once report-only showed zero violations (the
+		# rule is in CLAUDE.md). /api/docs loads from a CDN, so it stops working
+		# here until B19 turns it off.
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		Cross-Origin-Opener-Policy "same-origin"
 		-Server
