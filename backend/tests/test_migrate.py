@@ -6,9 +6,13 @@ Everything runs in a rolled-back transaction as the owner, because roles and
 grants are transactional too, so the database's own role keeps its password.
 """
 
+from pathlib import Path
+
 import pytest
+import yaml
 from psycopg.abc import Query
 
+from app import main as main_module
 from app.config import CAMPUS_API_PASSWORD
 from app.db import migrate as migrate_module
 from app.db.connection import database_reachable, get_connection
@@ -92,6 +96,16 @@ def test_the_server_receives_only_a_verifier(conn, monkeypatch):
     ).fetchone()[0]
     assert stored.startswith("SCRAM-SHA-256$")
     assert MARKER_PASSWORD not in stored
+
+
+def test_the_api_doesnt_migrate_at_startup_and_compose_runs_migrate_first():
+    source = Path(main_module.__file__).read_text(encoding="utf-8")
+    assert "init_schema" not in source
+
+    repo_root = Path(__file__).resolve().parents[2]
+    compose = yaml.safe_load((repo_root / "docker-compose.yml").read_text(encoding="utf-8"))
+    waits_for = compose["services"]["api"]["depends_on"]["migrate"]["condition"]
+    assert waits_for == "service_completed_successfully"
 
 
 def test_a_failure_prints_only_the_exception_type(monkeypatch, capfd):

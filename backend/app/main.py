@@ -2,7 +2,6 @@
 
 import json
 import unicodedata
-from contextlib import asynccontextmanager
 from typing import Literal
 
 import groq
@@ -35,25 +34,15 @@ from app.config import (
     PER_IP_LIMIT,
     PER_IP_WINDOW_MINUTES,
 )
-from app.db.connection import get_connection, init_schema
+from app.db.connection import get_connection
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.request_limits import BodySizeLimitMiddleware
 from app.sources import link_target, with_display_info
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    # Idempotent (IF NOT EXISTS throughout): makes sure question_log exists on
-    # a server whose database was loaded before the table was added.
-    conn = get_connection(register_vector_type=False)
-    try:
-        init_schema(conn)
-    finally:
-        conn.close()
-    yield
-
-
-app = FastAPI(title="Campus AI Assistant", lifespan=lifespan)
+# The schema isn't created here: `python -m app.db.migrate` runs first, as the
+# owner, and Compose's `api` waits for it. The API's own role can't run DDL.
+app = FastAPI(title="Campus AI Assistant")
 # The last one added runs first. CORS goes outside the size limit, so a refused
 # request still carries the headers a browser on another origin needs to read it.
 app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_BODY_BYTES)
