@@ -68,6 +68,38 @@ it.each([
   expect(container.textContent).not.toContain("Ask again");
 });
 
+it("grows the composer to fit a question that returns to it", async () => {
+  // jsdom has no layout, so the text's height is stated here.
+  Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
+    configurable: true,
+    get(this: HTMLTextAreaElement) {
+      return this.value ? 96 : 24;
+    },
+  });
+  try {
+    // The refusal arrives after the next frame, as a real one does, so the composer
+    // has already shrunk back to one line when the question returns.
+    let respond: (response: Response) => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>((resolve) => (respond = resolve))),
+    );
+    type(QUESTION);
+    await send();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    });
+    expect(composer().style.height).toBe("24px");
+
+    await act(async () => respond(new Response("", { status: 413 })));
+
+    expect(composer().value).toBe(QUESTION);
+    expect(composer().style.height).toBe("96px");
+  } finally {
+    delete (HTMLTextAreaElement.prototype as unknown as { scrollHeight?: number }).scrollHeight;
+  }
+});
+
 it("doesn't overwrite what was typed while the request was on its way", async () => {
   let respond: (response: Response) => void = () => {};
   vi.stubGlobal(

@@ -1,4 +1,4 @@
-import { useRef, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
 import { limitMessages } from "../limitMessages";
 import { privacyNotice } from "../privacyNotice";
 import { charCount, COUNTER_FROM_CHARS, MAX_QUESTION_CHARS } from "../requestLimits";
@@ -26,19 +26,19 @@ export function Composer({
   const tooLong = count > MAX_QUESTION_CHARS;
   const canSend = !busy && count > 0 && !tooLong;
 
-  // Grows with its text up to MAX_HEIGHT_PX, then scrolls.
-  function resize() {
+  // Grows with its text up to MAX_HEIGHT_PX, then scrolls. On every change of the
+  // value, whoever made it: typing, sending, or a refused question coming back.
+  useEffect(() => {
     const el = textarea.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`;
-  }
+  }, [value]);
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if (!canSend) return;
     onSubmit();
-    requestAnimationFrame(resize);
   }
 
   // Enter sends, Shift+Enter adds a line; not while an IME is composing a word.
@@ -64,10 +64,7 @@ export function Composer({
           value={value}
           placeholder={placeholder}
           aria-invalid={tooLong}
-          onChange={(e) => {
-            onChange(e.target.value);
-            resize();
-          }}
+          onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
         />
         <button type="submit" className="send" disabled={!canSend} aria-label="Send question">
