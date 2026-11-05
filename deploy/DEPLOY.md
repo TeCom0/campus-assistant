@@ -218,6 +218,10 @@ content fingerprints matched the laptop's on 2026-11-05.
     $C up -d --no-deps --no-build --force-recreate api
     docker exec campus-api-1 printenv POSTGRES_USER    # expect the owner's name
 
+Rehearsed on 2026-11-05 on a scratch Compose project restored from the dump: 12 s
+from the first command to `/health` on the laptop. Expect about 30 s on the VM, where
+an API restart took 29 s, plus the copy. If the tag were lost, `$C build api` first.
+
 The previous commit has no `campus_api` override, so its API reads the owner's
 credentials from `.env` by itself. There is no `DATABASE_URL` variable to switch:
 `app/config.py` builds it from the `POSTGRES_*` values. The database doesn't change
