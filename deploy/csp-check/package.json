@@ -1,0 +1,10 @@
+{
+  "name": "csp-check",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Counts CSP violations on the live site. Spends quota, so it is run by hand, not in CI.",
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}
