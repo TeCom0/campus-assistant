@@ -2,6 +2,7 @@ import Markdown from "react-markdown";
 import { firstParagraph, pagesLabel, stepsSummary } from "../answerFormat";
 import { DATA_COUNTS, RESULTS } from "../about";
 import { EXAMPLE_QUESTIONS, savedExample, type ExampleQuestion } from "../examples";
+import { ANSWER_REMARK_PLUGINS } from "../markdownPlugins";
 
 // The proof card quotes this saved example (its first paragraph and its first
 // source), so the excerpt is always a real, reviewed answer, never typed here.
@@ -30,7 +31,7 @@ function ProofCard({ onAsk }: { onAsk: (example: ExampleQuestion) => void }) {
     <figure className="proof">
       <figcaption className="proof-q">{saved.question}</figcaption>
       <blockquote className="proof-a">
-        <Markdown>{firstParagraph(saved.answer)}</Markdown>
+        <Markdown remarkPlugins={ANSWER_REMARK_PLUGINS}>{firstParagraph(saved.answer)}</Markdown>
       </blockquote>
       <div className="proof-src">
         {pagesLabel(source.pages) && <span className="proof-page">{pagesLabel(source.pages)}</span>}

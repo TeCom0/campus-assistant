@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { firstParagraph, pagesLabel, stepsSummary } from "./answerFormat";
 import { EmptyState, PROOF_EXAMPLE_ID } from "./components/EmptyState";
 import { EXAMPLE_QUESTIONS, savedExample } from "./examples";
+import { ANSWER_REMARK_PLUGINS } from "./markdownPlugins";
 
 const html = renderToStaticMarkup(<EmptyState onAsk={() => {}} />);
 
@@ -16,7 +17,9 @@ describe("firstParagraph", () => {
 describe("first screen", () => {
   it("quotes the saved example, not hand-typed text", () => {
     const saved = savedExample(PROOF_EXAMPLE_ID)!;
-    const excerpt = renderToStaticMarkup(<Markdown>{firstParagraph(saved.answer)}</Markdown>);
+    const excerpt = renderToStaticMarkup(
+      <Markdown remarkPlugins={ANSWER_REMARK_PLUGINS}>{firstParagraph(saved.answer)}</Markdown>,
+    );
     expect(html).toContain(excerpt);
     expect(html).toContain(saved.question);
     expect(html).toContain(`<span class="proof-page">${pagesLabel(saved.citations[0].pages)}</span>`);

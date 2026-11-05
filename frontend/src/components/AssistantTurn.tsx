@@ -22,7 +22,10 @@ function sourceId(messageIndex: number, marker: number | string) {
 // citations arrive only once the answer is complete, so while it streams every
 // marker becomes a pending (muted, not clickable) chip. After that, markers
 // with no citation stay plain text, so the model can't link to a source that
-// doesn't exist. Grouped markers ("[2, 4]") stay plain text too, for now.
+// doesn't exist. Grouped markers ("[2, 4]") stay plain text too, for now. The
+// "[1]" of an image ("![1](url)") isn't a marker: rewriting it would leave the
+// image's URL behind as a link. (An offset check, not a regex lookbehind, which
+// older Safari can't parse: the whole app would fail to load.)
 function linkCitationMarkers(
   text: string,
   citations: Citation[],
@@ -30,7 +33,8 @@ function linkCitationMarkers(
   streaming: boolean,
 ) {
   const knownMarkers = new Set(citations.map((c) => c.marker));
-  return text.replace(/\[(\d+)\]/g, (marker, number: string) => {
+  return text.replace(/\[(\d+)\]/g, (marker, number: string, offset: number) => {
+    if (text[offset - 1] === "!") return marker;
     if (knownMarkers.has(Number(number))) return `[${number}](#${sourceId(messageIndex, number)})`;
     return streaming ? `[${number}](#pending-${number})` : marker;
   });
