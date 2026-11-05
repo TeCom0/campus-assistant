@@ -83,7 +83,8 @@ CI/CD, and evaluation.
 4. Generation: answer only from retrieved passages, cite them as `[N]`, say "I don't know" when
    the passages don't cover it. Citation numbers are per passage, once per request.
 5. API (`backend/app/main.py`): `/chat` (SSE: token, tool_call, citations, done, error),
-   `/health`, `/limits`, `/sources/{source}`. Demo limits (daily cap, per-IP limit) in Postgres
+   `/health`, `/limits`, `/sources/{source}`. Request limits (`MAX_*` in `app/config.py`, the same
+   numbers in `frontend/src/requestLimits.ts`, pinned by a test) run before the demo limits. Demo limits (daily cap, per-IP limit) in Postgres
    (`app/limits.py`). The cap's default is in `app/config.py`, `/limits` serves the value in force
    to the About page, and tests pin the README and `.env.example` to the default.
 6. Frontend (`frontend/`): streaming chat with citation chips and source cards, example questions
@@ -126,7 +127,8 @@ these show zero violations in both Chrome and Firefox:
 5. The diagram zoom.
 6. Dark mode.
 
-`/api/docs` is exempt: B19 turns it off.
+`/api/docs` is exempt: B19 turns it off. Met and enforced on 2026-11-05 (`deploy/csp-check`, which
+also covers WebKit and a source link). The enforced run is recorded under "Current status".
 
 ## How to run
 
@@ -147,8 +149,17 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `up -d --build`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-04)
+## Current status (2026-11-05)
 
+- Tier A1 of `docs/architecture.md` is in progress. A1.1 (no images in answers), A1.2 (browser
+  headers) and A1.3 (request limits) are deployed, and the CSP is enforced. Next is A1.4 alone, with
+  its written rollback plan, then A1.5. `docs/architecture.md` stays uncommitted until A1 is deployed.
+- A1.3 limits: 64 KiB bodies in Caddy and in a pure ASGI middleware (`app/request_limits.py`); question
+  1-2,000 characters, at most 20 messages, user 2,000 and assistant 6,000 characters, unknown fields
+  refused. A rejected request gets a fixed 413 or 422, isn't counted and logs no body text. The UI has
+  a counter at the composer, and `historyToSend()` drops whole turns to fit.
+- Enforced CSP measured on 2026-11-05: zero violations in Chrome 156, Playwright's Firefox 157 and
+  WebKit 27.2. Still to do by hand: the real iPhone check in `deploy/DEPLOY.md`'s checklist.
 - Before the university proposal, deployed 2026-11-04: daily cap 35 (100 doesn't fit Groq's
   200k tokens/day), a personal-information notice under the composer (language = browser's), and
   logs without question text or visitor IPs (rotation on every container, Caddy log filter).
