@@ -1,3 +1,4 @@
+import { chatRequestBody } from "./requestLimits";
 import type { ChatEvent, HistoryMessage, LimitKind } from "./types";
 
 export const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
@@ -42,6 +43,11 @@ export class LimitError extends Error {
   }
 }
 
+// The server refused the request itself: 413 (too large, from Caddy or the API)
+// or 422 (not valid). Sending it again would change nothing. Decided by the status
+// alone, because Caddy's 413 has no body.
+export class RejectedError extends Error {}
+
 // POST /chat and call onEvent for each event as it arrives. EventSource can't
 // be used here: it only supports GET, and /chat needs a POST with a JSON body.
 export async function streamChat(
@@ -52,8 +58,11 @@ export async function streamChat(
   const response = await fetch(`${API_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, messages: history }),
+    body: chatRequestBody(question, history),
   });
+  if (response.status === 413 || response.status === 422) {
+    throw new RejectedError(`Chat request refused with HTTP ${response.status}`);
+  }
   if (response.status === 429) {
     const body = await response.json().catch(() => ({}));
     throw new LimitError(

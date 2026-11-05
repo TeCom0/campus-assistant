@@ -8,6 +8,7 @@ No LLM calls and no database: the limit check and the agent are stubs.
 
 import asyncio
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -294,6 +295,21 @@ def test_a_refused_request_can_still_be_read_across_origins(client):
     response = client.post("/chat", content=b"x" * (MAX_BODY_BYTES + 1), headers={"Origin": origin})
     assert response.status_code == 413
     assert response.headers["access-control-allow-origin"] == origin
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("MAX_BODY_BYTES", MAX_BODY_BYTES),
+        ("MAX_QUESTION_CHARS", MAX_QUESTION_CHARS),
+        ("MAX_REQUEST_MESSAGES", MAX_REQUEST_MESSAGES),
+        ("MAX_USER_CONTENT_CHARS", MAX_USER_CONTENT_CHARS),
+        ("MAX_ASSISTANT_CONTENT_CHARS", MAX_ASSISTANT_CONTENT_CHARS),
+    ],
+)
+def test_the_frontend_holds_the_same_limits(name, value):
+    source = Path(__file__).resolve().parents[2] / "frontend" / "src" / "requestLimits.ts"
+    assert f"export const {name} = {value};" in source.read_text(encoding="utf-8")
 
 
 # --- Streaming through the middleware -----------------------------------------

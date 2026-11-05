@@ -22,7 +22,9 @@ export interface AssistantMessage {
   // "limited": the demo's daily cap, the per-IP limit or the LLM provider's
   // limit -- shown as a calm notice, not as a broken answer. Like
   // "interrupted", it isn't sent back as history (only "done" is).
-  status: "streaming" | "done" | "interrupted" | "limited";
+  // "rejected": the server refused the request (413 or 422). Like "interrupted"
+  // but with no "Ask again", since the same request would be refused again.
+  status: "streaming" | "done" | "interrupted" | "limited" | "rejected";
   error?: string;
   errorTitle?: string;
   // Replayed from a saved example answer, not generated live.

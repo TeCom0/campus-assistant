@@ -183,14 +183,14 @@ export function AssistantTurn({
         </div>
       )}
 
-      {message.status === "interrupted" && (
+      {(message.status === "interrupted" || message.status === "rejected") && (
         <div className="state state-error" role="alert">
           <div className="state-head">
             <AlertIcon />
             {message.errorTitle ?? "The answer was cut off"}
           </div>
           <p>{message.error}</p>
-          {isLast && (
+          {isLast && message.status === "interrupted" && (
             <button type="button" className="btn" onClick={onRetry}>
               Ask again
             </button>

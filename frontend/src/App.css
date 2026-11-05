@@ -1523,6 +1523,20 @@ body:has(.zoom-dialog[open]) {
   cursor: default;
 }
 
+.composer-count {
+  max-width: 760px;
+  margin: 6px auto 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  text-align: right;
+}
+
+.composer-count.over {
+  color: var(--error-ink);
+  font-weight: 600;
+}
+
 .disclaimer {
   max-width: 760px;
   margin: 6px auto 0;

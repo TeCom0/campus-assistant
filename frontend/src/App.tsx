@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import "./App.css";
-import { LimitError, streamChat } from "./chatStream";
+import { LimitError, RejectedError, streamChat } from "./chatStream";
 import { AssistantTurn } from "./components/AssistantTurn";
 import { Composer } from "./components/Composer";
 import { EmptyState } from "./components/EmptyState";
 import { TopBar } from "./components/TopBar";
 import { AboutPage } from "./components/AboutPage";
 import { replayExample, savedExample, type ExampleQuestion } from "./examples";
+import { limitMessages } from "./limitMessages";
 import type { AssistantMessage, Message } from "./messages";
+import { historyToSend } from "./requestLimits";
 import { useTheme } from "./theme";
 import type { ChatEvent, HistoryMessage } from "./types";
 import { useView } from "./view";
@@ -88,10 +90,11 @@ export default function App() {
   async function ask(text: string, historyFrom: Message[], exampleId?: string) {
     // Prior turns sent as history. Interrupted and limited answers are left
     // out: they are partial or empty and would mislead the model.
-    const history: HistoryMessage[] = historyFrom.flatMap((m): HistoryMessage[] => {
+    const priorTurns: HistoryMessage[] = historyFrom.flatMap((m): HistoryMessage[] => {
       if (m.role === "user") return [{ role: "user", content: m.text }];
       return m.status === "done" && m.text ? [{ role: "assistant", content: m.text }] : [];
     });
+    const history = historyToSend(text, priorTurns);
     const saved = exampleId ? savedExample(exampleId) : undefined;
 
     stickToBottom.current = true;
@@ -114,6 +117,17 @@ export default function App() {
       finished = true;
       if (err instanceof LimitError) {
         updateLastAssistant((m) => ({ ...m, status: "limited", error: err.message, errorTitle: err.title }));
+      } else if (err instanceof RejectedError) {
+        const refused = limitMessages(navigator.language);
+        // Back in the composer, since the message asks to edit it. Unless something
+        // new was typed meanwhile: that must not be overwritten.
+        setQuestion((current) => current || text);
+        updateLastAssistant((m) => ({
+          ...m,
+          status: "rejected",
+          error: refused.rejectedMessage,
+          errorTitle: refused.rejectedTitle,
+        }));
       } else {
         updateLastAssistant((m) => ({ ...m, status: "interrupted", error: CONNECTION_LOST }));
       }

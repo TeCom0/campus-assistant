@@ -9,9 +9,13 @@ const NOTICES: Record<NoticeLanguage, string> = {
   fr: "N'indiquez pas d'informations personnelles (noms, numéros d'étudiant, notes) : les questions sont traitées par un fournisseur d'IA tiers.",
 };
 
+// The part before the "-": "fr", "fr-MA", "FR-ca" are French, "fry" (Frisian)
+// isn't. Anything else gets the English text.
+export function noticeLanguage(browserLanguage: string): NoticeLanguage {
+  return browserLanguage.toLowerCase().split("-")[0] === "fr" ? "fr" : "en";
+}
+
 export function privacyNotice(browserLanguage: string): { language: NoticeLanguage; text: string } {
-  // The part before the "-": "fr", "fr-MA", "FR-ca" are French, "fry" (Frisian)
-  // isn't. Anything else gets the English text.
-  const language: NoticeLanguage = browserLanguage.toLowerCase().split("-")[0] === "fr" ? "fr" : "en";
+  const language = noticeLanguage(browserLanguage);
   return { language, text: NOTICES[language] };
 }
