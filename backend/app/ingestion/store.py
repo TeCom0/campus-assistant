@@ -6,7 +6,7 @@ from pathlib import Path
 from pgvector import Vector
 
 from app.config import EMBEDDING_MODEL_NAME
-from app.db.connection import get_connection, init_schema
+from app.db.connection import get_owner_connection, init_schema
 from app.embeddings import embed_passages
 
 CHUNKS_PATH = Path(__file__).resolve().parents[3] / "data" / "processed" / "chunks.jsonl"
@@ -112,7 +112,7 @@ def _embed_all(chunks: list[dict]) -> list:
 
 
 def store_chunks(chunks: list[dict], replace: bool = False) -> None:
-    conn = get_connection(register_vector_type=False)
+    conn = get_owner_connection()
     init_schema(conn)
 
     if replace:
@@ -159,7 +159,7 @@ if __name__ == "__main__":
     all_chunks = load_chunks()
     print(f"loaded {len(all_chunks)} chunks from {CHUNKS_PATH}")
     if args.sections_only:
-        connection = get_connection(register_vector_type=False)
+        connection = get_owner_connection()
         init_schema(connection)
         print(f"updated sections of {update_sections(connection, all_chunks)} chunks")
         connection.close()

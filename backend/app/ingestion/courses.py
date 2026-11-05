@@ -18,7 +18,7 @@ large majority with a simple, explicit pattern.
 import re
 from pathlib import Path
 
-from app.db.connection import get_connection, init_schema
+from app.db.connection import get_owner_connection, init_schema
 
 CATALOG_PATH = (
     Path(__file__).resolve().parents[3] / "data" / "processed" / "academic_catalog_2024_2025.txt"
@@ -124,7 +124,7 @@ def seed_courses() -> None:
     courses = extract_courses()
     edges = extract_prerequisite_edges(courses)
 
-    conn = get_connection(register_vector_type=False)
+    conn = get_owner_connection()
     init_schema(conn)
     with conn.cursor() as cur:
         cur.executemany(COURSE_UPSERT_SQL, list(courses.values()))

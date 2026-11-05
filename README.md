@@ -495,7 +495,7 @@ backend/
     retrieval/    vector, keyword and hybrid search
     ingestion/    load -> clean -> chunk -> store; course extraction
     evaluation/   retrieval evaluation runner
-    db/           connection helper, schema.sql
+    db/           connections, schema.sql, roles.sql, migrate and verify_role commands
     main.py       FastAPI app: /health, /limits, /chat (SSE)
   tests/
 frontend/src/     App.tsx (chat UI), chatStream.ts (SSE client), components/ (answer, Under the

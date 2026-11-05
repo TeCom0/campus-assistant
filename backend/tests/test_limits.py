@@ -18,7 +18,7 @@ from starlette.requests import Request
 
 from app import main
 from app.config import DEFAULT_DAILY_QUESTION_CAP
-from app.db.connection import database_reachable, get_connection, init_schema
+from app.db.connection import database_reachable, get_connection
 from app.limits import Decision, check_and_record, client_ip, hash_ip
 
 NOON = datetime(2026, 10, 20, 12, 0, tzinfo=UTC)
@@ -86,7 +86,6 @@ needs_db = pytest.mark.skipif(not database_reachable(), reason="Postgres not rea
 def conn():
     connection = get_connection()
     with connection.transaction(force_rollback=True):
-        init_schema(connection)
         connection.execute("DELETE FROM question_log")  # undone by the rollback
         yield connection
     connection.close()

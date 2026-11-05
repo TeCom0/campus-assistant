@@ -17,21 +17,30 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-small"
 EMBEDDING_DIM = 384
 
-POSTGRES_USER = os.environ["POSTGRES_USER"]
-POSTGRES_PASSWORD = os.environ["POSTGRES_PASSWORD"]
 POSTGRES_DB = os.environ["POSTGRES_DB"]
 POSTGRES_PORT = os.environ["POSTGRES_PORT"]
 POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
 
+# What the running app connects as: its own least-privilege role (app/db/roles.sql),
+# whose password app/db/migrate.py sets from this.
+CAMPUS_API_USER = "campus_api"
+CAMPUS_API_PASSWORD = os.environ["CAMPUS_API_PASSWORD"]
 DATABASE_URL = (
-    f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
+    f"postgresql://{CAMPUS_API_USER}:{CAMPUS_API_PASSWORD}"
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
-# The API's own least-privilege role (app/db/roles.sql); app/db/migrate.py sets
-# its password from this.
-CAMPUS_API_USER = "campus_api"
-CAMPUS_API_PASSWORD = os.environ.get("CAMPUS_API_PASSWORD", "")
+
+def owner_database_url() -> str:
+    """The database owner's connection, for migrations and ingestion. Read only when
+    asked for: the API container has these blanked (docker-compose.yml), so nothing
+    running there can reach the owner's credentials."""
+    user = os.environ.get("POSTGRES_USER")
+    password = os.environ.get("POSTGRES_PASSWORD")
+    if not user or not password:
+        raise RuntimeError("the owner's database credentials aren't available here")
+    return f"postgresql://{user}:{password}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
 
 # LLM provider, switchable through this one value ("groq" or "gemini") --
 # see app/llm.py. Keys use .get() with an empty-string default, not

@@ -9,7 +9,7 @@ import pytest
 from app.agent.citations import reset_citation_counter
 from app.agent.tools import _prerequisite_chain, query_courses
 from app.agent.trace import start_trace, trace_steps
-from app.db.connection import database_reachable, get_connection
+from app.db.connection import database_reachable, get_owner_connection
 
 pytestmark = pytest.mark.skipif(not database_reachable(), reason="Postgres not reachable")
 
@@ -96,7 +96,8 @@ def test_each_course_is_listed_once():
 
 
 def test_cycle_in_the_data_does_not_loop():
-    conn = get_connection()
+    # The owner: it inserts fake courses, which the API's role can't.
+    conn = get_owner_connection()
     # force_rollback: the fake courses and the cycle never reach the real data.
     with conn.transaction(force_rollback=True):
         for code in ("ZZZ 1001", "ZZZ 1002", "ZZZ 1003"):

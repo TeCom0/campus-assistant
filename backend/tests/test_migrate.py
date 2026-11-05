@@ -15,7 +15,7 @@ from psycopg.abc import Query
 from app import main as main_module
 from app.config import CAMPUS_API_PASSWORD
 from app.db import migrate as migrate_module
-from app.db.connection import database_reachable, get_connection
+from app.db.connection import database_reachable, get_owner_connection
 from app.db.migrate import main, migrate, set_api_password
 
 MARKER_PASSWORD = "SECRETMARKER-not-a-real-password"
@@ -33,7 +33,7 @@ needs_db = pytest.mark.skipif(not database_reachable(), reason="Postgres not rea
 
 @pytest.fixture
 def conn():
-    connection = get_connection(register_vector_type=False)
+    connection = get_owner_connection()
     with connection.transaction(force_rollback=True):
         yield connection
     connection.close()
@@ -77,6 +77,19 @@ def test_it_restores_the_attributes_of_a_role_someone_changed(conn):
 
 
 @needs_db
+def test_it_removes_a_grant_someone_added(conn):
+    migrate(conn, MARKER_PASSWORD)
+    conn.execute("GRANT UPDATE ON document_chunks TO campus_api")
+    conn.execute("GRANT USAGE ON SEQUENCE document_chunks_id_seq TO campus_api")
+    migrate(conn, MARKER_PASSWORD)
+    assert _grants(conn) == EXPECTED_GRANTS
+    extra = conn.execute(
+        "SELECT has_sequence_privilege('campus_api', 'document_chunks_id_seq', 'USAGE')"
+    ).fetchone()
+    assert extra == (False,)
+
+
+@needs_db
 def test_the_server_receives_only_a_verifier(conn, monkeypatch):
     migrate(conn, "first")
     sent = []
@@ -113,7 +126,7 @@ def test_a_failure_prints_only_the_exception_type(monkeypatch, capfd):
         raise ValueError(f"something quoting {MARKER_PASSWORD}")
 
     monkeypatch.setattr(migrate_module, "CAMPUS_API_PASSWORD", MARKER_PASSWORD)
-    monkeypatch.setattr(migrate_module, "get_connection", failing)
+    monkeypatch.setattr(migrate_module, "get_owner_connection", failing)
 
     assert main() == 1
     out, err = capfd.readouterr()
@@ -124,7 +137,7 @@ def test_a_failure_prints_only_the_exception_type(monkeypatch, capfd):
 def test_a_missing_password_stops_it(monkeypatch, capfd):
     called = []
     monkeypatch.setattr(migrate_module, "CAMPUS_API_PASSWORD", "")
-    monkeypatch.setattr(migrate_module, "get_connection", lambda **kwargs: called.append(1))
+    monkeypatch.setattr(migrate_module, "get_owner_connection", lambda: called.append(1))
 
     assert main() == 1
     assert not called
@@ -134,8 +147,6 @@ def test_a_missing_password_stops_it(monkeypatch, capfd):
 @needs_db
 def test_success_prints_no_password(monkeypatch, capfd):
     # main() opens its own connection and commits, so it uses the real password.
-    if not CAMPUS_API_PASSWORD:
-        pytest.skip("CAMPUS_API_PASSWORD is not set")
     assert main() == 0
     out, err = capfd.readouterr()
     assert "up to date" in out

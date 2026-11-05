@@ -1,11 +1,11 @@
-"""Postgres connection helper, shared by ingestion (writes) and retrieval (reads)."""
+"""Postgres connections: the API's own role by default, the owner only when asked."""
 
 from pathlib import Path
 
 import psycopg
 from pgvector.psycopg import register_vector
 
-from app.config import DATABASE_URL, EMBEDDING_DIM
+from app.config import DATABASE_URL, EMBEDDING_DIM, owner_database_url
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 
@@ -20,10 +20,20 @@ CONNECT_TIMEOUT_SECONDS = 10
 def get_connection(
     *, register_vector_type: bool = True, connect_timeout: int = CONNECT_TIMEOUT_SECONDS
 ) -> psycopg.Connection:
-    # register_vector fails if the vector extension doesn't exist yet, as on a
-    # fresh database (e.g. in CI). Setup scripts pass False, then init_schema
-    # creates the extension and registers the type.
+    # register_vector fails if the vector extension doesn't exist yet. migrate
+    # creates it, before anything connects as this role.
     conn = psycopg.connect(DATABASE_URL, autocommit=True, connect_timeout=connect_timeout)
+    if register_vector_type:
+        register_vector(conn)
+    return conn
+
+
+def get_owner_connection(*, register_vector_type: bool = False) -> psycopg.Connection:
+    """For what the API's role may not do: migrations and ingestion. Setup scripts
+    run before the vector extension exists, hence no type registered by default."""
+    conn = psycopg.connect(
+        owner_database_url(), autocommit=True, connect_timeout=CONNECT_TIMEOUT_SECONDS
+    )
     if register_vector_type:
         register_vector(conn)
     return conn

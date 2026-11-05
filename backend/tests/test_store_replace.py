@@ -10,7 +10,7 @@ import psycopg
 import pytest
 
 from app.config import EMBEDDING_DIM
-from app.db.connection import database_reachable, get_connection, init_schema
+from app.db.connection import database_reachable, get_owner_connection, init_schema
 from app.ingestion.store import UPSERT_SQL, chunk_row, replace_rows, update_sections
 
 MODEL = "test-replace-model"
@@ -38,7 +38,7 @@ def _texts(conn, model: str) -> list[str]:
 
 @pytest.fixture
 def conn():
-    connection = get_connection()
+    connection = get_owner_connection()
     with connection.transaction(force_rollback=True):
         init_schema(connection)
         with connection.cursor() as cur:

@@ -32,6 +32,13 @@ $$;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO campus_api;
 
+-- From nothing every time, so the rights end up exactly as written here, even if
+-- someone added one by hand or a later version of this file drops one. This whole
+-- file runs as one statement batch, in one implicit transaction, so the API never
+-- sees the moment between the revoke and the grants.
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM campus_api;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM campus_api;
+
 GRANT SELECT ON document_chunks, courses, course_prerequisites TO campus_api;
 GRANT SELECT, INSERT, DELETE ON question_log TO campus_api;
 GRANT USAGE ON SEQUENCE question_log_id_seq TO campus_api;

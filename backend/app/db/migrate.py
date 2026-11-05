@@ -13,7 +13,7 @@ import psycopg
 from psycopg import sql
 
 from app.config import CAMPUS_API_PASSWORD, CAMPUS_API_USER
-from app.db.connection import get_connection, init_schema
+from app.db.connection import get_owner_connection, init_schema
 
 ROLES_PATH = Path(__file__).resolve().parent / "roles.sql"
 
@@ -43,7 +43,7 @@ def main() -> int:
         print("[migrate] CAMPUS_API_PASSWORD is not set")
         return 1
     try:
-        conn = get_connection(register_vector_type=False)
+        conn = get_owner_connection()
         try:
             migrate(conn, CAMPUS_API_PASSWORD)
         finally:

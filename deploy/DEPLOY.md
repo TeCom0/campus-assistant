@@ -74,6 +74,7 @@ create it with new database credentials and the app's settings:
     POSTGRES_PASSWORD=$(openssl rand -hex 24)
     POSTGRES_DB=campus_assistant
     POSTGRES_PORT=5432
+    CAMPUS_API_PASSWORD=$(openssl rand -hex 24)
     LLM_PROVIDER=groq
     DOMAIN=<domain>
     IP_HASH_SECRET=$(openssl rand -hex 32)

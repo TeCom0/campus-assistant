@@ -54,6 +54,10 @@ services:
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
+      # The API connects as campus_api. Blanked because env_file passes all of
+      # .env in: the owner's credentials have no business in this container.
+      POSTGRES_USER: ""
+      POSTGRES_PASSWORD: ""
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
     ports:
       - "8000:8000"
