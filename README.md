@@ -529,6 +529,8 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
   editions exist (see Future work), so a rule changed since then would be answered as it was.
 - **Small demo limits, no accounts.** The public demo shares one free-tier Groq key, so it
   accepts 35 questions a day in total and 5 per visitor per 10 minutes (see Design decisions).
+  A question can be at most 2,000 characters; a request over the limits is refused before the
+  demo limits are checked, so it isn't counted toward them.
 
 ## Future work
 
