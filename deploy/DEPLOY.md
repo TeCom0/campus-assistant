@@ -202,6 +202,13 @@ content fingerprints matched the laptop's on 2026-11-05.
        $C run --rm --no-deps api python -m app.db.verify_role
 
    Count `question_log` before and after `verify_role`: the two must be equal.
+
+   Run these by hand or from a file on the VM, with `-T` and `</dev/null` on
+   `run`. Don't pipe a script through `ssh ... bash -s`: on 2026-11-05 the script
+   stopped silently after the first `run`, exit 0, with the gate never run. So look
+   for verify_role's `ok:` line, not the exit code. If this step has to be repeated,
+   **don't repeat step 2**: `latest` is the new build by then, and tagging it again
+   would overwrite the rollback image.
 5. **Switch:** `$C up -d --no-deps api`. Nothing else restarts.
 6. **Check the rule above:** `question_log` count, one live question, the count
    again, and the API log.
