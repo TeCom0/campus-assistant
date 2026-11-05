@@ -440,6 +440,8 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 
+python -m app.db.migrate          # the schema and the API's database role
+
 python -m app.ingestion.load      # download the documents (list mirrors data/sources.md)
 python -m app.ingestion.clean     # PDF/HTML -> text
 python -m app.ingestion.chunk     # text -> chunks

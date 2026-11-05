@@ -28,6 +28,11 @@ DATABASE_URL = (
     f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 )
 
+# The API's own least-privilege role (app/db/roles.sql); app/db/migrate.py sets
+# its password from this.
+CAMPUS_API_USER = "campus_api"
+CAMPUS_API_PASSWORD = os.environ.get("CAMPUS_API_PASSWORD", "")
+
 # LLM provider, switchable through this one value ("groq" or "gemini") --
 # see app/llm.py. Keys use .get() with an empty-string default, not
 # os.environ[...], so importing this module doesn't fail before a key has

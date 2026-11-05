@@ -27,6 +27,21 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot, run by the owner role: the schema and the API's role. `up` runs it
+  # and it exits; on a deploy it runs on its own, before the API restarts.
+  migrate:
+    build: ./backend
+    restart: "no"
+    logging: *rotated-logs
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    command: ["python", "-m", "app.db.migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+
   api:
     build: ./backend
     restart: unless-stopped

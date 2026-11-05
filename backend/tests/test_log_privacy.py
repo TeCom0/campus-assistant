@@ -216,6 +216,7 @@ def _services(filename: str) -> dict:
     ("filename", "service"),
     [
         ("docker-compose.yml", "db"),
+        ("docker-compose.yml", "migrate"),
         ("docker-compose.yml", "api"),
         ("docker-compose.yml", "frontend"),
         ("docker-compose.prod.yml", "caddy"),
@@ -230,7 +231,7 @@ def test_every_container_rotates_its_log(filename, service):
 
 def test_compose_files_define_no_other_container():
     services = set(_services("docker-compose.yml")) | set(_services("docker-compose.prod.yml"))
-    assert services == {"db", "api", "frontend", "caddy"}
+    assert services == {"db", "migrate", "api", "frontend", "caddy"}
 
 
 @pytest.mark.parametrize(

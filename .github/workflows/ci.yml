@@ -57,6 +57,7 @@ jobs:
       POSTGRES_DB: campus_assistant
       POSTGRES_HOST: localhost
       POSTGRES_PORT: "5432"
+      CAMPUS_API_PASSWORD: ci-only-api-password
     defaults:
       run:
         working-directory: backend
@@ -80,6 +81,9 @@ jobs:
 
       # Also proves the database is reachable: if it isn't, this step fails,
       # instead of the DB tests silently skipping and the job passing.
+      - name: Run migrations
+        run: python -m app.db.migrate
+
       - name: Seed courses
         run: python -m app.ingestion.courses
 
