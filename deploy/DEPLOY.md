@@ -144,6 +144,93 @@ often get a new one) and update the rule:
    Playwright's WebKit on Windows is not iOS Safari, and it doesn't display the
    PDF a source link opens.
 
+## A1.4: the API's own database role (`campus_api`)
+
+Written and agreed on 2026-11-05, before any of its code. `C` below stands for
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml`. Never `down`,
+never `-v`, on this project: nothing here touches the volumes.
+
+### Rule, fixed before the numbers
+
+Before the API restarts, any failure means **stop**. The API hasn't been touched,
+so there is nothing to roll back:
+
+- the backup's checksum, row counts or test restore don't match;
+- the retrieval eval, run **on the laptop** as `campus_api`, differs from
+  `eval/results/retrieval/2026-11-05_a0_baseline.txt` (ranks identical expected);
+- `migrate` or `verify_role` fails, or `question_log`'s count differs before and
+  after `verify_role`.
+
+After the API restarts, **roll back** on any one of these:
+
+1. the live question isn't answered;
+2. any permission error in the API log;
+3. `question_log` doesn't go up by exactly 1.
+
+The eval doesn't run on the VM: it would load a second copy of the embedding model
+next to Postgres on 4 GB of RAM with no swap, which risks the OOM killer. Production's
+content fingerprints matched the laptop's on 2026-11-05.
+
+### Steps
+
+1. **Backup.** Content only: `question_log` rows hold IP hashes the README promises
+   to remove after about 2 days, and losing them only resets the limit counters.
+
+       docker exec campus-db-1 sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc --exclude-table-data=question_log -f /tmp/pre-a14.dump'
+       docker cp campus-db-1:/tmp/pre-a14.dump ~/pre-a14.dump
+       docker exec campus-db-1 rm /tmp/pre-a14.dump
+
+   Copy it to the laptop, compare `sha256sum`, and restore it into a throwaway
+   container to compare row counts. Delete `~/pre-a14.dump` on the VM only once
+   A1.4 is accepted.
+2. **Keep the running image, for the rollback:**
+
+       docker tag campus-api:latest campus-api:pre-a14
+
+3. **Copy the commit** as in step 4 above, then add the password on the VM. It's
+   written only to `.env` and never printed. Don't run `docker compose config`,
+   which prints values.
+
+       cd ~/campus; umask 077
+       grep -q '^CAMPUS_API_PASSWORD=' .env || printf 'CAMPUS_API_PASSWORD=%s\n' "$(openssl rand -hex 24)" >> .env
+
+4. **Build, migrate, and pass the gate,** all with the old API still serving:
+
+       $C build api migrate
+       $C run --rm migrate
+       $C run --rm --no-deps api python -m app.db.verify_role
+
+   Count `question_log` before and after `verify_role`: the two must be equal.
+5. **Switch:** `$C up -d --no-deps api`. Nothing else restarts.
+6. **Check the rule above:** `question_log` count, one live question, the count
+   again, and the API log.
+
+### Rollback
+
+`<prev>` is the last commit before A1.4's code: `da982cf`.
+
+    # Laptop
+    git archive --format=tar <prev> | ssh <vm> "tar -x -C ~/campus"
+    # VM
+    cd ~/campus
+    docker tag campus-api:pre-a14 campus-api:latest
+    $C up -d --no-deps --no-build --force-recreate api
+    docker exec campus-api-1 printenv POSTGRES_USER    # expect the owner's name
+
+The previous commit has no `campus_api` override, so its API reads the owner's
+credentials from `.env` by itself. There is no `DATABASE_URL` variable to switch:
+`app/config.py` builds it from the `POSTGRES_*` values. The database doesn't change
+and `.env` keeps an unused variable.
+
+**What stays behind:** the `campus_api` role, its grants, and the rights revoked
+from `PUBLIC`. It's harmless: the database port isn't published in production, the
+role is unused and can do only what it was granted, and the owner is a superuser,
+so the revokes don't affect it. To remove it if A1.4 is abandoned:
+`DROP OWNED BY campus_api; DROP ROLE campus_api;`
+
+The dump is needed only if data were actually lost, and no A1.4 statement drops or
+rewrites data.
+
 ## Deployed (2026-10-20)
 
 Azure for Students, Denmark East, Standard_B2s, at
