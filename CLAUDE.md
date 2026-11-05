@@ -113,6 +113,21 @@ numbers. Students use the assistant only if run 4 meets all of these:
 4. Zero answers without a search call and citations, other than greetings or questions about the
    assistant, reach the student across the off-topic and injection set.
 
+## CSP enforcement rule
+
+Agreed 2026-11-05, before the report-only policy went live and before looking at the live console,
+following the same rule. The Content Security Policy is enforced (with the A1.3 deploy) once all of
+these show zero violations in both Chrome and Firefox:
+
+1. The first screen.
+2. An example replay.
+3. One live question (the only path that exercises `connect-src` via `/chat`).
+4. The About page (fetches `/limits`).
+5. The diagram zoom.
+6. Dark mode.
+
+`/api/docs` is exempt: B19 turns it off.
+
 ## How to run
 
 Full setup from a fresh clone is in the README ("Running it"). Day to day:
