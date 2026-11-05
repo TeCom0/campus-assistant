@@ -131,6 +131,19 @@ often get a new one) and update the rule:
 
     az network nsg rule update -g campus-assistant-rg --nsg-name campus-nsg -n allow-ssh-from-me --source-address-prefixes <new IP>/32
 
+## Post-deploy checklist: CSP enforced + A1.3
+
+1. CSP check in Chrome, Firefox and Playwright's WebKit: zero violations on the
+   paths in `CLAUDE.md` ("CSP enforcement rule") plus a source link, and the
+   deliberate control still fires. Screenshots only in a separate pass after
+   counting: in WebKit, `page.screenshot()` itself fires a violation, whatever
+   its `caret` setting. Each browser spends one live question.
+2. With curl: 413 for an oversized body, 422 for a 2,001-character question,
+   422 for 21 messages. None of them counts toward the demo limits.
+3. By hand on a real iPhone: the first screen, an example replay, a source link.
+   Playwright's WebKit on Windows is not iOS Safari, and it doesn't display the
+   PDF a source link opens.
+
 ## Deployed (2026-10-20)
 
 Azure for Students, Denmark East, Standard_B2s, at
