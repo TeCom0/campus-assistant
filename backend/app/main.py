@@ -39,7 +39,6 @@ from app.limits import Decision, check_and_record, client_ip, hash_ip, message, 
 from app.request_limits import BodySizeLimitMiddleware
 from app.sources import link_target, with_display_info
 
-
 # The schema isn't created here: `python -m app.db.migrate` runs first, as the
 # owner, and Compose's `api` waits for it. The API's own role can't run DDL.
 app = FastAPI(title="Campus AI Assistant")
