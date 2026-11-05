@@ -133,7 +133,7 @@ often get a new one) and update the rule:
 
 ## Post-deploy checklist: CSP enforced + A1.3
 
-1. CSP check in Chrome, Firefox and Playwright's WebKit: zero violations on the
+1. CSP check (`deploy/csp-check`) in Chrome, Firefox and Playwright's WebKit: zero violations on the
    paths in `CLAUDE.md` ("CSP enforcement rule") plus a source link, and the
    deliberate control still fires. Screenshots only in a separate pass after
    counting: in WebKit, `page.screenshot()` itself fires a violation, whatever
