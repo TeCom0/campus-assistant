@@ -50,6 +50,18 @@ GEMINI_MODEL = "gemini-3.5-flash"
 # token limits are tight and history grows every turn.
 MAX_HISTORY_MESSAGES = 10
 
+# What a /chat request may hold (docs/architecture.md, section 2.1). These cap
+# the tokens one request can cost. Longer is refused, never silently cut.
+# The longest test question is 115 characters, the longest answer in 3 runs 2,827.
+# frontend/src/requestLimits.ts holds the same numbers, for what the UI sends.
+MAX_BODY_BYTES = 64 * 1024  # the same limit as request_body in deploy/Caddyfile
+MAX_QUESTION_CHARS = 2000
+# More than MAX_HISTORY_MESSAGES, which is what the agent sees: the server drops
+# fallback answers before applying that cap, so it needs some to spare.
+MAX_REQUEST_MESSAGES = 20
+MAX_USER_CONTENT_CHARS = 2000
+MAX_ASSISTANT_CONTENT_CHARS = 6000
+
 # Tool rounds (agent turns that call tools) allowed per question. Once used up,
 # the agent must answer with what it has -- enforced in code (app/agent/graph.py),
 # since the prompt's "at most two searches" rule alone was ignored in testing.

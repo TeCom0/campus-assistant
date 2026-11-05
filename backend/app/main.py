@@ -1,14 +1,16 @@
 """FastAPI application entrypoint."""
 
 import json
+import unicodedata
 from contextlib import asynccontextmanager
 from typing import Literal
 
 import groq
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.agent.citations import (
     keep_cited,
@@ -25,11 +27,17 @@ from app.config import (
     CORS_ORIGINS,
     DAILY_QUESTION_CAP,
     MAX_AGENT_STEPS,
+    MAX_ASSISTANT_CONTENT_CHARS,
+    MAX_BODY_BYTES,
+    MAX_QUESTION_CHARS,
+    MAX_REQUEST_MESSAGES,
+    MAX_USER_CONTENT_CHARS,
     PER_IP_LIMIT,
     PER_IP_WINDOW_MINUTES,
 )
 from app.db.connection import get_connection, init_schema
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
+from app.request_limits import BodySizeLimitMiddleware
 from app.sources import link_target, with_display_info
 
 
@@ -46,6 +54,9 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Campus AI Assistant", lifespan=lifespan)
+# The last one added runs first. CORS goes outside the size limit, so a refused
+# request still carries the headers a browser on another origin needs to read it.
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_BODY_BYTES)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -53,6 +64,17 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 _compiled_graph = build_graph()
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(_request: Request, _error: RequestValidationError) -> JSONResponse:
+    """A fixed reply: FastAPI's default 422 sends the rejected input back. Nothing
+    is logged, because the error holds that input too. Running before /chat's
+    body, this also means a rejected request never reaches the demo limits."""
+    return JSONResponse(
+        status_code=422,
+        content={"kind": "invalid_request", "message": "The request is not valid."},
+    )
 
 
 @app.get("/sources/{source_id}", response_model=None)
@@ -82,15 +104,42 @@ def demo_limits() -> dict:
     }
 
 
+def _has_control_character(text: str) -> bool:
+    """Any control character (Unicode category Cc) but a newline or a tab."""
+    return any(unicodedata.category(c) == "Cc" and c not in "\n\t" for c in text)
+
+
 class HistoryMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     role: Literal["user", "assistant"]
     content: str
 
+    @model_validator(mode="after")
+    def content_within_limit(self) -> "HistoryMessage":
+        limit = MAX_USER_CONTENT_CHARS if self.role == "user" else MAX_ASSISTANT_CONTENT_CHARS
+        if len(self.content) > limit:
+            raise ValueError("content too long")
+        return self
+
 
 class ChatRequest(BaseModel):
+    # An unknown field is a bug or a probe.
+    model_config = ConfigDict(extra="forbid")
+
     question: str
     # Prior turns, oldest first. Optional, so single-turn callers keep working.
-    messages: list[HistoryMessage] | None = None
+    messages: list[HistoryMessage] | None = Field(default=None, max_length=MAX_REQUEST_MESSAGES)
+
+    @field_validator("question")
+    @classmethod
+    def clean_question(cls, value: str) -> str:
+        question = value.strip()
+        if not 1 <= len(question) <= MAX_QUESTION_CHARS:
+            raise ValueError("question empty or too long")
+        if _has_control_character(question):
+            raise ValueError("question holds a control character")
+        return question
 
 
 def _sse(event_type: str, data: dict) -> str:

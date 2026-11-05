@@ -137,6 +137,66 @@ def test_a_failed_trace_logs_only_its_type(client, monkeypatch, written):
     assert MARKER not in log
 
 
+# --- Rejected requests --------------------------------------------------------
+# Refused before any answer exists, so no other test above reaches these paths.
+
+_LONG_WITH_MARKER = QUESTION + " " + "x" * 2000
+_REJECTED_BODIES = {
+    "question_too_long": {"question": _LONG_WITH_MARKER},
+    "control_character": {"question": QUESTION + "\x00"},
+    "wrong_type": {"question": [QUESTION]},
+    "extra_field": {"question": "hi", MARKER: QUESTION},
+    "too_many_messages": {
+        "question": "hi",
+        "messages": [{"role": "user", "content": QUESTION} for _ in range(21)],
+    },
+    "user_content_too_long": {
+        "question": "hi",
+        "messages": [{"role": "user", "content": _LONG_WITH_MARKER}],
+    },
+    "unknown_role": {"question": "hi", "messages": [{"role": MARKER, "content": QUESTION}]},
+}
+
+
+@pytest.fixture
+def rejecting_client(monkeypatch):
+    def must_not_run(request):
+        raise AssertionError("a rejected request reached the limit check")
+
+    monkeypatch.setattr(main, "admit_question", must_not_run)
+    return TestClient(main.app)
+
+
+@pytest.mark.parametrize("body", _REJECTED_BODIES.values(), ids=_REJECTED_BODIES.keys())
+def test_a_rejected_request_logs_no_body_text_and_echoes_none(rejecting_client, written, body):
+    response = rejecting_client.post("/chat", json=body)
+
+    assert response.status_code == 422  # the rejection path really ran
+    assert MARKER not in response.text
+    assert MARKER not in written()
+
+
+@pytest.mark.parametrize(
+    ("content", "status"),
+    [
+        (f'{{"question": "{QUESTION}"', 422),  # invalid JSON
+        (f"{QUESTION} ".encode() + b"x" * 70000, 413),
+        (f'{{"question": "{QUESTION}\xff"}}'.encode("latin-1"), 400),  # invalid UTF-8
+    ],
+    ids=["invalid_json", "oversized", "invalid_utf8"],
+)
+def test_an_unreadable_body_logs_no_body_text_and_echoes_none(
+    rejecting_client, written, content, status
+):
+    response = rejecting_client.post(
+        "/chat", content=content, headers={"Content-Type": "application/json"}
+    )
+
+    assert response.status_code == status
+    assert MARKER not in response.text
+    assert MARKER not in written()
+
+
 # --- Deployment files ---------------------------------------------------------
 
 
