@@ -204,8 +204,7 @@ known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A2.2 (generated scope text) is built, tested and pushed, and not deployed: deploy only after Youness accepts it.** Next is
-  A2.6b. `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
+- **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** Next is A2.6b. `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
   changing the registry, and commit both. Tests pin both files to the registry and `frontend/index.html` to the text, but the
   description in `index.html` is copied by hand. The text comes from the file, not the database's status, so a document with
   two editions stops the generator until A2.3 decides. Measured: the model's input matches `c907a33` byte for byte

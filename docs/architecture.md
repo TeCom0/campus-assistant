@@ -1247,7 +1247,7 @@ All deployed by 2026-11-06.
 **A2.1 is deployed (`c907a33`, 2026-11-06).** Retrieval eval identical to the A0 baseline, line for line:
 `eval/results/retrieval/2026-11-06_a2_1.txt`.
 
-**A2.2 is built and pushed, and deploys once accepted.** The model's input is byte-identical to `c907a33`, and the retrieval
+**A2.2 is deployed (`8472f3b`, 2026-11-06).** The model's input is byte-identical to `c907a33`, and the retrieval
 eval is byte-identical to the A0 baseline: `eval/results/retrieval/2026-11-06_a2_2.txt`. Two lines the table names stay
 hard-coded, because neither names a document: `tools.py`'s "the documents are in English", which the generator now enforces,
 and "No course found... in AUI's course catalog", where naming the edition would change the model's input, so it belongs to A2.7.

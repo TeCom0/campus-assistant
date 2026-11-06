@@ -70,6 +70,10 @@ credentials:
 A tar file, not `git archive | ssh`: PowerShell 5.1 pipes a program's output as text, which
 corrupts binary data.
 
+**A copy adds and overwrites, and it never deletes.** A file a commit removed stays in `~/campus` and
+goes into the next image. So after the copy, compare the VM's files with the commit's, and remove what
+a commit deleted. `.env` is the only extra file that belongs there.
+
 If SSH times out while the site answers on 443, the laptop's public IP has probably changed.
 `allow-ssh-from-me` in `campus-nsg` allows one address; point it at the current one, as a
 `/32`. `.claude/settings.json` lets this rule be listed and updated, with a prompt.
@@ -355,6 +359,15 @@ After `up`, **roll back** on any one of these:
     $C up -d --no-deps --no-build --force-recreate api frontend
 
 Nothing stays behind: A2.2 changes no table.
+
+### Deployed (2026-11-06)
+
+`8472f3b`, plain `update.sh`: `UPDATE OK`, 3 documents, 3 active editions, 1,161 chunks, 660 courses and
+526 prerequisites before and after. No rollback condition met: the running API's prompt and tool schemas
+hash the same as the fixture, the PDF link is unchanged from the VM, a live answer's card title is unchanged,
+the API log holds no permission error, and the live page has the generated description and "the document
+passages". The backup before it reached `BACKUP OK` at 23:41:37 UTC. `generation.py` and `llm.py` were left on
+the VM by the copy and removed by hand before the build, so the image doesn't hold them.
 
 ## VM hardening
 
