@@ -30,6 +30,9 @@ from app.limits import check_and_record
 INSUFFICIENT_PRIVILEGE = "42501"
 PROBE_IP_HASH = "verify-role-probe"
 
+# The role's limits: its connection limit and statement timeout (app/db/roles.sql).
+EXPECTED_LIMITS = (50, "5s")
+
 # What the role's grants must be, exactly (app/db/roles.sql).
 EXPECTED_GRANTS = {
     ("course_prerequisites", "SELECT"),
@@ -169,6 +172,13 @@ def _state_problems(conn: psycopg.Connection) -> list[str]:
     ).fetchone()
     if rights != (False, False, False, True, False):
         problems.append("schema, database or sequence rights aren't the expected ones")
+
+    limits = conn.execute(
+        "SELECT rolconnlimit, current_setting('statement_timeout') "
+        "FROM pg_roles WHERE rolname = current_user"
+    ).fetchone()
+    if limits != EXPECTED_LIMITS:
+        problems.append("connection limit or statement timeout isn't the expected one")
     return problems
 
 

@@ -66,6 +66,18 @@ def test_the_role_is_not_privileged(conn):
 
 
 @needs_db
+def test_the_role_gets_its_limits_again_if_someone_changed_them(conn):
+    migrate(conn, MARKER_PASSWORD)
+    conn.execute("ALTER ROLE campus_api CONNECTION LIMIT -1")
+    conn.execute("ALTER ROLE campus_api RESET statement_timeout")
+    migrate(conn, MARKER_PASSWORD)
+    row = conn.execute(
+        "SELECT rolconnlimit, rolconfig FROM pg_roles WHERE rolname = 'campus_api'"
+    ).fetchone()
+    assert row == (50, ["statement_timeout=5s"])
+
+
+@needs_db
 def test_it_restores_the_attributes_of_a_role_someone_changed(conn):
     migrate(conn, MARKER_PASSWORD)
     conn.execute("ALTER ROLE campus_api CREATEDB")

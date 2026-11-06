@@ -20,6 +20,13 @@ $$;
 
 ALTER ROLE campus_api LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 
+-- Limits on what one mistake or abuse can hold. Half of max_connections, so the API
+-- can't starve the owner's backups and migrations. Every query the API runs takes
+-- milliseconds, so 5 s is far past normal. Each request opens new connections, so
+-- this applies to the next one, with no API restart.
+ALTER ROLE campus_api CONNECTION LIMIT 50;
+ALTER ROLE campus_api SET statement_timeout = '5s';
+
 -- By default PUBLIC can connect and create temporary tables, which campus_api
 -- would inherit. The owner is a superuser, so this doesn't affect it.
 DO $$

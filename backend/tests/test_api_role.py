@@ -112,6 +112,20 @@ def test_a_failed_probe_leaves_the_transaction_usable(api_conn):
         assert api_conn.execute("SELECT 1").fetchone() == (1,)
 
 
+def test_a_slow_statement_is_cancelled_for_this_role(api_conn):
+    with pytest.raises(psycopg.errors.QueryCanceled):
+        api_conn.execute("SELECT pg_sleep(6)")
+
+
+def test_the_check_reports_a_missing_limit(api_conn, owner_conn):
+    owner_conn.execute("ALTER ROLE campus_api CONNECTION LIMIT 7")
+    try:
+        problems = check(api_conn)
+    finally:
+        owner_conn.execute("ALTER ROLE campus_api CONNECTION LIMIT 50")
+    assert "connection limit or statement timeout isn't the expected one" in problems
+
+
 # --- The check itself: only 42501 counts as denied ---
 
 
