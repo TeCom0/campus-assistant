@@ -388,6 +388,12 @@ and all 3 are correct refusals. So an answer-level gate would replace 3 refusals
 ones and touch no real answer. No answer in run 3 uses an invented marker, though an earlier run
 did [C].
 
+**Later evidence [M], 2026-11-06.** A sample of 12 main questions on the code at `c907a33` had 1 real answer with no marker
+(`add_drop_en`; it cited 2 in run 3). In the A2.1 deploy check, 3 of 4 live answers had no source cards, and the one read in
+full had no markers. So the gate will replace some real answers, and "touch no real answer" holds for run 3 only. At 1/12,
+about 2.5 of 30 would become false refusals, against threshold item 3's limit of 2. UNSURE of the true rate: the sample is small.
+A2.6b should count these before it ships.
+
 **A known cost.** Follow-ups that need no search ("translate that to French", "thanks") hit the scope
 template. Measure on a small multi-turn set before deciding whether to special-case them. UNSURE how
 common they are.

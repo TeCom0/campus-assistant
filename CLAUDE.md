@@ -168,6 +168,10 @@ has no valid marker, and isn't a refusal when read by hand. Errors are reported 
 - 2/12 or more: stop and report, don't adjust. Section 2.4's evidence no longer holds, so A2.6b can't ship on it: the gate would
   turn those answers into false refusals, which count against the pilot threshold's limit of 2/30.
 
+Result, 2026-11-06: **1/12** (`add_drop_en`, a real answer of 2,162 characters), 0 errors, 45,473 tokens, so the order doesn't
+change. `eval/results/faithfulness/answers_citation_check_2026-11-06.jsonl`. 1/12 is a small sample and isn't zero: at that
+rate about 2.5 of 30 would become false refusals under the gate, against the limit of 2/30, so A2.6b has to count them.
+
 ## How to run
 
 Full setup from a fresh clone is in the README ("Running it"). Day to day:
