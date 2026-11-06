@@ -152,6 +152,20 @@ numbers. After A2.1, `python -m app.evaluation.run_retrieval_eval` must match
 `eval/results/retrieval/2026-11-05_a0_baseline.txt` line for line, on both the 14- and the 12-question set. If any rank
 changes: stop and report, don't adjust. 0 LLM tokens: no faithfulness or Groq calls in this step.
 
+## A2.6b rule
+
+Set 2026-11-06 by Claude, with Youness's go-ahead to keep going, before any A2.6b code, following the rule of recording a
+decision rule before seeing the numbers. The gate replaces an answer unless a tool ran and every marker in it is one a tool
+returned. Before it deploys:
+
+1. Offline, 0 LLM tokens, on saved answers: on run 3 it replaces exactly the 3 refusals `docs/architecture.md` section 2.4
+   names, and on `answers_citation_check_2026-11-06.jsonl` only `add_drop_en`.
+2. Through the real `/chat` streaming path, the off-topic and injection set: zero answers without a search call and valid
+   citations reach the student, other than the code-written templates (pilot threshold item 4).
+3. Through the same path, the 12 questions of the uncited answers check: at most 1/12 replaced by a template.
+
+If any of these fails: stop and report, don't adjust. Items 2 and 3 cost about 70k tokens of the 200k a day the demo also uses.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
