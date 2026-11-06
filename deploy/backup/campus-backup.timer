@@ -1,0 +1,11 @@
+[Unit]
+Description=Campus Assistant: daily database backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=10min
+# Runs at the next boot if the VM was off at the time.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

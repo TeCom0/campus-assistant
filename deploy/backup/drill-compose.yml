@@ -1,0 +1,15 @@
+# The restore drill's scratch database, only ever used with an explicit project name:
+#   docker compose -p a15drill -f deploy/backup/drill-compose.yml ...
+# No port is published. Nothing else in this repo uses this file.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: drill
+      POSTGRES_PASSWORD: drill-only-not-a-secret
+      POSTGRES_DB: drill
+    volumes:
+      - drill_data:/var/lib/postgresql/data
+
+volumes:
+  drill_data:

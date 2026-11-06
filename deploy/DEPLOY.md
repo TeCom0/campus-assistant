@@ -299,8 +299,10 @@ the dead man's switch exists.
 `age` v1.3.2, `age-v1.3.2-windows-amd64.zip`, sha256
 `f48d8f8f9ebe903ab5027ed067652f2cc1db94bc206976430133b905dcd8e8c7`.
 
+Unzipped to `C:\dev\backup-tools\age\`, which holds no secret.
+
     New-Item -ItemType Directory -Force C:\dev\backup-keys
-    age-keygen.exe -o C:\dev\backup-keys\campus-backup.age-key
+    C:\dev\backup-tools\age\age-keygen.exe -o C:\dev\backup-keys\campus-backup.age-key
     icacls C:\dev\backup-keys\campus-backup.age-key /inheritance:r /grant:r "${env:USERNAME}:R"
 
 It prints the public key (`age1...`), which isn't secret. Copy the file's contents into

@@ -1,0 +1,15 @@
+[Unit]
+Description=Campus Assistant: encrypted database backup to Backblaze B2
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/sbin/campus-backup
+StandardInput=null
+# Its own /tmp, for what the b2 binary unpacks when it starts.
+PrivateTmp=yes
+ProtectHome=yes
+NoNewPrivileges=yes
