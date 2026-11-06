@@ -152,6 +152,17 @@ numbers. After A2.1, `python -m app.evaluation.run_retrieval_eval` must match
 `eval/results/retrieval/2026-11-05_a0_baseline.txt` line for line, on both the 14- and the 12-question set. If any rank
 changes: stop and report, don't adjust. 0 LLM tokens: no faithfulness or Groq calls in this step.
 
+## A2.2 rule
+
+Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
+before seeing the numbers. A2.2 moves text, it doesn't change what the model is told. After A2.2:
+
+1. The system prompt template and both tool schemas match `backend/tests/fixtures/agent_text_c907a33.json`, byte for byte.
+2. `python -m app.evaluation.run_retrieval_eval` matches `eval/results/retrieval/2026-11-05_a0_baseline.txt`, line for line.
+
+If either differs: stop and report, don't adjust. 0 LLM tokens: identical input to the model needs no new answers. Wording
+changes belong to A2.7.
+
 ## Uncited answers check
 
 Set 2026-11-06 by Claude, with Youness's go-ahead to decide, before the sample was run, following the rule of recording a
