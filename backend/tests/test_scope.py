@@ -32,6 +32,14 @@ def test_the_committed_files_match_the_registry(path):
     assert json.loads(path.read_text(encoding="utf-8")) == render_scope(load_registry())
 
 
+def test_the_page_description_matches_the_generated_text():
+    # index.html is read before any JavaScript runs, so it can't import the JSON. If this
+    # fails after a registry change, copy meta_description from scope.json into index.html.
+    html = (FRONTEND_SCOPE_PATH.parents[1] / "index.html").read_text(encoding="utf-8")
+    description = render_scope(load_registry())["meta_description"]
+    assert f'content="{description}"' in html
+
+
 def test_todays_registry_gives_todays_text():
     scope = render_scope(load_registry())
     assert scope["prompt_documents"] == (
