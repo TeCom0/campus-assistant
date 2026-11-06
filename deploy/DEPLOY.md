@@ -375,6 +375,10 @@ real backup afterwards and see that the check goes back up.
 
     sudo CAMPUS_BACKUP_DB_CONTAINER=no-such-container /usr/local/sbin/campus-backup; echo "exit $?"
 
+Measured on 2026-11-06: the failure signal went out at 01:08:20 UTC and the check's status
+changed to Down at 01:08:20. The next good backup changed it to Up at 01:10:24, after 2 min 3 s
+down, and Healthchecks.io sent an email for each change.
+
 ### Creating the application key
 
 On the laptop, in **your own PowerShell window, not through a tool that records output**.
