@@ -71,6 +71,7 @@ this document.
 | D4 | When to publish this document | Commit it **once A1 is deployed**, after a review of what it says about findings still open. Items in tier B stay open at that point, and the document names them without measured detail. |
 | D5 | Prestigious-scholarships page | **Drop it** (A2.5). |
 | D6 | PDF tables | **Tier B** (B1). HTML tables stay whole in A2.4, and a table-heavy PDF is refused until B1 is done. |
+| D7 | Legal basis for sending questions to the model provider | Handled privately with AUI's legal contact; a data-protection review is a pilot exit criterion. |
 | D8 | The 2025-2026 PDF | Ask AUI (Q7). A2.6 is blocked until then. |
 
 ---
