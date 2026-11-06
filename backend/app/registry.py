@@ -6,14 +6,30 @@ naming the problem, and everything past this point can trust the data.
 
 The file is read only when a function asks for it, never at import. The API's
 image doesn't contain it, and the API imports modules that use this one.
+
+    python -m app.registry sync             # descriptive fields; new editions as draft
+    python -m app.registry sync --initial   # once, on empty tables: every edition active
+
+Sync copies the file to the documents and document_editions tables, run as the owner.
+It never changes the status of an existing edition: status lives only in the database,
+so a redeploy can't undo a rollback. It ends by printing the row counts of every table
+the registry touches, as proof of what is there. Psycopg's messages can quote a
+statement, so only their type is printed.
 """
 
+import argparse
 import re
+import sys
 import tomllib
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
+
+import psycopg
+from psycopg.types.json import Jsonb
+
+from app.db.connection import get_owner_connection
 
 # backend/app/registry.py -> the repo root. In a container: /app/data/registry.toml.
 REGISTRY_PATH = Path(__file__).resolve().parents[2] / "data" / "registry.toml"
@@ -278,3 +294,200 @@ def load_registry(path: Path | None = None) -> Registry:
     documents = tuple(_document(table, n) for n, table in enumerate(data["document"], start=1))
     _check_whole_registry(documents)
     return Registry(documents)
+
+
+# --- Sync: the file into the tables ------------------------------------------
+
+UPSERT_DOCUMENT_SQL = """
+    INSERT INTO documents
+        (id, domain, owning_department, audience, visibility, time_sensitive, title)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (id) DO UPDATE SET
+        domain = EXCLUDED.domain,
+        owning_department = EXCLUDED.owning_department,
+        audience = EXCLUDED.audience,
+        visibility = EXCLUDED.visibility,
+        time_sensitive = EXCLUDED.time_sensitive,
+        title = EXCLUDED.title
+"""
+
+# The update list is the rule in code: status, parser_version, quality_report and the
+# activation fields aren't in it, so a sync can't change them on an existing edition.
+UPSERT_EDITION_SQL = """
+    INSERT INTO document_editions
+        (id, document_id, label, card_title, effective_from, review_by, retrieved_at,
+         last_updated, language, format, source_url, fallback_url, course_tables, sha256,
+         status, parser_version, quality_report, activated_by, activated_at)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, CASE WHEN %s THEN now() END)
+    ON CONFLICT (id) DO UPDATE SET
+        document_id = EXCLUDED.document_id,
+        label = EXCLUDED.label,
+        card_title = EXCLUDED.card_title,
+        effective_from = EXCLUDED.effective_from,
+        review_by = EXCLUDED.review_by,
+        retrieved_at = EXCLUDED.retrieved_at,
+        last_updated = EXCLUDED.last_updated,
+        language = EXCLUDED.language,
+        format = EXCLUDED.format,
+        source_url = EXCLUDED.source_url,
+        fallback_url = EXCLUDED.fallback_url,
+        course_tables = EXCLUDED.course_tables,
+        sha256 = EXCLUDED.sha256
+"""
+
+# Until A2.4's loaders produce real values (docs/architecture.md, section 3.2).
+UNVERSIONED_PARSER = "unversioned"
+INITIAL_ACTIVATOR = "registry sync --initial"
+
+COUNTED_TABLES = (
+    "documents",
+    "document_editions",
+    "document_chunks",
+    "courses",
+    "course_prerequisites",
+)
+
+
+def _upsert_document(conn: psycopg.Connection, document: Document) -> None:
+    conn.execute(
+        UPSERT_DOCUMENT_SQL,
+        (
+            document.id,
+            document.domain,
+            document.owning_department,
+            document.audience,
+            document.visibility,
+            document.time_sensitive,
+            Jsonb({"en": document.title_en, "fr": document.title_fr}),
+        ),
+    )
+
+
+def _upsert_edition(conn: psycopg.Connection, edition: Edition, *, active: bool) -> None:
+    conn.execute(
+        UPSERT_EDITION_SQL,
+        (
+            edition.id,
+            edition.document_id,
+            edition.label,
+            edition.card_title,
+            edition.effective_from,
+            edition.review_by,
+            edition.retrieved_at,
+            edition.last_updated,
+            edition.language,
+            edition.format,
+            edition.source_url,
+            edition.fallback_url,
+            edition.course_tables,
+            edition.sha256,
+            "active" if active else "draft",
+            UNVERSIONED_PARSER,
+            Jsonb({}),
+            INITIAL_ACTIVATOR if active else None,
+            active,
+        ),
+    )
+
+
+def _check_can_sync(registry: Registry, existing: int, *, initial: bool) -> None:
+    if initial:
+        if existing:
+            raise RegistryError(
+                f"--initial is only for empty tables, and document_editions has {existing} "
+                "rows. Nothing changed. Use plain sync."
+            )
+        for document in registry.documents:
+            if len(document.editions) > 1:
+                raise RegistryError(
+                    f"--initial marks every edition active, but document {document.id!r} has "
+                    f"{len(document.editions)} and only one may be. Nothing changed."
+                )
+    elif not existing:
+        # Everything would go in as draft: no edition would be live, and the exit code
+        # would still say success.
+        raise RegistryError(
+            "document_editions is empty, so plain sync would leave nothing active. "
+            "Nothing changed. Use sync --initial."
+        )
+
+
+def sync(conn: psycopg.Connection, registry: Registry, *, initial: bool = False) -> None:
+    """Copy the registry to the tables, all of it or none of it."""
+    with conn.transaction():
+        existing = conn.execute("SELECT count(*) FROM document_editions").fetchone()[0]
+        _check_can_sync(registry, existing, initial=initial)
+        for document in registry.documents:
+            _upsert_document(conn, document)
+        for edition in registry.editions:
+            _upsert_edition(conn, edition, active=initial)
+
+
+def table_counts(conn: psycopg.Connection) -> dict[str, int]:
+    # The names are this module's constants, never input.
+    return {
+        table: conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        for table in COUNTED_TABLES
+    }
+
+
+def status_counts(conn: psycopg.Connection) -> dict[str, int]:
+    rows = conn.execute(
+        "SELECT status, count(*) FROM document_editions GROUP BY status ORDER BY status"
+    ).fetchall()
+    return dict(rows)
+
+
+def editions_not_in_file(conn: psycopg.Connection, registry: Registry) -> list[str]:
+    """Editions only the database has. Left as they are: status lives there."""
+    known = {edition.id for edition in registry.editions}
+    rows = conn.execute("SELECT id FROM document_editions ORDER BY id").fetchall()
+    return [row[0] for row in rows if row[0] not in known]
+
+
+def _run_sync(*, initial: bool) -> int:
+    registry = load_registry()
+    conn = get_owner_connection()
+    try:
+        sync(conn, registry, initial=initial)
+        counts = table_counts(conn)
+        statuses = status_counts(conn)
+        only_in_database = editions_not_in_file(conn, registry)
+    finally:
+        conn.close()
+
+    for table, count in counts.items():
+        print(f"[registry] {table}: {count}")
+    print(f"[registry] edition status: {statuses}")
+    if only_in_database:
+        print(f"[registry] in the database but not the file, left as they are: {only_in_database}")
+    if not counts["documents"] or not counts["document_editions"]:
+        print("[registry] FAILED: documents or document_editions has 0 rows")
+        return 1
+    print("[registry] sync done")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="The document registry.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    sync_command = commands.add_parser("sync", help="Copy data/registry.toml to the tables")
+    sync_command.add_argument(
+        "--initial",
+        action="store_true",
+        help="Only on empty tables: mark every edition in the file active",
+    )
+    args = parser.parse_args(argv)
+    try:
+        return _run_sync(initial=args.initial)
+    except RegistryError as e:
+        print(f"[registry] refused: {e}")
+        return 1
+    except psycopg.Error as e:
+        print(f"[registry] failed: {type(e).__name__}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

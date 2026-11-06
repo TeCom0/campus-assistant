@@ -5,6 +5,7 @@
 -- The rights are exactly what the request path's queries use:
 --   courses, course_prerequisites  SELECT   agent/tools.py
 --   document_chunks                SELECT   retrieval/vector_search.py, keyword_search.py
+--   documents, document_editions   SELECT   registry.py (source cards and links)
 --   question_log                   SELECT, INSERT, DELETE   limits.py
 --   question_log_id_seq            USAGE    limits.py's INSERT leaves id to its default
 -- No default privileges: a new table stays unreadable until it is granted here,
@@ -47,5 +48,6 @@ REVOKE ALL ON ALL TABLES IN SCHEMA public FROM campus_api;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM campus_api;
 
 GRANT SELECT ON document_chunks, courses, course_prerequisites TO campus_api;
+GRANT SELECT ON documents, document_editions TO campus_api;
 GRANT SELECT, INSERT, DELETE ON question_log TO campus_api;
 GRANT USAGE ON SEQUENCE question_log_id_seq TO campus_api;

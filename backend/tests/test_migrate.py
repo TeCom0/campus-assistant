@@ -23,6 +23,8 @@ EXPECTED_GRANTS = {
     ("course_prerequisites", "SELECT"),
     ("courses", "SELECT"),
     ("document_chunks", "SELECT"),
+    ("document_editions", "SELECT"),
+    ("documents", "SELECT"),
     ("question_log", "DELETE"),
     ("question_log", "INSERT"),
     ("question_log", "SELECT"),

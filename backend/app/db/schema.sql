@@ -77,3 +77,46 @@ CREATE TABLE IF NOT EXISTS course_prerequisites (
     prerequisite_code TEXT NOT NULL,
     PRIMARY KEY (course_code, prerequisite_code)
 );
+
+-- The registry (app/registry.py). Descriptive fields are copied from
+-- data/registry.toml by `python -m app.registry sync`; `status` and the activation
+-- fields live only here, so a rollback needs no redeploy. A document is a lasting
+-- thing ("Academic Catalog"), an edition one version of it.
+-- owning_department is NULL until AUI confirms it: a placeholder string could end up
+-- in a code-written "confirm with [office]" line.
+CREATE TABLE IF NOT EXISTS documents (
+    id TEXT PRIMARY KEY,
+    domain TEXT NOT NULL,
+    owning_department TEXT,
+    audience TEXT NOT NULL,
+    visibility TEXT NOT NULL CHECK (visibility IN ('public', 'non_public')),
+    time_sensitive BOOLEAN NOT NULL,
+    title JSONB NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS document_editions (
+    id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL REFERENCES documents(id),
+    label TEXT NOT NULL,
+    card_title TEXT NOT NULL,
+    effective_from DATE,
+    review_by DATE,
+    retrieved_at DATE NOT NULL,
+    last_updated DATE,
+    language TEXT NOT NULL,
+    format TEXT NOT NULL CHECK (format IN ('pdf', 'html')),
+    source_url TEXT NOT NULL,
+    fallback_url TEXT,
+    course_tables BOOLEAN NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('draft', 'active', 'superseded', 'withdrawn')),
+    sha256 TEXT NOT NULL,
+    parser_version TEXT NOT NULL,
+    quality_report JSONB NOT NULL,
+    activated_by TEXT,
+    activated_at TIMESTAMPTZ
+);
+
+-- At most one active edition per document, guaranteed by the database. A partial
+-- index: only active rows take part, so a document can keep any number of others.
+CREATE UNIQUE INDEX IF NOT EXISTS one_active_edition
+    ON document_editions (document_id) WHERE status = 'active';

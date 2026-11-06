@@ -44,6 +44,27 @@ services:
       db:
         condition: service_healthy
 
+  # One-shot, run by the owner role: data/registry.toml into the registry tables. The
+  # one file the image doesn't hold, mounted read-only into this container only. The
+  # API reads the tables. Plain sync refuses empty tables, so on a new database run
+  # `run --rm registry-sync python -m app.registry sync --initial` first.
+  registry-sync:
+    build: ./backend
+    restart: "no"
+    logging: *rotated-logs
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    command: ["python", "-m", "app.registry", "sync"]
+    volumes:
+      - ./data/registry.toml:/app/data/registry.toml:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
   api:
     build: ./backend
     restart: unless-stopped
@@ -63,11 +84,14 @@ services:
       CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
     ports:
       - "127.0.0.1:8000:8000"
-    # The API creates no schema itself, so it starts only once migrate has finished.
+    # The API creates no schema itself, so it starts only once migrate has finished,
+    # and it can't name a source without the registry, so also once sync has.
     depends_on:
       db:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      registry-sync:
         condition: service_completed_successfully
 
   frontend:

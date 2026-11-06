@@ -38,6 +38,8 @@ EXPECTED_GRANTS = {
     ("course_prerequisites", "SELECT"),
     ("courses", "SELECT"),
     ("document_chunks", "SELECT"),
+    ("document_editions", "SELECT"),
+    ("documents", "SELECT"),
     ("question_log", "DELETE"),
     ("question_log", "INSERT"),
     ("question_log", "SELECT"),
@@ -85,6 +87,8 @@ MUST_WORK = [
         "SELECT 1 FROM document_chunks "
         "WHERE text_search @@ plainto_tsquery('english', 'credits') LIMIT 1",
     ),
+    _statement("select documents", "SELECT 1 FROM documents LIMIT 1"),
+    _statement("select document_editions", "SELECT 1 FROM document_editions LIMIT 1"),
     _statement("select question_log", "SELECT count(*) FROM question_log"),
     Probe("question_log writes, through check_and_record", _limits_write_path),
     _statement("delete from question_log", "DELETE FROM question_log WHERE false"),
@@ -107,6 +111,29 @@ MUST_BE_DENIED = [
         "INSERT INTO courses (code, department, title, credits, source) "
         "VALUES ('ZZZ 0000', 'ZZZ', 'probe', 0, 'probe')",
     ),
+    _statement(
+        "insert into documents",
+        "INSERT INTO documents (id, domain, audience, visibility, time_sensitive, title) "
+        "VALUES ('verify-role-probe', 'academic', 'all', 'public', false, '{}')",
+    ),
+    _statement("update documents", "UPDATE documents SET domain = domain WHERE false"),
+    _statement("delete from documents", "DELETE FROM documents WHERE false"),
+    _statement("truncate documents", "TRUNCATE documents CASCADE"),
+    _statement(
+        "insert into document_editions",
+        "INSERT INTO document_editions (id, document_id, label, card_title, retrieved_at, "
+        "language, format, source_url, course_tables, status, sha256, parser_version, "
+        "quality_report) "
+        "SELECT 'verify-role-probe', id, 'probe', 'probe', current_date, 'en', 'html', "
+        "'https://probe', false, 'draft', 'probe', 'probe', '{}' FROM documents LIMIT 1",
+    ),
+    # The status is what a rollback changes: the API must never be able to.
+    _statement(
+        "update document_editions status",
+        "UPDATE document_editions SET status = 'withdrawn' WHERE false",
+    ),
+    _statement("delete from document_editions", "DELETE FROM document_editions WHERE false"),
+    _statement("truncate document_editions", "TRUNCATE document_editions"),
     _statement("update question_log", "UPDATE question_log SET ip_hash = ip_hash WHERE false"),
     _statement("truncate question_log", "TRUNCATE question_log"),
     _statement("create table", "CREATE TABLE verify_role_probe (id int)"),

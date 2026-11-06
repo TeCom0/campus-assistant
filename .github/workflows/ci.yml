@@ -84,6 +84,11 @@ jobs:
       - name: Run migrations
         run: python -m app.db.migrate
 
+      # Before the tests: the API reads these tables, and they start empty. It also
+      # fails the job if data/registry.toml doesn't validate or the tables stay empty.
+      - name: Sync the registry
+        run: python -m app.registry sync --initial
+
       - name: Seed courses
         run: python -m app.ingestion.courses
 
