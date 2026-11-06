@@ -1,3 +1,4 @@
 # These run on the Linux VM, and a copy made with `git archive` on Windows would
 # otherwise give them CRLF line endings, which bash and systemd can't read.
 deploy/backup/* text eol=lf
+deploy/vm/* text eol=lf

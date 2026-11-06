@@ -41,6 +41,8 @@ CI/CD, and evaluation.
 ## Environment
 
 - Windows, PowerShell 5.1. Python 3.12, Node 24, Docker Desktop (WSL2 backend), 16 GB RAM.
+- The VM's SSH key has a passphrase and lives in the Windows ssh-agent, so use Windows'
+  `C:\Windows\System32\OpenSSH\ssh.exe`, with no `-i`. Git Bash's `ssh` can't reach that agent.
 - Give PowerShell commands, not bash, unless running inside a Docker container.
 - PowerShell 5.1 mangles double quotes in arguments to native programs: write multi-line commit
   messages to a file and use `git commit -F <file>`.

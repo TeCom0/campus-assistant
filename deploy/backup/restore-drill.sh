@@ -15,7 +15,9 @@ FILE="${1:?usage: restore-drill.sh <downloaded .dump.age file>}"
 AGE_KEY="${AGE_KEY_FILE:-C:/dev/backup-keys/campus-backup.age-key}"
 AGE="${AGE_BIN:-C:/dev/backup-tools/age/age.exe}"
 VM="${DRILL_VM:-azureuser@campus-assistant.denmarkeast.cloudapp.azure.com}"
-SSH_KEY="${DRILL_SSH_KEY:-$HOME/.ssh/campus_azure}"
+# Windows' own ssh.exe: the key has a passphrase and lives in the Windows ssh-agent,
+# which Git Bash's ssh can't reach.
+SSH="${DRILL_SSH:-/c/Windows/System32/OpenSSH/ssh.exe}"
 PROJECT=a15drill
 COMPOSE=(docker compose -p "$PROJECT" -f deploy/backup/drill-compose.yml)
 SQL=deploy/backup/fingerprint.sql
@@ -57,7 +59,7 @@ EXISTING="$("${COMPOSE[@]}" exec -T db psql -U drill -d drill -Atc "select count
 QUESTION_ROWS="$("${COMPOSE[@]}" exec -T db psql -U drill -d drill -Atc 'select count(*) from question_log' </dev/null | tr -d '\r')"
 
 # shellcheck disable=SC2016  # $POSTGRES_* are the container's own variables
-ssh -i "$SSH_KEY" -o BatchMode=yes "$VM" \
+"$SSH" -o BatchMode=yes "$VM" \
   "docker exec -i campus-db-1 sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -At -F \" \"'" \
   <"$SQL" | tr -d '\r' >"$WORK/production.txt"
 

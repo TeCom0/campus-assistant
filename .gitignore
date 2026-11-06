@@ -37,3 +37,6 @@ Thumbs.db
 
 # Full development/session log, kept locally only (CLAUDE.md is the public summary)
 SESSION_LOG.md
+
+# Kept out of the public repo: for AUI's legal contact, not for publishing.
+docs/private/

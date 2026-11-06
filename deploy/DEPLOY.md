@@ -243,6 +243,29 @@ so the revokes don't affect it. To remove it if A1.4 is abandoned:
 The dump is needed only if data were actually lost, and no A1.4 statement drops or
 rewrites data.
 
+## VM hardening
+
+The key has a passphrase and lives in the Windows ssh-agent, so from this laptop use
+Windows' own `C:\Windows\System32\OpenSSH\ssh.exe`: Git Bash's `ssh` can't reach that agent.
+
+**SSH.** `deploy/vm/sshd-hardening.conf` goes to
+`/etc/ssh/sshd_config.d/10-campus-hardening.conf`. Keep a second session open, run `sshd -t`
+first, then `systemctl reload ssh`, and test a new connection before closing anything. Arm a
+timed revert first, so a mistake can't lock you out:
+
+    sudo systemd-run --on-active=180 --unit=ssh-revert sh -c 'rm -f /etc/ssh/sshd_config.d/10-campus-hardening.conf; systemctl reload ssh'
+    # after a new connection works:
+    sudo systemctl stop ssh-revert.timer
+
+If you're locked out anyway, Azure's Run Command doesn't go through SSH.
+
+**Swap.** 2 GiB at `/swapfile`, in `/etc/fstab`, with `vm.swappiness=10` in
+`/etc/sysctl.d/99-campus-swap.conf`.
+
+**Disk.** `docker builder prune -f --filter until=168h` and `docker image prune -f` remove old
+build cache and untagged images. **Never `docker system prune --volumes`**: the volumes hold the
+database and the certificates.
+
 ## A1.5: off-VM backups (Backblaze B2)
 
 Written and agreed on 2026-11-06, before any of its code. A systemd timer on the VM

@@ -456,6 +456,24 @@ def test_the_drill_uses_a_scratch_project_and_only_prints_its_cleanup():
 def test_the_backup_files_keep_lf_line_endings_on_their_way_to_the_vm():
     attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
     assert "deploy/backup/* text eol=lf" in attributes
+    assert "deploy/vm/* text eol=lf" in attributes
+
+
+def test_the_ssh_hardening_keeps_its_settings_and_sorts_first():
+    config = (REPO_ROOT / "deploy" / "vm" / "sshd-hardening.conf").read_text(encoding="utf-8")
+    for line in (
+        "PermitRootLogin no",
+        "X11Forwarding no",
+        "AllowTcpForwarding no",
+        "MaxAuthTries 3",
+        "AllowUsers azureuser",
+    ):
+        assert line in config.splitlines()
+    assert "10-campus-hardening.conf" in config
+
+
+def test_private_notes_stay_out_of_the_repo():
+    assert "docs/private/" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
 
 
 # --- b2_check.py -------------------------------------------------------------------
