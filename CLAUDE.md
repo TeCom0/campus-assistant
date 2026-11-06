@@ -30,6 +30,7 @@ CI/CD, and evaluation.
 - Prefer clear, explicit code over clever abstractions.
 - Commit after every working step with a clear conventional commit message (feat:, fix:, test:,
   docs:, chore:), and push.
+- Run the full test suite before each commit (CI was red between 9e01bee and cfec590).
 - Measure before and after a change that can affect quality (retrieval eval, faithfulness eval).
   When a decision rule is agreed, record it before seeing the numbers.
 - Rules that must hold are enforced in code, not only in the prompt: prompt-only rules ("at most
