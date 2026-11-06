@@ -5,13 +5,20 @@
 # separate, explicit step, printed at the end.
 #
 #   deploy/backup/restore-drill.sh <downloaded .dump.age file>
+#   deploy/backup/restore-drill.sh <downloaded .dump.age file> --pre-a2-1
+#
+# A dump must hold the registry tables, and the fingerprint covers them. --pre-a2-1 is
+# for a dump taken before those tables existed: both sides are then compared on the old
+# three tables, and the two skipped are printed. It's a flag and not detected, so a
+# later dump that really lost those tables fails instead of passing.
 #
 # Run from Git Bash at the repo root. The private key is read only by age.
 set -euo pipefail
 exec </dev/null
 export MSYS_NO_PATHCONV=1
 
-FILE="${1:?usage: restore-drill.sh <downloaded .dump.age file>}"
+FILE="${1:?usage: restore-drill.sh <downloaded .dump.age file> [--pre-a2-1]}"
+PRE_A2_1="${2:-}"
 AGE_KEY="${AGE_KEY_FILE:-C:/dev/backup-keys/campus-backup.age-key}"
 AGE="${AGE_BIN:-C:/dev/backup-tools/age/age.exe}"
 VM="${DRILL_VM:-azureuser@campus-assistant.denmarkeast.cloudapp.azure.com}"
@@ -26,6 +33,12 @@ die() {
   echo "DRILL FAILED: $1" >&2
   exit 1
 }
+
+case "$PRE_A2_1" in
+  "") ;;
+  --pre-a2-1) SQL=deploy/backup/fingerprint-pre-a2.1.sql ;;
+  *) die "unknown argument" ;;
+esac
 
 [ -f "$FILE" ] || die "no such file"
 [ -f "$AGE_KEY" ] || die "the private key isn't at $AGE_KEY"
@@ -54,6 +67,14 @@ EXISTING="$("${COMPOSE[@]}" exec -T db psql -U drill -d drill -Atc "select count
 "$AGE" -d -i "$AGE_KEY" "$FILE" 2>"$WORK/age.err" \
   | "${COMPOSE[@]}" exec -T db pg_restore -U drill -d drill --no-owner --no-privileges 2>"$WORK/restore.err" \
   || die "decrypt or restore failed"
+
+REGISTRY_TABLES="$("${COMPOSE[@]}" exec -T db psql -U drill -d drill -Atc "select count(*) from information_schema.tables where table_schema = 'public' and table_name in ('documents', 'document_editions')" </dev/null | tr -d '\r')"
+if [ -n "$PRE_A2_1" ]; then
+  [ "$REGISTRY_TABLES" = "0" ] || die "this dump has the registry tables: run without --pre-a2-1"
+  echo "skipped, not in a dump from before A2.1: documents, document_editions"
+else
+  [ "$REGISTRY_TABLES" = "2" ] || die "the dump lacks the registry tables. If it predates A2.1, remove the scratch project and use --pre-a2-1"
+fi
 
 "${COMPOSE[@]}" exec -T db psql -U drill -d drill -At -F " " <"$SQL" 2>/dev/null | tr -d '\r' >"$WORK/restored.txt"
 QUESTION_ROWS="$("${COMPOSE[@]}" exec -T db psql -U drill -d drill -Atc 'select count(*) from question_log' </dev/null | tr -d '\r')"

@@ -9,4 +9,10 @@ FROM courses t
 UNION ALL
 SELECT 'document_chunks', count(*), md5(coalesce(string_agg(t::text, ',' ORDER BY source, chunk_index, model_name), ''))
 FROM document_chunks t
+UNION ALL
+SELECT 'document_editions', count(*), md5(coalesce(string_agg(t::text, ',' ORDER BY id), ''))
+FROM document_editions t
+UNION ALL
+SELECT 'documents', count(*), md5(coalesce(string_agg(t::text, ',' ORDER BY id), ''))
+FROM documents t
 ORDER BY 1;

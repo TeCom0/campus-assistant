@@ -124,8 +124,18 @@ desktop and phone.
 ## Updating
 
 Copy the new commit as in step 4 (the `.env` and the database volume stay),
-then run the `up -d --build` line again. Caddy keeps its certificates in the
-`caddy_data` volume; don't delete it, or Let's Encrypt's rate limits apply.
+then, on the VM, from `~/campus`:
+
+    bash deploy/update.sh
+
+It builds, migrates, syncs the registry, stops if `documents` or `document_editions`
+has 0 rows, passes `verify_role`, installs the backup's fingerprint, and only then
+starts the new containers. It ends by checking `/health` and a source link, and
+printing row counts. Look for `UPDATE OK`. Don't pipe it through `ssh ... bash -s`:
+that once swallowed the rest of a script with exit 0 (section A1.4).
+
+Caddy keeps its certificates in the `caddy_data` volume; don't delete it, or Let's
+Encrypt's rate limits apply.
 
 If SSH times out, check whether your own public IP changed (home connections
 often get a new one) and update the rule:
@@ -242,6 +252,56 @@ so the revokes don't affect it. To remove it if A1.4 is abandoned:
 
 The dump is needed only if data were actually lost, and no A1.4 statement drops or
 rewrites data.
+
+## A2.1: the registry
+
+Written before the deploy. `C` stands for
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml`. It adds two tables
+and changes where the API reads source titles and links. No content row changes.
+
+### Rule, fixed before the numbers
+
+`update.sh` stopping before `up` means **stop**: the old API is still serving, and
+there is nothing to roll back. Expected: `UPDATE OK`, 3 documents, 3 editions all
+active, 1,161 chunks, 660 courses and 526 prerequisites.
+
+After `up`, **roll back** on any one of these:
+
+1. A source link doesn't redirect to the same place as before. The old code answered
+   `/api/sources/academic_catalog_2024_2025?page=120` with
+   `https://aui.ma/hubfs/ACADEMIC%20CATALOG%202024-2025.pdf?hsLang=en#page=120` on
+   2026-11-06. Check this from the VM's answer, on the live site: a machine that can't
+   reach aui.ma gets the fallback page instead, which is the fallback working.
+2. A source card's title differs on a live question, or an example's card differs.
+3. Any permission error in the API's log.
+
+### Steps
+
+1. **A fresh backup, then keep the running image for the rollback:**
+
+       sudo systemctl start campus-backup.service
+       sudo journalctl -u campus-backup.service -n 20 --no-pager | grep -E 'BACKUP OK|PING OK'
+       docker tag campus-api:latest campus-api:pre-a21
+
+2. **Copy the commit** as in step 4 above.
+3. **Deploy, this once with `--initial`:** `bash deploy/update.sh --initial`.
+4. **Check the live site,** by the rule above.
+5. **Prove the new fingerprint:** start the backup again, and its proof should list five
+   tables. That dump is the first one a default drill can compare.
+
+### Rollback
+
+`<prev>` is the last commit before A2.1's code: `c6117df`.
+
+    # Laptop
+    git archive --format=tar <prev> | ssh <vm> "tar -x -C ~/campus"
+    # VM
+    cd ~/campus
+    docker tag campus-api:pre-a21 campus-api:latest
+    $C up -d --no-deps --no-build --force-recreate api
+
+**What stays behind:** the two tables and the `campus_api` grants on them. The old API
+never reads them. Leave the installed fingerprint too: the tables exist, so it still works.
 
 ## VM hardening
 
@@ -449,7 +509,14 @@ and you didn't have one, or you want it gone anyway:
    and deleting the object in the console: both must be refused.
 3. In a real restore, use `pg_restore --no-owner --no-privileges` and then
    `python -m app.db.migrate`: dumps hold grants to `campus_api`, which a fresh database
-   doesn't have yet.
+   doesn't have yet. Don't run `sync --initial` after it: the dump holds the registry
+   tables, including each edition's status.
+
+**Dumps from before A2.1** don't have `documents` or `document_editions`. Compare them with
+the old fingerprint: `restore-drill.sh <file> --pre-a2-1`, which compares the three tables
+both sides have and prints the two it skipped. It's an explicit flag, not a detection, so a
+later dump that really lost those tables fails. Without the flag the drill requires both. With
+30 days of retention, this stops being needed about a month after A2.1.
 
 Clean up with `docker compose -p a15drill -f deploy/backup/drill-compose.yml down -v`, and
 only ever with that explicit project name.
