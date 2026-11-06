@@ -71,6 +71,16 @@ def _check_one_edition_each(registry: Registry) -> None:
             )
 
 
+def _check_all_in_english(registry: Registry) -> None:
+    # The search tool's query_en argument tells the model "the documents are in English".
+    for edition in registry.editions:
+        if edition.language != "en":
+            raise ScopeError(
+                f"{edition.id!r} is in {edition.language!r}: the search tool's query_en "
+                "argument says the documents are in English"
+            )
+
+
 def _other_documents(registry: Registry, catalog: Document) -> list[tuple[str, int]]:
     """The documents besides the catalog, as (name, how many), in registry order."""
     counts: dict[str, tuple[Document, int]] = {}
@@ -94,6 +104,7 @@ def _any_of(topics: list[str]) -> str:
 def render_scope(registry: Registry) -> dict[str, str]:
     """Every sentence fragment that says what the assistant covers."""
     _check_one_edition_each(registry)
+    _check_all_in_english(registry)
 
     edition = registry.course_tables_edition()
     catalog = registry.document_of(edition.id)
@@ -129,6 +140,11 @@ def render_scope(registry: Registry) -> dict[str, str]:
             ["catalog PDF", *(f"{count} {name}" for name, count in others)]
         ),
     }
+
+
+def load_scope() -> dict[str, str]:
+    """The generated text, as the API reads it: the JSON file, never the registry file."""
+    return json.loads(BACKEND_SCOPE_PATH.read_text(encoding="utf-8"))
 
 
 def _write(path: Path, scope: dict[str, str]) -> None:

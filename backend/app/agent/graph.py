@@ -18,14 +18,16 @@ from app.agent.citations import reset_citation_counter
 from app.agent.model import get_agent_model
 from app.agent.tools import query_courses, search_documents
 from app.config import MAX_TOOL_ROUNDS
+from app.scope import load_scope
 
+# {documents} is filled in once, here, from the generated scope. {today} and {language_rule}
+# stay placeholders until each run (_build_system_prompt), hence replace and not format.
 SYSTEM_PROMPT_TEMPLATE = """You are the Al Akhawayn University (AUI) assistant. Today's date is \
 {today}.
 
 You have access to two tools:
-- search_documents: search AUI's official documents (academic policies, course catalog \
-descriptions, scholarship information). Use this for general questions answerable from those \
-documents.
+- search_documents: search AUI's official documents ({documents}). Use this for general \
+questions answerable from those documents.
 - query_courses: look up a specific course by its code (e.g. "ACC 2302") in the structured \
 course catalog -- returns its title, credits, and prerequisites. Pass follow_prerequisites=True \
 to get the FULL prerequisite chain (not just the immediate prerequisite) for questions like \
@@ -52,7 +54,7 @@ ordinary keyboard characters "[" and "]" only -- never full-width or other Unico
 variants (e.g. not 【6】) -- since this exact format is parsed by code. Never invent a citation \
 number yourself; only ever use a number a tool actually gave you.
 
-{language_rule}"""
+{language_rule}""".replace("{documents}", load_scope()["prompt_documents"])
 
 # The language is detected in code (app.agent.language) and passed in through
 # the run's config, so the model is told it rather than left to judge it --

@@ -5,8 +5,15 @@ from dataclasses import replace
 
 import pytest
 
+from app import scope as scope_module
 from app.registry import Registry, load_registry
-from app.scope import BACKEND_SCOPE_PATH, FRONTEND_SCOPE_PATH, ScopeError, render_scope
+from app.scope import (
+    BACKEND_SCOPE_PATH,
+    FRONTEND_SCOPE_PATH,
+    ScopeError,
+    load_scope,
+    render_scope,
+)
 
 
 def _without(registry: Registry, document_id: str) -> Registry:
@@ -81,6 +88,25 @@ def test_a_second_academic_document_is_refused():
     registry = _with_domain(load_registry(), "graduate_scholarships", "academic")
     with pytest.raises(ScopeError, match="graduate_scholarships"):
         render_scope(registry)
+
+
+def test_a_document_not_in_english_is_refused():
+    # The search tool tells the model the documents are in English.
+    registry = load_registry()
+    page = registry.documents[1]
+    french = replace(page, editions=(replace(page.editions[0], language="fr"),))
+    documents = tuple(french if d.id == page.id else d for d in registry.documents)
+    with pytest.raises(ScopeError, match="in English"):
+        render_scope(Registry(documents))
+
+
+def test_the_api_reads_the_json_and_never_the_registry_file(monkeypatch):
+    # The API's image doesn't hold data/registry.toml.
+    def no_registry():
+        raise AssertionError("load_scope read the registry file")
+
+    monkeypatch.setattr(scope_module, "load_registry", no_registry)
+    assert load_scope()["tool_documents"] == "academic catalog and scholarship pages"
 
 
 def test_a_document_with_two_editions_is_refused():

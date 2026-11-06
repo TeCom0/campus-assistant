@@ -13,6 +13,7 @@ run (so a second tool call picks up where the first left off, never
 restarting at [1]), and gives a passage returned again its earlier number.
 """
 
+import textwrap
 import time
 from typing import Annotated
 
@@ -28,6 +29,25 @@ from app.retrieval.hybrid_search import (
     search_hybrid_multi,
     strip_university_name,
     unique_queries,
+)
+from app.scope import load_scope
+
+_SCOPE = load_scope()
+
+# What the model reads about search_documents. It names the registry's documents, so it's
+# built here: a docstring can't hold generated text. The wrap and indent are what the
+# docstring gave the model, kept so that moving the text didn't change the model's input
+# (tests/test_agent_text_pinned.py).
+SEARCH_DOCUMENTS_DESCRIPTION = (
+    f"Search Al Akhawayn University's {_SCOPE['tool_documents']}.\n\n"
+    + textwrap.fill(
+        f"Use this for any question about {_SCOPE['tool_topics']} that might be described in "
+        "official university documents. Returns relevant passages with numbered citations "
+        "like [1], [2].",
+        width=78,
+        initial_indent="    ",
+        subsequent_indent="    ",
+    )
 )
 
 # For a code that other courses list as a prerequisite but that has no
@@ -97,7 +117,7 @@ def _ms_since(started: float) -> int:
     return round((time.perf_counter() - started) * 1000)
 
 
-@tool(response_format="content_and_artifact")
+@tool(description=SEARCH_DOCUMENTS_DESCRIPTION, response_format="content_and_artifact")
 def search_documents(
     query: Annotated[str, "What to search for, in the language of the question."],
     # Filled in by LangGraph's ToolNode with the graph state (the conversation);
@@ -114,13 +134,7 @@ def search_documents(
     # model's order (trace.in_call_order). None when called directly (tests).
     tool_call_id: Annotated[str | None, InjectedToolCallId] = None,
 ) -> tuple[str, list[dict]]:
-    """Search Al Akhawayn University's academic catalog and scholarship pages.
-
-    Use this for any question about academic policies, course requirements,
-    grading, registration, admissions, or scholarships/fellowships that might
-    be described in official university documents. Returns relevant passages
-    with numbered citations like [1], [2].
-    """
+    # The description the model reads is SEARCH_DOCUMENTS_DESCRIPTION, above.
     # query_en defaults to "" so a call without it still searches; the schema
     # bound to the model marks it required (see graph.MODEL_TOOLS).
     started = time.perf_counter()
