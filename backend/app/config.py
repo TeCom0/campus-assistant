@@ -42,6 +42,10 @@ def owner_database_url() -> str:
     return f"postgresql://{user}:{password}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 
+# FastAPI's docs routes. Off unless this says otherwise, so a server that forgets
+# the setting stays closed: production sets nothing.
+API_DOCS_ENABLED = os.environ.get("ENV") == "development"
+
 # LLM provider, switchable through this one value ("groq" or "gemini") --
 # see app/llm.py. Keys use .get() with an empty-string default, not
 # os.environ[...], so importing this module doesn't fail before a key has

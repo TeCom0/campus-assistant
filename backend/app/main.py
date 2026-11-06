@@ -23,6 +23,7 @@ from app.agent.language import detect_language
 from app.agent.tool_labels import build_tool_call_label
 from app.agent.trace import RunTrace, display_trace, start_trace
 from app.config import (
+    API_DOCS_ENABLED,
     CORS_ORIGINS,
     DAILY_QUESTION_CAP,
     MAX_AGENT_STEPS,
@@ -41,7 +42,12 @@ from app.sources import link_target, with_display_info
 
 # The schema isn't created here: `python -m app.db.migrate` runs first, as the
 # owner, and Compose's `api` waits for it. The API's own role can't run DDL.
-app = FastAPI(title="Campus AI Assistant")
+app = FastAPI(
+    title="Campus AI Assistant",
+    docs_url="/docs" if API_DOCS_ENABLED else None,
+    redoc_url="/redoc" if API_DOCS_ENABLED else None,
+    openapi_url="/openapi.json" if API_DOCS_ENABLED else None,
+)
 # The last one added runs first. CORS goes outside the size limit, so a refused
 # request still carries the headers a browser on another origin needs to read it.
 app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_BODY_BYTES)
