@@ -1,9 +1,7 @@
 """LangChain chat model construction for the LangGraph agent.
 
-Mirrors app.llm's provider switch (same LLM_PROVIDER/model/API-key config
-values), but returns a LangChain BaseChatModel -- LangGraph's tool-calling
-needs that interface, which app.llm's plain complete()/stream() don't
-provide.
+Switches provider on LLM_PROVIDER and returns a LangChain BaseChatModel, the
+interface LangGraph's tool-calling needs.
 """
 
 from functools import lru_cache

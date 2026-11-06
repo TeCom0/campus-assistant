@@ -49,10 +49,9 @@ def owner_database_url() -> str:
 API_DOCS_ENABLED = os.environ.get("ENV") == "development"
 
 # LLM provider, switchable through this one value ("groq" or "gemini") --
-# see app/llm.py. Keys use .get() with an empty-string default, not
+# see app/agent/model.py. Keys use .get() with an empty-string default, not
 # os.environ[...], so importing this module doesn't fail before a key has
-# been added; app/llm.py raises a clear error only when a provider is
-# actually used without its key set.
+# been added.
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "groq")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
