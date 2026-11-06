@@ -152,6 +152,22 @@ numbers. After A2.1, `python -m app.evaluation.run_retrieval_eval` must match
 `eval/results/retrieval/2026-11-05_a0_baseline.txt` line for line, on both the 14- and the 12-question set. If any rank
 changes: stop and report, don't adjust. 0 LLM tokens: no faithfulness or Groq calls in this step.
 
+## Uncited answers check
+
+Set 2026-11-06 by Claude, with Youness's go-ahead to decide, before the sample was run, following the rule of recording a
+decision rule before seeing the numbers. `docs/architecture.md` section 2.4 calls the A2.6b gate safe because run 3's only
+answers without citations were correct refusals. The deploy check of A2.1 saw real answers without citations, so that evidence
+needs testing before A2.2 changes the prompt.
+
+Sample, one attempt each, on the code deployed at `c907a33`: `transfer_credits_en`, `transfer_credits_fr`, `plagiarism_en`,
+`add_drop_en`, `excused_absences_fr`, `course_load_en`, `academic_probation_fr`, `repeat_course_en`, `w_grade_fr`,
+`scholarship_conditions_en`, `scholarship_work_hours_fr`, `acc2302_chain_en`. An answer counts as uncited if it called a tool,
+has no valid marker, and isn't a refusal when read by hand. Errors are reported and don't count.
+
+- At most 1/12 uncited: the evidence stands, and the order doesn't change.
+- 2/12 or more: stop and report, don't adjust. Section 2.4's evidence no longer holds, so A2.6b can't ship on it: the gate would
+  turn those answers into false refusals, which count against the pilot threshold's limit of 2/30.
+
 ## How to run
 
 Full setup from a fresh clone is in the README ("Running it"). Day to day:
@@ -182,7 +198,7 @@ known_hosts).
   line for line (91 lines), chunks byte-identical to `chunks.jsonl`, content fingerprints unchanged after re-seeding courses.
   On the VM the PDF link matches the old code's, and source card titles are unchanged. Seen in the deploy check, not
   measured: two answers to "How many credits can I transfer to AUI?" and one to a similar question came back with no source
-  cards. The one inspected in full has no `[N]` markers in its text, so nothing enforces a citation once a search has run.
+  cards. The one inspected in full has no `[N]` markers in its text. This is AG-3, whose gate is A2.6b; see "Uncited answers check".
 - **A1 is complete (A1.1-A1.5) and A0 is recorded.** Deployed: no images in answers (A1.1),
   browser headers with the CSP enforced (A1.2), request limits (A1.3), the API connecting as `campus_api`
   with migrations in a one-shot `python -m app.db.migrate` and a gate in `app.db.verify_role` (A1.4), and
