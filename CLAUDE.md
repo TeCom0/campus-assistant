@@ -173,14 +173,16 @@ known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A2.1 (registry) is built, tested and pushed, and not deployed: deploy only after Youness accepts it.** Next is A2.2.
+- **A2.1 (registry) is accepted and deployed (`c907a33`, 2026-11-06).** Next is A2.2.
   `data/registry.toml` is the one list of documents. Only the CLI and ingestion read it, inside functions and never at
   import, because the API's image doesn't hold it: the API reads `documents` and `document_editions`, with SELECT only.
   `python -m app.registry sync` never changes an existing edition's status; `--initial` works only on empty tables, and
   plain sync refuses them. A one-shot `registry-sync` service mounts the one file read-only, and the API waits for it.
   `bash deploy/update.sh` stops on 0 rows. Measured: `eval/results/retrieval/2026-11-06_a2_1.txt` matches the A0 baseline
   line for line (91 lines), chunks byte-identical to `chunks.jsonl`, content fingerprints unchanged after re-seeding courses.
-  aui.ma couldn't be reached from the laptop on 2026-11-06, so source links fall back there: compare the PDF link on the VM.
+  On the VM the PDF link matches the old code's, and source card titles are unchanged. Seen in the deploy check, not
+  measured: two answers to "How many credits can I transfer to AUI?" and one to a similar question came back with no source
+  cards. The one inspected in full has no `[N]` markers in its text, so nothing enforces a citation once a search has run.
 - **A1 is complete (A1.1-A1.5) and A0 is recorded.** Deployed: no images in answers (A1.1),
   browser headers with the CSP enforced (A1.2), request limits (A1.3), the API connecting as `campus_api`
   with migrations in a one-shot `python -m app.db.migrate` and a gate in `app.db.verify_role` (A1.4), and

@@ -62,7 +62,17 @@ to get the certificate:
 The repo is private, so the VM gets a copy of one commit, not a clone with
 credentials:
 
-    git archive --format=tar HEAD | ssh <vm> "mkdir -p ~/campus && tar -x -C ~/campus"
+    $tar = "$env:TEMP\campus.tar"
+    git archive --format=tar -o $tar HEAD      # from the repo root
+    C:\Windows\System32\OpenSSH\scp.exe $tar "<vm>:/tmp/campus.tar"
+    C:\Windows\System32\OpenSSH\ssh.exe <vm> "mkdir -p ~/campus && tar -x -C ~/campus -f /tmp/campus.tar && rm /tmp/campus.tar"
+
+A tar file, not `git archive | ssh`: PowerShell 5.1 pipes a program's output as text, which
+corrupts binary data.
+
+If SSH times out while the site answers on 443, the laptop's public IP has probably changed.
+`allow-ssh-from-me` in `campus-nsg` allows one address; point it at the current one, as a
+`/32`. `.claude/settings.json` lets this rule be listed and updated, with a prompt.
 
 The `.env` on the server is written there and never committed. **On the VM**,
 create it with new database credentials and the app's settings:
@@ -225,10 +235,8 @@ content fingerprints matched the laptop's on 2026-11-05.
 
 ### Rollback
 
-`<prev>` is the last commit before A1.4's code: `da982cf`.
+`<prev>` is the last commit before A1.4's code: `da982cf`. Copy it as in step 4, then:
 
-    # Laptop
-    git archive --format=tar <prev> | ssh <vm> "tar -x -C ~/campus"
     # VM
     cd ~/campus
     docker tag campus-api:pre-a14 campus-api:latest
@@ -279,9 +287,12 @@ After `up`, **roll back** on any one of these:
 
 1. **A fresh backup, then keep the running image for the rollback:**
 
+       date -Is
        sudo systemctl start campus-backup.service
-       sudo journalctl -u campus-backup.service -n 20 --no-pager | grep -E 'BACKUP OK|PING OK'
+       sudo journalctl -u campus-backup.service -n 20 --no-pager -o short-iso | grep -E 'BACKUP OK|PING OK'
        docker tag campus-api:latest campus-api:pre-a21
+
+   Both lines must be timestamped after the `date -Is` output, or they're from an earlier run.
 
 2. **Copy the commit** as in step 4 above.
 3. **Deploy, this once with `--initial`:** `bash deploy/update.sh --initial`.
@@ -291,10 +302,8 @@ After `up`, **roll back** on any one of these:
 
 ### Rollback
 
-`<prev>` is the last commit before A2.1's code: `c6117df`.
+`<prev>` is the last commit before A2.1's code: `c6117df`. Copy it as in step 4, then:
 
-    # Laptop
-    git archive --format=tar <prev> | ssh <vm> "tar -x -C ~/campus"
     # VM
     cd ~/campus
     docker tag campus-api:pre-a21 campus-api:latest
@@ -302,6 +311,14 @@ After `up`, **roll back** on any one of these:
 
 **What stays behind:** the two tables and the `campus_api` grants on them. The old API
 never reads them. Leave the installed fingerprint too: the tables exist, so it still works.
+
+### Deployed (2026-11-06)
+
+`c907a33` with `--initial`: `UPDATE OK`, 3 documents, 3 active editions, 1,161 chunks, 660 courses
+and 526 prerequisites before and after. No rollback condition met: the PDF link is unchanged from
+the VM, card titles match on both documents, no example file changed, and the API log holds no
+permission error. The backup at 16:47:44 UTC lists five tables, so it's the first dump a default
+drill can compare.
 
 ## VM hardening
 
