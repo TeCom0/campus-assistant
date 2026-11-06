@@ -77,7 +77,7 @@ CI/CD, and evaluation.
 ## Architecture
 
 1. Ingestion (`backend/app/ingestion/`): load public AUI documents (catalog PDF + scholarship
-   pages, listed in `data/sources.md`) -> clean -> chunk (each chunk starts with a "Section:"
+   pages, listed in `data/registry.toml`) -> clean -> chunk (each chunk starts with a "Section:"
    line: level + nearest heading) -> embed -> store in `document_chunks` with metadata.
    Courses and prerequisites are extracted into their own tables.
 2. Retrieval (`backend/app/retrieval/`): vector + keyword search fused by reciprocal rank
@@ -167,12 +167,20 @@ python -m app.evaluation.run_retrieval_eval    # in backend\, database seeded
 ```
 
 Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a `git archive`
-copy of HEAD to the VM, then `up -d --build`; SSH by the DNS name (that's the host key in
+copy of HEAD to the VM, then `bash deploy/update.sh`; SSH by the DNS name (that's the host key in
 known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A1 is complete (A1.1-A1.5) and A0 is recorded. Next is A2.** Deployed: no images in answers (A1.1),
+- **A2.1 (registry) is built, tested and pushed, and not deployed: deploy only after Youness accepts it.** Next is A2.2.
+  `data/registry.toml` is the one list of documents. Only the CLI and ingestion read it, inside functions and never at
+  import, because the API's image doesn't hold it: the API reads `documents` and `document_editions`, with SELECT only.
+  `python -m app.registry sync` never changes an existing edition's status; `--initial` works only on empty tables, and
+  plain sync refuses them. A one-shot `registry-sync` service mounts the one file read-only, and the API waits for it.
+  `bash deploy/update.sh` stops on 0 rows. Measured: `eval/results/retrieval/2026-11-06_a2_1.txt` matches the A0 baseline
+  line for line (91 lines), chunks byte-identical to `chunks.jsonl`, content fingerprints unchanged after re-seeding courses.
+  aui.ma couldn't be reached from the laptop on 2026-11-06, so source links fall back there: compare the PDF link on the VM.
+- **A1 is complete (A1.1-A1.5) and A0 is recorded.** Deployed: no images in answers (A1.1),
   browser headers with the CSP enforced (A1.2), request limits (A1.3), the API connecting as `campus_api`
   with migrations in a one-shot `python -m app.db.migrate` and a gate in `app.db.verify_role` (A1.4), and
   daily off-VM backups (A1.5). Migrations and ingestion still run as the owner superuser.

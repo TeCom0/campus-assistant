@@ -1238,6 +1238,9 @@ All deployed by 2026-11-06.
 | **A2.7** | Scope and bottom-line-first prompt changes; catalog-year note; see its acceptance criteria below | AG-4, section 5.2 | A2.2, A2.6b, Q1 | 0.5 |
 | **A2.8** | Faithfulness run 4, single run; hand-check failures; apply threshold D3. If it fails, the pilot waits. The reviewed sample excludes fallback answers, using the flag at `graph.py:205` | AG-4 | A2.7, D3 | 1 |
 
+**A2.1 is built and pushed, and deploys once accepted.** Retrieval eval identical to the A0 baseline, line for line:
+`eval/results/retrieval/2026-11-06_a2_1.txt`.
+
 **Order, decided 2026-11-06:** A2.1, A2.2, A2.6b, A2.3, A2.4, A2.5, A2.6, A2.7, A2.8. Step numbers don't change. Students
 testing the demo reported that it answered "What is 1 + 1?" and that answers make them read several paragraphs first.
 A2.6b depends only on A2.2, it fixes the off-topic answers sooner, and A2.6 is blocked on AUI (D8).

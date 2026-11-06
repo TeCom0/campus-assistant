@@ -441,8 +441,9 @@ python -m venv .venv
 pip install -e ".[dev]"
 
 python -m app.db.migrate          # the schema and the API's database role
+python -m app.registry sync --initial   # data/registry.toml -> the registry tables, once
 
-python -m app.ingestion.load      # download the documents (list mirrors data/sources.md)
+python -m app.ingestion.load      # download the documents listed in data/registry.toml
 python -m app.ingestion.clean     # PDF/HTML -> text
 python -m app.ingestion.chunk     # text -> chunks
 python -m app.ingestion.store     # embed chunks -> document_chunks
@@ -455,7 +456,9 @@ python -m app.ingestion.courses   # catalog -> courses + prerequisites
 docker compose up -d --build
 ```
 
-Open http://localhost:8080. The API is on http://localhost:8000 (`/health`, `/chat`).
+Open http://localhost:8080. The API is on http://localhost:8000 (`/health`, `/chat`). The API
+won't start until the registry is synced: on a database that skipped step 1, run
+`docker compose run --rm registry-sync python -m app.registry sync --initial` first.
 
 ### 2b. Or run for development (hot reload)
 
@@ -501,7 +504,7 @@ backend/
 frontend/src/     App.tsx (chat UI), chatStream.ts (SSE client), components/ (answer, Under the
                   hood panel, About page, diagrams), examples/ (saved example answers)
 eval/             retrieval evaluation set
-data/             sources.md (document URLs); raw/ and processed/ are generated
+data/             registry.toml (the documents and their URLs); raw/ and processed/ are generated
 ```
 
 ## Known limitations
@@ -559,7 +562,7 @@ data/             sources.md (document URLs); raw/ and processed/ are generated
 
 ## Data
 
-The knowledge base is public AUI documents only (listed with URLs in `data/sources.md`).
+The knowledge base is public AUI documents only (listed with URLs in `data/registry.toml`).
 
 **In the database.** The catalog passages, courses and prerequisites, plus one table for the demo
 limits, `question_log`: when each question was accepted and a keyed hash (HMAC-SHA256) of the
