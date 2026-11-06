@@ -320,6 +320,42 @@ the VM, card titles match on both documents, no example file changed, and the AP
 permission error. The backup at 16:47:44 UTC lists five tables, so it's the first dump a default
 drill can compare.
 
+## A2.2: generated scope text
+
+Written before the deploy. `C` as above. No schema or content change: a plain `update.sh`.
+
+### Rule, fixed before the numbers
+
+`update.sh` stopping before `up` means **stop**. Expected: `UPDATE OK`, 3 documents, 3 editions all active,
+1,161 chunks, 660 courses and 526 prerequisites.
+
+After `up`, **roll back** on any one of these:
+
+1. The running API's prompt or tool schemas differ from `backend/tests/fixtures/agent_text_c907a33.json`.
+2. A source link doesn't redirect to the same place as before, or a source card's title differs.
+3. Any permission error in the API's log.
+4. The live page's description isn't the generated text, or the live interface lacks "the document passages".
+
+### Steps
+
+1. **A fresh backup, then keep both running images for the rollback**, `campus-api` and `campus-frontend`, as
+   `pre-a22`. Check the backup's timestamps as in A2.1.
+2. **Copy the commit** as in step 4 above.
+3. **Deploy:** `bash deploy/update.sh`.
+4. **Check the rule above.**
+
+### Rollback
+
+`<prev>` is `c907a33`. Copy it as in step 4, then:
+
+    # VM
+    cd ~/campus
+    docker tag campus-api:pre-a22 campus-api:latest
+    docker tag campus-frontend:pre-a22 campus-frontend:latest
+    $C up -d --no-deps --no-build --force-recreate api frontend
+
+Nothing stays behind: A2.2 changes no table.
+
 ## VM hardening
 
 The key has a passphrase and lives in the Windows ssh-agent, so from this laptop use
