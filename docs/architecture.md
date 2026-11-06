@@ -1244,8 +1244,15 @@ All deployed by 2026-11-06.
 | **A2.7** | Scope and bottom-line-first prompt changes; catalog-year note; see its acceptance criteria below | AG-4, section 5.2 | A2.2, A2.6b, Q1 | 0.5 |
 | **A2.8** | Faithfulness run 4, single run; hand-check failures; apply threshold D3. If it fails, the pilot waits. The reviewed sample excludes fallback answers, using the flag at `graph.py:205` | AG-4 | A2.7, D3 | 1 |
 
-**A2.1 is built and pushed, and deploys once accepted.** Retrieval eval identical to the A0 baseline, line for line:
+**A2.1 is deployed (`c907a33`, 2026-11-06).** Retrieval eval identical to the A0 baseline, line for line:
 `eval/results/retrieval/2026-11-06_a2_1.txt`.
+
+**A2.2 is built and pushed, and deploys once accepted.** The model's input is byte-identical to `c907a33`, and the retrieval
+eval is byte-identical to the A0 baseline: `eval/results/retrieval/2026-11-06_a2_2.txt`. Two lines the table names stay
+hard-coded, because neither names a document: `tools.py`'s "the documents are in English", which the generator now enforces,
+and "No course found... in AUI's course catalog", where naming the edition would change the model's input, so it belongs to A2.7.
+`generation.py`'s only user being gone, `llm.py` was deleted too. A document with two editions stops the generator on purpose:
+A2.3 has to decide how this text follows the edition in force.
 
 **Order, decided 2026-11-06:** A2.1, A2.2, A2.6b, A2.3, A2.4, A2.5, A2.6, A2.7, A2.8. Step numbers don't change. Students
 testing the demo reported that it answered "What is 1 + 1?" and that answers make them read several paragraphs first.

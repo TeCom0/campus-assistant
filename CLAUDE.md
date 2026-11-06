@@ -204,7 +204,15 @@ known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A2.1 (registry) is accepted and deployed (`c907a33`, 2026-11-06).** Next is A2.2.
+- **A2.2 (generated scope text) is built, tested and pushed, and not deployed: deploy only after Youness accepts it.** Next is
+  A2.6b. `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
+  changing the registry, and commit both. Tests pin both files to the registry and `frontend/index.html` to the text, but the
+  description in `index.html` is copied by hand. The text comes from the file, not the database's status, so a document with
+  two editions stops the generator until A2.3 decides. Measured: the model's input matches `c907a33` byte for byte
+  (`tests/fixtures/agent_text_c907a33.json`), also inside the built API image; the retrieval eval is byte-identical to the A0
+  baseline (`eval/results/retrieval/2026-11-06_a2_2.txt`); and the rendered interface is unchanged except "the catalog
+  passages" became "the document passages" on the diagram. 0 LLM tokens.
+- **A2.1 (registry) is accepted and deployed (`c907a33`, 2026-11-06).**
   `data/registry.toml` is the one list of documents. Only the CLI and ingestion read it, inside functions and never at
   import, because the API's image doesn't hold it: the API reads `documents` and `document_editions`, with SELECT only.
   `python -m app.registry sync` never changes an existing edition's status; `--initial` works only on empty tables, and
