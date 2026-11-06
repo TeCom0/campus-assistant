@@ -37,9 +37,7 @@ time_sensitive = true
 id = "graduate_scholarships"
 title = { en = "Graduate Scholarships", fr = "Bourses d'études supérieures" }
 domain = "scholarships"
-# Named on the page, which assigns scholarship students' service jobs through it.
-# UNSURE: AUI to confirm (Q4)
-owning_department = "Financial Aid Office"
+# UNSURE: AUI to confirm (Q4); the page names the Financial Aid Office only for service jobs.
 audience = "graduate"
 visibility = "public"
 time_sensitive = true
@@ -48,6 +46,7 @@ time_sensitive = true
   id = "graduate_scholarships"
   label = "retrieved 2026-09-29"
   card_title = "Graduate Scholarships (AUI website)"
+  review_by = "2027-09-29"
   retrieved_at = "2026-09-29"
   language = "en"
   format = "html"
