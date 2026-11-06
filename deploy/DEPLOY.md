@@ -417,15 +417,26 @@ and you didn't have one, or you want it gone anyway:
 ### Restore drill, monthly
 
 1. Download the latest `db/` object from the B2 console, and compare its sha256 with
-   `journalctl -u campus-backup.service`.
+   `sudo journalctl -u campus-backup.service`. The console can bundle a download into a zip:
+   extract the object first. Each backup has its own checksum, even with the same content,
+   because `age` encrypts each one with a fresh key.
 2. `deploy/backup/restore-drill.sh <file>` decrypts it, restores it into a scratch project
-   (`-p a15drill`), and compares it with production by the rule above.
+   (`-p a15drill`), and compares it with production by the rule above. Pass the path in
+   Windows form (`C:/...`). Also try `b2_check.py delete-test <file ID> <name>` on the VM,
+   and deleting the object in the console: both must be refused.
 3. In a real restore, use `pg_restore --no-owner --no-privileges` and then
    `python -m app.db.migrate`: dumps hold grants to `campus_api`, which a fresh database
    doesn't have yet.
 
 Clean up with `docker compose -p a15drill -f deploy/backup/drill-compose.yml down -v`, and
 only ever with that explicit project name.
+
+**First drill, 2026-11-06:** passed, 7 s for the decrypt, restore and compare. Row counts and
+whole-row fingerprints were identical to production for all three tables, with 0 rows in
+`question_log`. Changing one embedding in the scratch copy changed the fingerprint, so
+embeddings do count. The VM's key was refused (`HTTP 401, unauthorized`), and so was a delete
+in the console, because of the lock. This doesn't measure a full rebuild: that's B23. Next
+drill due by 2026-12-06.
 
 ## Deployed (2026-10-20)
 
