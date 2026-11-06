@@ -261,7 +261,7 @@ rows (losing them only resets the limit counters), `.env`, and Caddy's certifica
 | `age` public key | `/etc/campus-backup/age-recipient.txt` on the VM | Not secret |
 | B2 application key | `/etc/campus-backup/b2.env`, root-only, mode 600 | Never printed, never in a chat |
 | Healthchecks.io ping URL | `/etc/campus-backup/healthcheck-url`, root-only, mode 600 | Never printed |
-| B2 master key | Never on the VM. Used at most once on the laptop, see "If Write Only isn't enough" | Never on disk |
+| B2 master key | Never on the VM. Used once on the laptop, see "Creating the application key" | Never on disk |
 
 The password manager copy is deliberate: with the key only on the laptop, losing the
 laptop would make every backup permanently unreadable.
@@ -284,10 +284,9 @@ the dead man's switch exists.
 - **A backup counts** only if the script reaches `BACKUP OK`, having checked that B2's
   reported size and SHA-1 match the local file, and that the retention B2 reports is
   `compliance` and at least 29 days ahead.
-- **The key passes** only with `writeFiles`, `listBuckets`, `readFileRetentions` and
-  `readBucketRetentions`, and without `deleteFiles`, `bypassGovernance` or
-  `writeFileRetentions`, restricted to this bucket, with no name prefix or expiry. The
-  bucket's default retention must read `compliance`, 30 days.
+- **The key passes** only with exactly `writeFiles`, `listBuckets`, `readFileRetentions` and
+  `readBucketRetentions`, and nothing else, restricted to this bucket, with no name prefix
+  or expiry. The bucket's default retention must read `compliance`, 30 days.
 - **A restore drill passes** only if row counts and whole-row md5 fingerprints (embeddings
   included) are identical to production for `document_chunks`, `courses` and
   `course_prerequisites`, with 0 rows in `question_log`. Anything else fails.
@@ -314,18 +313,14 @@ the password manager, and don't paste them anywhere else.
 lifecycle rules. File Path `db/`, days from uploading to hiding `45`, days from hiding to
 deleting `1`.
 
-**Application key:** Application Keys > Add a New Application Key.
-
-| Setting | Value |
-| --- | --- |
-| Name of Key | `campus-backup-vm` |
-| Allow access to Bucket(s) | `campus-assistant-backups-7` only |
-| Type of Access | Write Only |
-| Allow List All Bucket Names | not ticked |
-| File name prefix | empty |
-| Duration | empty |
-
-The secret is shown once. It goes only into `b2.env` below.
+**Application key: not from the console.** Its "Write Only" type is far too broad, and
+Backblaze doesn't publish what it grants. Measured on 2026-11-06 with a real key of that
+type: `bypassGovernance`, `deleteFiles`, `listBuckets`, `writeBucketEncryption`,
+`writeBucketLifecycleRules`, `writeBucketLogging`, `writeBucketNotifications`,
+`writeBucketReplications`, `writeBucketRetentions`, `writeFileLegalHolds`,
+`writeFileRetentions`, `writeFiles`. So it could delete unlocked files and change the bucket's
+retention and lifecycle, and it can't read retention at all. Create the key with
+`b2 key create`, in "Creating the application key" below.
 
 ### 3. In Healthchecks.io
 
@@ -380,13 +375,11 @@ real backup afterwards and see that the check goes back up.
 
     sudo CAMPUS_BACKUP_DB_CONTAINER=no-such-container /usr/local/sbin/campus-backup; echo "exit $?"
 
-### If Write Only isn't enough
+### Creating the application key
 
-Backblaze doesn't publish what the console's access types grant, so `b2_check.py`
-measures it. If only `readFileRetentions` or `readBucketRetentions` is missing, delete
-that key in the console and create one with exactly the rights needed, on the laptop,
-in **your own PowerShell window, not through a tool that records output**. It prompts for
-the master key so it never enters the shell history, which `$env:X = "..."` would.
+On the laptop, in **your own PowerShell window, not through a tool that records output**.
+It prompts for the master key so it never enters the shell history, which
+`$env:X = "..."` would. `b2_check.py` then measures what the new key can do.
 
 `b2-windows.exe` v5.0.2, sha256
 `d6e5b1c0918c2755fc8c14eb5b5aa698c36b43d3fdc18fca13ea163d829bbbbb`.

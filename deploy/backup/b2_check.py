@@ -18,8 +18,10 @@ from pathlib import Path
 
 KEY_FILE = Path("/etc/campus-backup/b2.env")
 BUCKET = "campus-assistant-backups-7"
+# Exactly these, nothing more. A list of forbidden rights would have missed some: the
+# console's Write Only type also grants writeBucketRetentions and
+# writeBucketLifecycleRules, which would let a compromised VM weaken the bucket itself.
 REQUIRED = {"writeFiles", "listBuckets", "readFileRetentions", "readBucketRetentions"}
-FORBIDDEN = {"deleteFiles", "bypassGovernance", "writeFileRetentions", "writeKeys"}
 AUTHORIZE_URL = "https://api.backblazeb2.com/b2api/v4/b2_authorize_account"
 
 
@@ -56,7 +58,7 @@ def key_problems(allowed: dict, expiry: int | None) -> list[str]:
     missing = REQUIRED - capabilities
     if missing:
         problems.append(f"missing: {', '.join(sorted(missing))}")
-    extra = FORBIDDEN & capabilities
+    extra = capabilities - REQUIRED
     if extra:
         problems.append(f"must not have: {', '.join(sorted(extra))}")
     buckets = [bucket.get("name") for bucket in allowed.get("buckets") or []]

@@ -493,6 +493,15 @@ def test_a_key_with_exactly_the_needed_rights_passes():
             "writeFileRetentions",
         ),
         ({"capabilities": [*GOOD_ALLOWED["capabilities"], "writeKeys"]}, "writeKeys"),
+        (
+            {"capabilities": [*GOOD_ALLOWED["capabilities"], "writeBucketRetentions"]},
+            "writeBucketRetentions",
+        ),
+        (
+            {"capabilities": [*GOOD_ALLOWED["capabilities"], "writeBucketLifecycleRules"]},
+            "writeBucketLifecycleRules",
+        ),
+        ({"capabilities": [*GOOD_ALLOWED["capabilities"], "listFiles"]}, "listFiles"),
         ({"buckets": None}, "not restricted"),
         ({"buckets": [{"name": "another-bucket"}]}, "not restricted"),
         ({"namePrefix": "db/"}, "prefix"),
@@ -501,6 +510,19 @@ def test_a_key_with_exactly_the_needed_rights_passes():
 def test_a_key_outside_the_rule_is_reported(change, fragment):
     problems = _b2_check().key_problems({**GOOD_ALLOWED, **change}, None)
     assert any(fragment in problem for problem in problems)
+
+
+def test_the_rights_the_console_write_only_type_grants_are_refused():
+    # Measured on 2026-11-06 with a real key of that type.
+    write_only = [
+        "bypassGovernance", "deleteFiles", "listBuckets", "writeBucketEncryption",
+        "writeBucketLifecycleRules", "writeBucketLogging", "writeBucketNotifications",
+        "writeBucketReplications", "writeBucketRetentions", "writeFileLegalHolds",
+        "writeFileRetentions", "writeFiles",
+    ]  # fmt: skip
+    problems = _b2_check().key_problems({**GOOD_ALLOWED, "capabilities": write_only}, None)
+    assert any("missing: readBucketRetentions, readFileRetentions" in p for p in problems)
+    assert any("must not have: bypassGovernance, deleteFiles" in p for p in problems)
 
 
 def test_a_key_with_an_expiry_is_reported():
