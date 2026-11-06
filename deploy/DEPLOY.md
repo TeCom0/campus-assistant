@@ -329,9 +329,12 @@ The secret is shown once. It goes only into `b2.env` below.
 
 ### 3. In Healthchecks.io
 
-Create a check with a simple schedule, Period 1 day and Grace Time 26 hours. The ping
-URL goes only into `healthcheck-url` below. Grace is added to the period, so this alerts
-about 50 hours after the last good backup.
+Create a check with a simple schedule, Period 1 day and Grace Time 2 hours. The ping
+URL goes only into `healthcheck-url` below. Grace is added to the period, so a backup that
+never runs alerts about 26 hours after the last good one. A backup that runs and fails
+doesn't wait for that: the script pings the same URL with `/fail` appended, which
+Healthchecks.io says "minimizes the delay" before the alert. That ping is best effort and
+never changes the script's exit code.
 
 ### 4. On the VM: tools and config
 
@@ -367,7 +370,15 @@ variables, other commands use in-memory account info and write nothing.
     sudo systemctl start campus-backup.service
     systemctl status campus-backup.service               # last result
     journalctl -u campus-backup.service -n 25            # the proof lines
+    sudo systemctl enable --now campus-backup.timer      # only after a good first backup
     systemctl list-timers campus-backup.timer
+
+To test the alert once, make a run fail on purpose, with a container that doesn't exist, so
+nothing is dumped or uploaded. It should exit 1 and print `FAIL PING OK`, and the check
+should alert. Healthchecks.io's docs don't say whether a later success clears it, so run a
+real backup afterwards and see that the check goes back up.
+
+    sudo CAMPUS_BACKUP_DB_CONTAINER=no-such-container /usr/local/sbin/campus-backup; echo "exit $?"
 
 ### If Write Only isn't enough
 

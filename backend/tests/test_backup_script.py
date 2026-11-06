@@ -8,6 +8,7 @@ Not on Windows: the script needs real file modes.
 
 import importlib.util
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -116,11 +117,16 @@ class Sandbox:
 
     def curl(self, code: int, body: str) -> None:
         self._stub(
-            self.bin / "curl", f'cat > {self.root}/curl.stdin\necho -n "{body}"\nexit {code}'
+            self.bin / "curl", f'cat >> {self.root}/curl.stdin\necho -n "{body}"\nexit {code}'
         )
 
     def called(self, tool: str) -> int:
         return self.calls.read_text().split().count(tool)
+
+    def pinged(self) -> list[str]:
+        """Every URL curl was given, in order."""
+        given = self.root / "curl.stdin"
+        return re.findall(r'url = "([^"]+)"', given.read_text()) if given.exists() else []
 
     def run(self, *args: str) -> subprocess.CompletedProcess:
         env = {
@@ -167,14 +173,15 @@ def test_a_good_run_prints_the_proof_and_then_pings(box):
     assert "retention: compliance until " in done.stdout
     assert "document_chunks 1161 abc" in done.stdout
     assert done.stdout.index("BACKUP OK") < done.stdout.index("PING OK")
-    assert box.called("curl") == 1
+    assert box.pinged() == [PING_URL]
+    assert "FAIL PING" not in done.stdout
     assert_no_secret(done)
 
 
 @posix_only
 def test_the_ping_url_reaches_curl_on_stdin_not_as_an_argument(box):
     box.run()
-    assert PING_URL in (box.root / "curl.stdin").read_text()
+    assert box.pinged() == [PING_URL]
 
 
 @posix_only
@@ -217,8 +224,16 @@ def test_a_bad_setup_is_refused_before_any_dump(box, break_it, message, args):
     assert done.returncode != 0
     assert message in done.stderr
     assert box.called("docker") == 0
-    assert box.called("curl") == 0
+    # A scheduled run that can't start is a failed backup. Checking the setup isn't.
+    assert box.pinged() == ([] if args else [PING_URL + "/fail"])
     assert_no_secret(done)
+
+
+@posix_only
+def test_a_mistyped_argument_alerts_nobody(box):
+    done = box.run("--chekc")
+    assert done.returncode != 0
+    assert box.pinged() == []
 
 
 @posix_only
@@ -251,7 +266,7 @@ def test_a_bad_ping_url_fails_check_but_never_stops_a_backup(box, break_it):
     assert box.called("curl") == 0
 
 
-# --- A failed backup means no BACKUP OK and no ping -----------------------------
+# --- A failed backup: no BACKUP OK, no success ping, and /fail ---------------------
 
 
 @posix_only
@@ -282,16 +297,87 @@ def test_a_bad_ping_url_fails_check_but_never_stops_a_backup(box, break_it):
         "sha1_differs",
     ],
 )
-def test_a_failed_backup_never_pings(box, break_it, message):
+def test_a_failed_backup_sends_fail_and_never_the_success_ping(box, break_it, message):
     break_it(box)
 
     done = box.run()
 
-    assert done.returncode != 0
+    assert done.returncode == 1
     assert message in done.stderr
     assert "BACKUP OK" not in done.stdout
-    assert box.called("curl") == 0
+    assert PING_URL not in box.pinged()
+    assert box.pinged() == [PING_URL + "/fail"]
+    assert "FAIL PING OK" in done.stdout
     assert_no_secret(done)
+
+
+@posix_only
+def test_a_failure_nobody_wrote_a_die_for_also_alerts_and_keeps_its_exit_code(box):
+    # sha256sum isn't guarded: set -e ends the script with its code, 7.
+    box._stub(box.bin / "sha256sum", "exit 7")
+
+    done = box.run()
+
+    assert done.returncode == 7
+    assert box.pinged() == [PING_URL + "/fail"]
+
+
+@posix_only
+def test_being_stopped_alerts_and_cleans_up(box):
+    box._stub(box.bin / "docker", "kill -TERM $PPID; sleep 1")
+
+    done = box.run()
+
+    assert done.returncode == 143
+    assert box.pinged() == [PING_URL + "/fail"]
+    assert list(box.work.iterdir()) == []
+
+
+@posix_only
+@pytest.mark.parametrize(
+    ("code", "body"),
+    [(6, ""), (22, ""), (0, "OK (not found)"), (0, "OK (rate limited)")],
+    ids=["no_network", "http_error", "unknown_url", "rate_limited"],
+)
+def test_a_failed_fail_ping_never_masks_the_exit_code(box, code, body):
+    box.docker(1)
+    box.curl(code, body)
+
+    done = box.run()
+
+    assert done.returncode == 1
+    assert "dump or encryption failed" in done.stderr
+    assert "FAIL PING FAILED" in done.stdout
+    assert_no_secret(done)
+
+
+@posix_only
+@pytest.mark.parametrize(
+    "break_it",
+    [
+        lambda b: (b.config / "healthcheck-url").unlink(),
+        lambda b: (b.config / "healthcheck-url").chmod(0o644),
+        lambda b: b._secret("healthcheck-url", "http://example.com/x\n"),
+    ],
+    ids=["missing", "readable_by_others", "wrong_host"],
+)
+def test_a_bad_ping_url_never_masks_a_failed_backup(box, break_it):
+    break_it(box)
+    box.docker(1)
+
+    done = box.run()
+
+    assert done.returncode == 1
+    assert "dump or encryption failed" in done.stderr
+    assert "FAIL PING SKIPPED" in done.stdout
+    assert box.pinged() == []
+
+
+@posix_only
+def test_a_failed_backup_leaves_nothing_behind(box):
+    box.b2(1, b2_reply())
+    assert box.run().returncode == 1
+    assert list(box.work.iterdir()) == []
 
 
 @posix_only
@@ -319,6 +405,8 @@ def test_a_failed_ping_is_reported_and_doesnt_fail_the_backup(box, code, body):
     assert "BACKUP OK" in done.stdout
     assert "PING FAILED" in done.stdout
     assert "PING OK" not in done.stdout
+    # The backup is good, so a lost success ping must not report a failure.
+    assert box.pinged() == [PING_URL]
     assert_no_secret(done)
 
 

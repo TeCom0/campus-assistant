@@ -62,6 +62,42 @@ ping_url_problem() {
   return 1
 }
 
+# Tells Healthchecks.io, with $1 appended to the URL. True only if it answered exactly
+# "OK": an unknown URL also answers 200, with "OK (not found)". The URL goes through a
+# config on stdin, to stay out of the process list, and curl's own errors are dropped
+# because they can quote it.
+ping_check() {
+  local body
+  body="$(curl -fs -m 10 --retry 5 -K - 2>/dev/null <<<"url = \"$(cat "$PING_FILE")$1\"")" && [ "$body" = "OK" ]
+}
+
+# Runs however the script ends, so a failure nobody wrote a `die` for is covered too.
+# The /fail ping makes the alert immediate instead of 26 hours later. It's best effort:
+# the exit code is saved first and restored last, so it can't mask the real result.
+WORK=""
+FAILURE_ALERTS=0
+on_exit() {
+  local code=$?
+  trap - EXIT
+  set +e
+  [ -n "$WORK" ] && rm -rf "$WORK"
+  if [ "$code" -ne 0 ] && [ "$FAILURE_ALERTS" = "1" ]; then
+    if problem="$(ping_url_problem)"; then
+      echo "FAIL PING SKIPPED: $problem"
+    elif ping_check /fail; then
+      echo "FAIL PING OK"
+    else
+      echo "FAIL PING FAILED: the check wasn't told, so it alerts only when the backup is overdue"
+    fi
+  fi
+  exit "$code"
+}
+trap on_exit EXIT
+# Without these, being stopped would skip the EXIT trap above.
+trap 'exit 143' TERM
+trap 'exit 130' INT
+trap 'exit 129' HUP
+
 if [ "${1:-}" = "--check" ]; then
   check_config
   if problem="$(ping_url_problem)"; then
@@ -72,11 +108,13 @@ if [ "${1:-}" = "--check" ]; then
 fi
 [ "$#" -eq 0 ] || die "unknown argument"
 
+# A real run from here on, so a failure alerts. Checking the setup or a mistyped
+# argument isn't a failed backup.
+FAILURE_ALERTS=1
 check_config
 
 mkdir -p "$WORK_ROOT"
 WORK="$(mktemp -d "$WORK_ROOT/run.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
 export HOME="$WORK"
 
 STAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
@@ -162,18 +200,13 @@ echo "content at dump time (table, rows, md5):"
 docker exec -i "$DB_CONTAINER" sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -F " "' \
   <"$FINGERPRINT_SQL" 2>/dev/null | sed 's/^/  /' || die "content fingerprint failed"
 echo "BACKUP OK"
+FAILURE_ALERTS=0
 
 # The dead man's switch: Healthchecks.io alerts if these stop. A failed ping is
-# reported, but the backup above is already safe, so it doesn't fail the run. The URL
-# goes through a config on stdin, to stay out of the process list, and curl's own
-# errors are dropped because they can quote it. The body must be exactly "OK": an
-# unknown URL also answers 200, with "OK (not found)".
+# reported, but the backup above is already safe, so it doesn't fail the run.
 if problem="$(ping_url_problem)"; then
   echo "PING SKIPPED: $problem"
-  exit 0
-fi
-BODY=""
-if BODY="$(curl -fs -m 10 --retry 5 -K - 2>/dev/null <<<"url = \"$(cat "$PING_FILE")\"")" && [ "$BODY" = "OK" ]; then
+elif ping_check ""; then
   echo "PING OK"
 else
   echo "PING FAILED: the backup is fine, but the check wasn't told"
