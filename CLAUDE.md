@@ -166,8 +166,9 @@ known_hosts).
   its changelog). Next restore drill due by 2026-12-06.
 - A1.5: a systemd timer on the VM pipes `pg_dump` into `age` and pushes to Backblaze B2 (Object Lock,
   compliance, 30 days; lifecycle 45 + 1 under `db/`), with a Healthchecks.io ping and `/fail`. Runbook in
-  `deploy/DEPLOY.md`. First scheduled backup: 2026-11-06 03:32 UTC, not yet seen when this was written; it
-  shows in Healthchecks.io and `journalctl -u campus-backup.service`.
+  `deploy/DEPLOY.md`. First scheduled backup ran 2026-11-06 03:32 UTC: `BACKUP OK` and `PING OK` in
+  `journalctl -u campus-backup.service`, 2,678,146 bytes, retention to 2026-12-06, 526 prerequisites, 660
+  courses and 1,161 chunks. Healthchecks.io shows OK.
 - A1.3 limits: 64 KiB bodies in Caddy and in a pure ASGI middleware (`app/request_limits.py`); question
   1-2,000 characters, at most 20 messages, user 2,000 and assistant 6,000 characters, unknown fields
   refused. A rejected request gets a fixed 413 or 422, isn't counted and logs no body text. The UI has
