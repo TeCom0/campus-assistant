@@ -1,0 +1,74 @@
+# The documents the assistant answers from: what each one is and where it comes from.
+#
+# Read and validated by backend/app/registry.py. `python -m app.registry sync` copies it
+# to the documents and document_editions tables, which is what the API reads, since this
+# file isn't in the API's image. Whether an edition is live (its status) isn't here: it
+# lives only in the database, so it can change without a redeploy (docs/architecture.md,
+# section 3.1).
+#
+# An edition's id equals document_chunks.source, and data/raw/<id>.<format> is its file.
+
+[[document]]
+id = "academic_catalog"
+title = { en = "Academic Catalog", fr = "Catalogue académique" }
+domain = "academic"
+# UNSURE: AUI to confirm (Q4)
+owning_department = "Office of the Registrar"
+audience = "all"
+visibility = "public"
+time_sensitive = true
+
+  [[document.edition]]
+  id = "academic_catalog_2024_2025"
+  label = "2024-2025"
+  card_title = "Academic Catalog 2024–2025"
+  effective_from = "2024-08-01"   # UNSURE: AUI to confirm
+  review_by = "2027-08-01"
+  retrieved_at = "2026-09-29"
+  # last_updated: PDF metadata ModDate 2025-08-31; not a stated revision, so not used.
+  language = "en"
+  format = "pdf"
+  source_url = "https://aui.ma/hubfs/ACADEMIC%20CATALOG%202024-2025.pdf?hsLang=en"
+  fallback_url = "https://aui.ma/academic-catalogs"
+  sha256 = "cfebcd24750f8a0418c5b7103f2ff5112a83fda71ff6b3a7c1dcff991ae830fa"
+  course_tables = true
+
+[[document]]
+id = "graduate_scholarships"
+title = { en = "Graduate Scholarships", fr = "Bourses d'études supérieures" }
+domain = "scholarships"
+# Named on the page, which assigns scholarship students' service jobs through it.
+# UNSURE: AUI to confirm (Q4)
+owning_department = "Financial Aid Office"
+audience = "graduate"
+visibility = "public"
+time_sensitive = true
+
+  [[document.edition]]
+  id = "graduate_scholarships"
+  label = "retrieved 2026-09-29"
+  card_title = "Graduate Scholarships (AUI website)"
+  retrieved_at = "2026-09-29"
+  language = "en"
+  format = "html"
+  source_url = "https://aui.ma/admission-aid/graduates/scholarships"
+  sha256 = "6578c666ce98c7cb4130383b6f560c1f62baf09ecb15b1f8948b70cef601ee94"
+
+[[document]]
+id = "prestigious_scholarships"
+title = { en = "Prestigious Scholarships", fr = "Bourses prestigieuses" }
+domain = "scholarships"
+# UNSURE: AUI to confirm (Q4)
+audience = "all"
+visibility = "public"
+time_sensitive = false
+
+  [[document.edition]]
+  id = "prestigious_scholarships"
+  label = "retrieved 2026-09-29"
+  card_title = "Prestigious Scholarships (AUI website)"
+  retrieved_at = "2026-09-29"
+  language = "en"
+  format = "html"
+  source_url = "https://aui.ma/prestigious-scholarship"
+  sha256 = "92cb29f00b38021793b3f4ad94a8a0d2ffe7ff817079974e8fb0ce537cafa99a"
