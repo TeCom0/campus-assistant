@@ -1,4 +1,4 @@
-"""The body limit in deploy/Caddyfile, proven on real Caddy.
+"""The body limit and timeouts in deploy/Caddyfile, proven on real Caddy.
 
 Reading the Caddyfile can't show that a body really gets a 413: that depends on
 how Caddy handles the directive, and it needs an upstream reading the body. So
@@ -12,6 +12,7 @@ test would otherwise leave the limit unproven on a green run.
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 import uuid
@@ -29,7 +30,8 @@ MARKER = "SECRETMARKER123"
 # Reads the whole body, the way the API does, and answers with its size. The
 # request_body limit only fires when the upstream side reads past it.
 STUB_UPSTREAM = """
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
@@ -46,13 +48,27 @@ class Handler(BaseHTTPRequestHandler):
                 self.rfile.readline()
         else:
             size = len(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        if "/stream/" in self.path:
+            # Like /chat: a POST answered as a stream, with a pause between its parts.
+            pause = float(self.path.rsplit("/", 1)[1])
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            for part in (b"first", b"second", b"third"):
+                self.wfile.write(b"%x\\r\\n%s\\r\\n" % (len(part), part))
+                self.wfile.flush()
+                time.sleep(pause)
+            self.wfile.write(b"0\\r\\n\\r\\n")
+            self.wfile.flush()
+            return
         reply = str(size).encode()
         self.send_response(200)
         self.send_header("Content-Length", str(len(reply)))
         self.end_headers()
         self.wfile.write(reply)
 
-HTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
+ThreadingHTTPServer(("0.0.0.0", 8000), Handler).serve_forever()
 """
 
 
@@ -182,6 +198,72 @@ def test_a_refused_body_leaves_no_text_in_caddys_log(caddy):
     url, read_log = caddy
     httpx.post(f"{url}/api/chat", content=_body(MAX_BODY_BYTES + 1), timeout=20)
     assert MARKER not in read_log()
+
+
+def _stream(url: str, pause: float, encoding: str) -> list[tuple[bytes, float]]:
+    """Each part of a streamed answer, decoded, with the seconds since the request began.
+    Browsers ask for compression, and Caddy's encode directive then applies to the stream."""
+    start = time.monotonic()
+    parts = []
+    with httpx.stream(
+        "POST",
+        f"{url}/api/stream/{pause}",
+        content=b"{}",
+        headers={"Accept-Encoding": encoding},
+        timeout=pause + 30,
+    ) as reply:
+        assert reply.status_code == 200
+        assert reply.headers.get("content-encoding", "identity") == encoding
+        for chunk in reply.iter_bytes():
+            if chunk:
+                parts.append((chunk, time.monotonic() - start))
+    return parts
+
+
+@pytest.mark.parametrize("encoding", ["identity", "gzip"])
+def test_a_streamed_answer_arrives_piece_by_piece(caddy, encoding):
+    url, _ = caddy
+    parts = _stream(url, 1.5, encoding)
+    assert b"".join(chunk for chunk, _ in parts) == b"firstsecondthird"
+    # The first part got through long before the last: nothing buffered the stream.
+    assert parts[-1][1] - parts[0][1] >= 2.5
+
+
+@pytest.mark.skipif(
+    not os.environ.get("CADDY_LONG_STREAM"),
+    reason="takes over 3 minutes: run by hand on an upgrade",
+)
+def test_a_stream_that_pauses_past_the_default_timeouts_survives(caddy):
+    # 2.11.6 cut off POSTed streams after 60 s, and reset quiet ones. 2.11.7 fixed both.
+    url, _ = caddy
+    parts = _stream(url, 70, "gzip")
+    assert b"".join(chunk for chunk, _ in parts) == b"firstsecondthird"
+    assert parts[-1][1] - parts[0][1] >= 130
+
+
+def test_a_client_that_never_finishes_its_headers_is_dropped(caddy):
+    url, _ = caddy
+    port = int(url.rsplit(":", 1)[1])
+    start = time.monotonic()
+    with socket.create_connection(("127.0.0.1", port), timeout=20) as client:
+        client.sendall(b"POST /api/chat HTTP/1.1\r\nHost: x\r\nX-Slow: ")
+        received = b""
+        while True:  # until Caddy gives up on it and closes the connection
+            chunk = client.recv(1024)
+            if not chunk:
+                break
+            received += chunk
+    elapsed = time.monotonic() - start
+    assert 8 <= elapsed <= 16, elapsed  # read_header 10s, not Caddy's default 1m
+
+
+def test_the_image_is_pinned_by_digest_and_the_timeouts_are_set():
+    assert "@sha256:" in _production_caddy_image()
+    caddyfile = CADDYFILE.read_text(encoding="utf-8")
+    for line in ("read_header 10s", "read_body 30s", "read_body_idle 10s", "idle 2m"):
+        assert line in caddyfile
+    # A hard limit on writes would cut a long streamed answer off.
+    assert not re.search(r"^\s*write(_idle)?\s", caddyfile, re.MULTILINE)
 
 
 def test_the_caddy_limit_is_the_same_as_the_apps():

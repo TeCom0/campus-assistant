@@ -25,7 +25,9 @@ services:
     ports: !reset []
 
   caddy:
-    image: caddy:2.8.4-alpine
+    # Pinned by digest. The newest release at least two weeks old when chosen. Check
+    # its changelog and advisories before moving it.
+    image: caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
     restart: unless-stopped
     # The same rotation as the other containers (docker-compose.yml): a YAML
     # anchor can't reach across two files.

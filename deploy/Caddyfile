@@ -8,6 +8,18 @@
 # line. The headers go too: a client's own X-Forwarded-For, X-Real-IP or Referer
 # would otherwise be logged as sent. "remote" is on certificate validation lines.
 {
+	# Bounds on slow clients. Writes are left to Caddy's defaults on purpose: write_idle
+	# only limits a stalled write, so answers streaming as server-sent events are fine,
+	# and a hard `write` limit would cut a long answer off.
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 30s
+			read_body_idle 10s
+			idle 2m
+		}
+	}
+
 	log default {
 		format filter {
 			wrap json
