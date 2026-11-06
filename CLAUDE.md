@@ -160,12 +160,14 @@ known_hosts).
   browser headers with the CSP enforced (A1.2), request limits (A1.3), the API connecting as `campus_api`
   with migrations in a one-shot `python -m app.db.migrate` and a gate in `app.db.verify_role` (A1.4), and
   daily off-VM backups (A1.5). Migrations and ingestion still run as the owner superuser.
-- `docs/architecture.md` is still uncommitted, on purpose: Youness reviews what it says about findings that
-  are still open before it goes in a public repo. D4's "commit once A1 is deployed" now waits for that.
+- `docs/architecture.md` is committed: A1 is deployed and Youness reviewed what it says about open findings
+  (D4). Its data-protection detail and the questions for AUI are in `docs/private/`, gitignored.
+- Dates: reassess Caddy 2.11.9 on 2026-11-19 (CD-2: the newest release at least two weeks old, after reading
+  its changelog). Next restore drill due by 2026-12-06.
 - A1.5: a systemd timer on the VM pipes `pg_dump` into `age` and pushes to Backblaze B2 (Object Lock,
   compliance, 30 days; lifecycle 45 + 1 under `db/`), with a Healthchecks.io ping and `/fail`. Runbook in
   `deploy/DEPLOY.md`. First scheduled backup: 2026-11-06 03:32 UTC, not yet seen when this was written; it
-  shows in Healthchecks.io and `journalctl -u campus-backup.service`. **Next restore drill due by 2026-12-06.**
+  shows in Healthchecks.io and `journalctl -u campus-backup.service`.
 - A1.3 limits: 64 KiB bodies in Caddy and in a pure ASGI middleware (`app/request_limits.py`); question
   1-2,000 characters, at most 20 messages, user 2,000 and assistant 6,000 characters, unknown fields
   refused. A rejected request gets a fixed 413 or 422, isn't counted and logs no body text. The UI has
