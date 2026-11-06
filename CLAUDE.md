@@ -34,6 +34,9 @@ CI/CD, and evaluation.
   When a decision rule is agreed, record it before seeing the numbers.
 - Rules that must hold are enforced in code, not only in the prompt: prompt-only rules ("at most
   two searches", answer language, bracket style) kept failing in testing.
+- Every deploy or backup script uses `set -euo pipefail`, closes stdin on `docker compose run` and
+  `docker exec`, and ends by printing proof the work happened (counts, size, checksum). Twice in A1.4
+  a script reported success without doing the work: a clean exit alone proves nothing.
 
 ## Environment
 
@@ -154,15 +157,14 @@ known_hosts).
 - Tier A1 of `docs/architecture.md` is in progress. A1.1 (no images in answers), A1.2 (browser
   headers), A1.3 (request limits) and A1.4 (the API connects as `campus_api`, migrations in a one-shot
   `python -m app.db.migrate`, gate in `app.db.verify_role`, runbook in `deploy/DEPLOY.md`) are deployed,
-  and the CSP is enforced. A1.4 awaits Youness's acceptance; then delete `~/pre-a14.dump` on the VM.
-  Next is A1.5. `docs/architecture.md` stays uncommitted until A1 is deployed. Migrations and ingestion
-  still run as the owner superuser (section 2.3). The composer resize fix (0ae5afe) isn't deployed yet.
+  and the CSP is enforced. A1.4 is accepted. Next is A1.5. `docs/architecture.md` stays uncommitted until
+  A1 is deployed. Migrations and ingestion still run as the owner superuser (section 2.3).
 - A1.3 limits: 64 KiB bodies in Caddy and in a pure ASGI middleware (`app/request_limits.py`); question
   1-2,000 characters, at most 20 messages, user 2,000 and assistant 6,000 characters, unknown fields
   refused. A rejected request gets a fixed 413 or 422, isn't counted and logs no body text. The UI has
   a counter at the composer, and `historyToSend()` drops whole turns to fit.
 - Enforced CSP measured on 2026-11-05: zero violations in Chrome 156, Playwright's Firefox 157 and
-  WebKit 27.2. Still to do by hand: the real iPhone check in `deploy/DEPLOY.md`'s checklist.
+  WebKit 27.2, and checked by hand on a real iPhone.
 - Before the university proposal, deployed 2026-11-04: daily cap 35 (100 doesn't fit Groq's
   200k tokens/day), a personal-information notice under the composer (language = browser's), and
   logs without question text or visitor IPs (rotation on every container, Caddy log filter).

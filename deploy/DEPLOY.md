@@ -143,7 +143,7 @@ often get a new one) and update the rule:
    422 for 21 messages. None of them counts toward the demo limits.
 3. By hand on a real iPhone: the first screen, an example replay, a source link.
    Playwright's WebKit on Windows is not iOS Safari, and it doesn't display the
-   PDF a source link opens.
+   PDF a source link opens. **Done:** Youness tested it with the CSP enforced.
 
 ## A1.4: the API's own database role (`campus_api`)
 
