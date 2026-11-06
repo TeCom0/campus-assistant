@@ -50,6 +50,10 @@ def test_todays_registry_gives_todays_text():
         "academic policies, course requirements, grading, registration, admissions, "
         "or scholarships/fellowships"
     )
+    assert scope["covers_en"] == "Al Akhawayn University's academic catalog and scholarship pages"
+    assert scope["covers_fr"] == (
+        "le catalogue académique et les pages de bourses de l'université Al Akhawayn"
+    )
     assert scope["catalog_label"] == "2024–2025"
     assert scope["catalog_card_title"] == "Academic Catalog 2024–2025"
     assert scope["first_screen_documents"] == (
@@ -71,6 +75,9 @@ def test_one_page_left_reads_in_the_singular():
         "public 2024–2025 Academic Catalog and AUI's scholarship page"
     )
     assert scope["ingestion_documents"] == "catalog PDF + 1 scholarship page"
+    assert scope["covers_fr"] == (
+        "le catalogue académique et la page des bourses de l'université Al Akhawayn"
+    )
 
 
 def test_the_catalog_alone_needs_no_and():

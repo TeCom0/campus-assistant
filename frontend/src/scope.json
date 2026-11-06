@@ -3,6 +3,8 @@
   "prompt_documents": "academic policies, course catalog descriptions, scholarship information",
   "tool_documents": "academic catalog and scholarship pages",
   "tool_topics": "academic policies, course requirements, grading, registration, admissions, or scholarships/fellowships",
+  "covers_en": "Al Akhawayn University's academic catalog and scholarship pages",
+  "covers_fr": "le catalogue académique et les pages de bourses de l'université Al Akhawayn",
   "catalog_label": "2024–2025",
   "catalog_card_title": "Academic Catalog 2024–2025",
   "first_screen_documents": "public 2024–2025 Academic Catalog and AUI's scholarship pages",

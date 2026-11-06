@@ -25,10 +25,12 @@ GENERATED_NOTE = "Generated from data/registry.toml by python -m app.scope. Don'
 # The wording for each domain the registry uses. "prompt" and "topics" go to the model.
 # "page" and "pages" name the documents other than the catalog, so the catalog's domain
 # has none yet: a second academic document has to say how it should be described.
+# The "_fr" entries are for the gate's templates (app/agent/gate.py).
 DOMAIN_WORDS = {
     "academic": {
         "prompt": "academic policies, course catalog descriptions",
         "tool": "academic catalog",
+        "tool_fr": "le catalogue académique",
         "topics": [
             "academic policies",
             "course requirements",
@@ -41,6 +43,8 @@ DOMAIN_WORDS = {
         "prompt": "scholarship information",
         "page": "scholarship page",
         "pages": "scholarship pages",
+        "page_fr": "la page des bourses",
+        "pages_fr": "les pages de bourses",
         "topics": ["scholarships/fellowships"],
     },
 }
@@ -81,15 +85,20 @@ def _check_all_in_english(registry: Registry) -> None:
             )
 
 
-def _other_documents(registry: Registry, catalog: Document) -> list[tuple[str, int]]:
-    """The documents besides the catalog, as (name, how many), in registry order."""
+def _other_documents(
+    registry: Registry, catalog: Document, suffix: str = ""
+) -> list[tuple[str, int]]:
+    """The documents besides the catalog, as (name, how many), in registry order.
+
+    suffix "_fr" gives the French names.
+    """
     counts: dict[str, tuple[Document, int]] = {}
     for document in registry.documents:
         if document.id != catalog.id:
             _, count = counts.get(document.domain, (document, 0))
             counts[document.domain] = (document, count + 1)
     return [
-        (_words(document, "page" if count == 1 else "pages"), count)
+        (_words(document, ("page" if count == 1 else "pages") + suffix), count)
         for document, count in counts.values()
     ]
 
@@ -116,6 +125,8 @@ def render_scope(registry: Registry) -> dict[str, str]:
     # One entry per domain, in registry order.
     by_domain = list({document.domain: document for document in registry.documents}.values())
     tool_documents = " and ".join([_words(catalog, "tool"), *names])
+    names_fr = [name for name, _ in _other_documents(registry, catalog, "_fr")]
+    documents_fr = " et ".join([_words(catalog, "tool_fr"), *names_fr])
 
     return {
         "_generated": GENERATED_NOTE,
@@ -125,6 +136,9 @@ def render_scope(registry: Registry) -> dict[str, str]:
         "tool_topics": _any_of(
             [topic for document in by_domain for topic in _words(document, "topics")]
         ),
+        # For the gate's templates, which a student reads instead of a rejected answer.
+        "covers_en": f"Al Akhawayn University's {tool_documents}",
+        "covers_fr": f"{documents_fr} de l'université Al Akhawayn",
         # For the interface.
         "catalog_label": label,
         "catalog_card_title": edition.card_title,
