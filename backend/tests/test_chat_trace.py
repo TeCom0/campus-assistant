@@ -21,6 +21,8 @@ from app.agent import trace as trace_module
 from app.agent.trace import RunTrace, record_tool_step, trace_steps
 from app.evaluation import generate_faithfulness_answers
 from app.limits import Decision
+from app.registry import SourceRow
+from app.sources import sources_from_rows
 
 # --- RunTrace ---------------------------------------------------------------
 
@@ -138,6 +140,18 @@ RESULT = {
     "keyword_rank": 1,
 }
 CITATION = {"marker": 1, "source": "academic_catalog_2024_2025", "pages": [118], "text": "..."}
+SOURCES = sources_from_rows(
+    [
+        SourceRow(
+            edition_id="academic_catalog_2024_2025",
+            card_title="Academic Catalog 2024–2025",
+            source_url="https://aui.ma/catalog.pdf",
+            fallback_url=None,
+            format="pdf",
+            status="active",
+        )
+    ]
+)
 
 
 def _search_round():
@@ -160,6 +174,7 @@ def _events(body: str) -> list[tuple[str, dict]]:
 
 def _chat(monkeypatch, stream) -> list[tuple[str, dict]]:
     monkeypatch.setattr(main, "admit_question", lambda request: Decision(True))
+    monkeypatch.setattr(main, "load_sources", lambda: SOURCES)
     monkeypatch.setattr(main._compiled_graph, "astream", stream)
     return _events(TestClient(main.app).post("/chat", json={"question": QUESTION}).text)
 

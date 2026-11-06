@@ -30,8 +30,6 @@ from app.retrieval.hybrid_search import (
     unique_queries,
 )
 
-CATALOG_SOURCE = "academic_catalog_2024_2025"
-
 # For a code that other courses list as a prerequisite but that has no
 # course-description entry, so no `courses` row (e.g. MTH 1305). It IS in the
 # catalog, so "not found" would be false; and with no title given, the model
@@ -230,7 +228,8 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
     code = code.strip().upper()
     row = conn.execute(
         """
-        SELECT code, department, title, credits, prerequisites_text, corequisites_text, page
+        SELECT code, department, title, credits, prerequisites_text, corequisites_text, page,
+               source
         FROM courses WHERE code = %s
         """,
         (code,),
@@ -258,7 +257,7 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
             {"found": "not_found"},
         )
 
-    code_, dept, title, credits, prereq_text, coreq_text, page = row
+    code_, dept, title, credits, prereq_text, coreq_text, page, source = row
     # Same course looked up twice (e.g. again with follow_prerequisites) keeps
     # its number. The text is always sent in full: the chain part can differ.
     marker, _ = citation_number_for(("course", code_))
@@ -266,7 +265,7 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
     lines = [
         (
             f"[{marker}] {code_}: {title} ({credits} SCH), department {dept} "
-            f"(source: {CATALOG_SOURCE}, {source_note})"
+            f"(source: {source}, {source_note})"
         ),
         f"Prerequisites (as stated in catalog): {prereq_text or 'None'}",
     ]
@@ -299,7 +298,7 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
     # may rest on either version. keep_cited still lists the marker once.
     citation = {
         "marker": marker,
-        "source": CATALOG_SOURCE,
+        "source": source,
         "pages": pages,
         "section": f"Course {code_}",  # shown on its source card
         "text": text,

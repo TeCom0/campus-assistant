@@ -296,6 +296,35 @@ def load_registry(path: Path | None = None) -> Registry:
     return Registry(documents)
 
 
+# --- The synced tables: what the API reads -------------------------------------
+
+
+@dataclass(frozen=True)
+class SourceRow:
+    """One edition as the API needs it, for source cards and links."""
+
+    edition_id: str
+    card_title: str
+    source_url: str
+    fallback_url: str | None
+    format: str
+    status: str
+
+
+READ_SOURCE_ROWS_SQL = """
+    SELECT e.id, e.card_title, e.source_url, e.fallback_url, e.format, e.status
+    FROM document_editions e
+    JOIN documents d ON d.id = e.document_id
+    WHERE d.visibility = 'public'
+"""
+
+
+def read_source_rows(conn: psycopg.Connection) -> list[SourceRow]:
+    """Every public edition, whatever its status: app/sources.py decides what each
+    status means, so that rule can be tested without a database."""
+    return [SourceRow(*row) for row in conn.execute(READ_SOURCE_ROWS_SQL).fetchall()]
+
+
 # --- Sync: the file into the tables ------------------------------------------
 
 UPSERT_DOCUMENT_SQL = """

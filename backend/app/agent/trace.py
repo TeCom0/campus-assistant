@@ -19,11 +19,11 @@ that same object, not a copy of it.
 """
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 
 from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER
-from app.sources import with_display_info
+from app.sources import Source, with_display_info
 
 MODEL = GROQ_MODEL if LLM_PROVIDER == "groq" else GEMINI_MODEL
 
@@ -162,7 +162,7 @@ class RunTrace:
         }
 
 
-def display_trace(run: RunTrace, status: str) -> dict:
+def display_trace(run: RunTrace, status: str, sources: Mapping[str, Source]) -> dict:
     """RunTrace.event plus what only the panel needs: the model, and each
     retrieved passage's title and section path (the same as its source card).
 
@@ -172,7 +172,9 @@ def display_trace(run: RunTrace, status: str) -> dict:
     trace = run.event(status)
     trace["model"] = {"provider": LLM_PROVIDER, "name": MODEL}
     trace["steps"] = [
-        {**step, "results": with_display_info(step["results"])} if "results" in step else step
+        {**step, "results": with_display_info(step["results"], sources)}
+        if "results" in step
+        else step
         for step in trace["steps"]
     ]
     return trace

@@ -16,6 +16,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from app.embeddings import count_tokens, get_model
+from app.registry import load_registry
 
 PROCESSED_DIR = Path(__file__).resolve().parents[3] / "data" / "processed"
 CHUNKS_PATH = PROCESSED_DIR / "chunks.jsonl"
@@ -39,8 +40,6 @@ LEVEL_HEADINGS = {
 # mixes university-wide policies with financial aid for both levels, so a
 # label like "All students" would sometimes be false.
 LEVEL_LABELS = {"undergraduate": "Undergraduate Studies", "graduate": "Graduate Studies"}
-# Sources with one level throughout (web pages have no part headings).
-SOURCE_LEVELS = {"graduate_scholarships": "graduate"}
 DEFAULT_LEVEL = "general"
 
 # A line ending with one of these ends a sentence, for chunk boundaries.
@@ -143,9 +142,20 @@ def is_heading(previous: str, line: str, following: str) -> bool:
     )
 
 
+def _starting_level(source: str) -> str:
+    """The level a document starts at: its audience, when that is one of the levels.
+
+    A web page for one audience has no part headings, so this holds throughout.
+    Read here, not at import: the API imports this module, and the file isn't in
+    its image.
+    """
+    audience = load_registry().document_of(source).audience
+    return audience if audience in LEVEL_LABELS else DEFAULT_LEVEL
+
+
 def assign_sections(source: str, lines: list[str]) -> list[tuple[str, str | None]]:
     """(level, section) in effect at each line of one document."""
-    level = SOURCE_LEVELS.get(source, DEFAULT_LEVEL)
+    level = _starting_level(source)
     section = None
     sections = []
     for i, line in enumerate(lines):

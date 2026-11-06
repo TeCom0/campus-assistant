@@ -86,6 +86,7 @@ def test_a_search_logs_no_question_or_query_text(monkeypatch, written):
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(main, "admit_question", lambda request: Decision(True))
+    monkeypatch.setattr(main, "load_sources", dict)
     return TestClient(main.app)  # not as a context manager: no startup, no DB
 
 
@@ -124,7 +125,7 @@ def test_an_exception_logs_only_its_type(client, monkeypatch, written, error, ex
 
 
 def test_a_failed_trace_logs_only_its_type(client, monkeypatch, written):
-    def failing_trace(run, status):
+    def failing_trace(run, status, sources):
         raise KeyError(QUESTION)
 
     monkeypatch.setattr(main._compiled_graph, "astream", _graph_raising(ValueError("x")))
@@ -231,7 +232,7 @@ def test_every_container_rotates_its_log(filename, service):
 
 def test_compose_files_define_no_other_container():
     services = set(_services("docker-compose.yml")) | set(_services("docker-compose.prod.yml"))
-    assert services == {"db", "migrate", "api", "frontend", "caddy"}
+    assert services == {"db", "migrate", "registry-sync", "api", "frontend", "caddy"}
 
 
 @pytest.mark.parametrize(

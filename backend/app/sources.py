@@ -5,16 +5,24 @@ page. Links go through the API (GET /sources/{source}?page=N) rather than
 straight to aui.ma, so that if the catalog PDF moves or fails, the link falls
 back to the catalog's landing page instead of a dead page.
 
-URLs are the ones in data/sources.md; the landing page lists every catalog
-edition (checked 2026-10-19: all return HTTP 200).
+The titles and URLs come from the registry, through its synced tables (the file
+isn't in the API's image). The functions below take those rows as an argument, so
+they can be tested with rows in memory; only load_sources() touches the database.
 """
 
 import time
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 import httpx
 
+from app.db.connection import get_connection
 from app.ingestion.chunk import LEVEL_LABELS
+from app.registry import RegistryError, SourceRow, read_source_rows
+
+# Active: live. Superseded: no longer searched, but an answer or saved example already
+# citing it keeps a working link. Draft and withdrawn editions act as unknown sources.
+LINKABLE_STATUSES = {"active", "superseded"}
 
 
 @dataclass(frozen=True)
@@ -27,22 +35,35 @@ class Source:
     paged: bool = False
 
 
-SOURCES = {
-    "academic_catalog_2024_2025": Source(
-        title="Academic Catalog 2024–2025",
-        url="https://aui.ma/hubfs/ACADEMIC%20CATALOG%202024-2025.pdf?hsLang=en",
-        fallback_url="https://aui.ma/academic-catalogs",
-        paged=True,
-    ),
-    "graduate_scholarships": Source(
-        title="Graduate Scholarships (AUI website)",
-        url="https://aui.ma/admission-aid/graduates/scholarships",
-    ),
-    "prestigious_scholarships": Source(
-        title="Prestigious Scholarships (AUI website)",
-        url="https://aui.ma/prestigious-scholarship",
-    ),
-}
+def sources_from_rows(rows: Iterable[SourceRow]) -> dict[str, Source]:
+    """The editions a card may link to, by id."""
+    return {
+        row.edition_id: Source(
+            title=row.card_title,
+            url=row.source_url,
+            fallback_url=row.fallback_url,
+            paged=row.format == "pdf",
+        )
+        for row in rows
+        if row.status in LINKABLE_STATUSES
+    }
+
+
+def load_sources() -> dict[str, Source]:
+    """The sources in force, read as the API's role. One small query per call.
+
+    Empty tables are an error, not "no sources": every card would silently lose its
+    title and link. The deploy script's gate should make this unreachable.
+    """
+    conn = get_connection(register_vector_type=False)
+    try:
+        rows = read_source_rows(conn)
+    finally:
+        conn.close()
+    if not rows:
+        raise RegistryError("the registry tables are empty")
+    return sources_from_rows(rows)
+
 
 # Remember whether a URL answered, so a page of source cards doesn't send one
 # request to aui.ma per click.
@@ -66,9 +87,9 @@ def url_answers(url: str, now: float | None = None) -> bool:
     return ok
 
 
-def link_target(source_id: str, page: int | None) -> str | None:
+def link_target(source_id: str, page: int | None, sources: Mapping[str, Source]) -> str | None:
     """Where a source card's link should go; None for an unknown source."""
-    source = SOURCES.get(source_id)
+    source = sources.get(source_id)
     if source is None:
         return None
     if source.fallback_url and not url_answers(source.url):
@@ -78,7 +99,7 @@ def link_target(source_id: str, page: int | None) -> str | None:
     return source.url
 
 
-def with_display_info(citations: list[dict]) -> list[dict]:
+def with_display_info(citations: list[dict], sources: Mapping[str, Source]) -> list[dict]:
     """Citations as the UI shows them: plus the document's title and a link path.
 
     The link is relative to the API (GET /sources/...), so it follows the
@@ -86,7 +107,7 @@ def with_display_info(citations: list[dict]) -> list[dict]:
     """
     shown = []
     for c in citations:
-        source = SOURCES.get(c["source"])
+        source = sources.get(c["source"])
         pages = c.get("pages") or []
         link = f"/sources/{c['source']}" + (f"?page={pages[0]}" if pages else "")
         shown.append(

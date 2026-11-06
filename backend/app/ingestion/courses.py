@@ -19,11 +19,9 @@ import re
 from pathlib import Path
 
 from app.db.connection import get_owner_connection, init_schema
+from app.registry import load_registry
 
-CATALOG_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "processed" / "academic_catalog_2024_2025.txt"
-)
-SOURCE_NAME = "academic_catalog_2024_2025"
+PROCESSED_DIR = Path(__file__).resolve().parents[3] / "data" / "processed"
 
 PAGE_MARKER_RE = re.compile(r"--- page (\d+) ---")
 HEADER_RE = re.compile(r"^([A-Z]{3}) (\d{4}) (.+?)\s*\((\d+)\s*SCH\)\s*$")
@@ -35,8 +33,8 @@ PREREQ_LABEL_RE = re.compile(r"^(Pre-?requisites?|Co-?requisites?):\s*(.*)", re.
 COURSE_CODE_RE = re.compile(r"\b([A-Z]{3}) ?(\d{4})\b")
 
 
-def extract_courses() -> dict[str, dict]:
-    lines = CATALOG_PATH.read_text(encoding="utf-8").split("\n")
+def extract_courses(edition_id: str) -> dict[str, dict]:
+    lines = (PROCESSED_DIR / f"{edition_id}.txt").read_text(encoding="utf-8").split("\n")
 
     page_of_line = []
     current_page = None
@@ -77,7 +75,7 @@ def extract_courses() -> dict[str, dict]:
             "prerequisites_text": prereq_text,
             "corequisites_text": coreq_text,
             "page": page_of_line[i],
-            "source": SOURCE_NAME,
+            "source": edition_id,
         }
 
     return courses
@@ -121,7 +119,7 @@ PREREQ_EDGE_INSERT_SQL = """
 
 
 def seed_courses() -> None:
-    courses = extract_courses()
+    courses = extract_courses(load_registry().course_tables_edition().id)
     edges = extract_prerequisite_edges(courses)
 
     conn = get_owner_connection()

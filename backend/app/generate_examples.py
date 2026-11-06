@@ -41,7 +41,7 @@ from app.agent.trace import RunTrace, display_trace, start_trace
 from app.config import GEMINI_MODEL, GROQ_MODEL, LLM_PROVIDER, MAX_AGENT_STEPS
 from app.embeddings import embed_query
 from app.evaluation.generate_faithfulness_answers import is_per_minute_limit
-from app.sources import with_display_info
+from app.sources import load_sources, with_display_info
 
 FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "src"
 QUESTIONS_PATH = FRONTEND / "exampleQuestions.json"
@@ -89,6 +89,7 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
     ]
     citations = [c for m in messages if m.type == "tool" for c in (m.artifact or [])]
     cited = keep_cited(citations, answer)  # with the passage text, for review
+    sources = load_sources()
     saved = {
         "id": example["id"],
         "question": example["question"],
@@ -99,9 +100,9 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
         "tool_calls": tool_calls,
         "answer": answer,
         "citations": [
-            {k: v for k, v in c.items() if k != "text"} for c in with_display_info(cited)
+            {k: v for k, v in c.items() if k != "text"} for c in with_display_info(cited, sources)
         ],
-        "trace": display_trace(run, "fallback" if run.fell_back else "done"),
+        "trace": display_trace(run, "fallback" if run.fell_back else "done", sources),
     }
     return saved, cited
 

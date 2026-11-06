@@ -38,7 +38,7 @@ from app.config import (
 from app.db.connection import get_connection
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.request_limits import BodySizeLimitMiddleware
-from app.sources import link_target, with_display_info
+from app.sources import link_target, load_sources, with_display_info
 
 # The schema isn't created here: `python -m app.db.migrate` runs first, as the
 # owner, and Compose's `api` waits for it. The API's own role can't run DDL.
@@ -76,7 +76,7 @@ def open_source(source_id: str, page: int | None = None) -> RedirectResponse | J
     """A source card's link: the document at the cited page, or its fallback
     page if the document's URL doesn't answer (app/sources.py). Not a question,
     so not counted against the demo limits."""
-    target = link_target(source_id, page)
+    target = link_target(source_id, page, load_sources())
     if target is None:
         return JSONResponse(status_code=404, content={"message": "Unknown source"})
     return RedirectResponse(target, status_code=302)
@@ -147,7 +147,7 @@ def _trace_event(run: RunTrace, status: str) -> str | None:
     must still reach the student, so the failure is logged and no trace is sent.
     """
     try:
-        return _sse("trace", display_trace(run, status))
+        return _sse("trace", display_trace(run, status, load_sources()))
     except Exception as e:  # noqa: BLE001 -- see the docstring
         print(f"[chat] could not build the trace: {type(e).__name__}")
         return None
@@ -230,7 +230,8 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                                     citations.extend(artifact)
 
             cited = with_display_info(
-                without_passage_text(keep_cited(citations, "".join(answer_parts)))
+                without_passage_text(keep_cited(citations, "".join(answer_parts))),
+                load_sources(),
             )
             yield _sse("citations", {"citations": cited})
             if trace := _trace_event(run, "fallback" if run.fell_back else "done"):
