@@ -152,13 +152,18 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `up -d --build`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-05)
+## Current status (2026-11-06)
 
-- Tier A1 of `docs/architecture.md` is in progress. A1.1 (no images in answers), A1.2 (browser
-  headers), A1.3 (request limits) and A1.4 (the API connects as `campus_api`, migrations in a one-shot
-  `python -m app.db.migrate`, gate in `app.db.verify_role`, runbook in `deploy/DEPLOY.md`) are deployed,
-  and the CSP is enforced. A1.4 is accepted. Next is A1.5. `docs/architecture.md` stays uncommitted until
-  A1 is deployed. Migrations and ingestion still run as the owner superuser (section 2.3).
+- **A1 is complete (A1.1-A1.5) and A0 is recorded. Next is A2.** Deployed: no images in answers (A1.1),
+  browser headers with the CSP enforced (A1.2), request limits (A1.3), the API connecting as `campus_api`
+  with migrations in a one-shot `python -m app.db.migrate` and a gate in `app.db.verify_role` (A1.4), and
+  daily off-VM backups (A1.5). Migrations and ingestion still run as the owner superuser.
+- `docs/architecture.md` is still uncommitted, on purpose: Youness reviews what it says about findings that
+  are still open before it goes in a public repo. D4's "commit once A1 is deployed" now waits for that.
+- A1.5: a systemd timer on the VM pipes `pg_dump` into `age` and pushes to Backblaze B2 (Object Lock,
+  compliance, 30 days; lifecycle 45 + 1 under `db/`), with a Healthchecks.io ping and `/fail`. Runbook in
+  `deploy/DEPLOY.md`. First scheduled backup: 2026-11-06 03:32 UTC, not yet seen when this was written; it
+  shows in Healthchecks.io and `journalctl -u campus-backup.service`. **Next restore drill due by 2026-12-06.**
 - A1.3 limits: 64 KiB bodies in Caddy and in a pure ASGI middleware (`app/request_limits.py`); question
   1-2,000 characters, at most 20 messages, user 2,000 and assistant 6,000 characters, unknown fields
   refused. A rejected request gets a fixed 413 or 422, isn't counted and logs no body text. The UI has
