@@ -243,6 +243,180 @@ so the revokes don't affect it. To remove it if A1.4 is abandoned:
 The dump is needed only if data were actually lost, and no A1.4 statement drops or
 rewrites data.
 
+## A1.5: off-VM backups (Backblaze B2)
+
+Written and agreed on 2026-11-06, before any of its code. A systemd timer on the VM
+host dumps the content tables daily, encrypts them with `age`, and pushes the result
+to the bucket `campus-assistant-backups-7`. It isn't on Azure, because anything in
+the same subscription dies with it. Scripts are in `deploy/backup/`.
+
+**In a backup:** the content tables with their embeddings. **Not in it:** `question_log`
+rows (losing them only resets the limit counters), `.env`, and Caddy's certificates.
+
+### Where each secret lives
+
+| Secret | Where | Who can read it |
+| --- | --- | --- |
+| `age` private key | `C:\dev\backup-keys\campus-backup.age-key` on the laptop, plus one offline copy in Youness's password manager. Never in the repo or on the VM | The VM can encrypt but never decrypt |
+| `age` public key | `/etc/campus-backup/age-recipient.txt` on the VM | Not secret |
+| B2 application key | `/etc/campus-backup/b2.env`, root-only, mode 600 | Never printed, never in a chat |
+| Healthchecks.io ping URL | `/etc/campus-backup/healthcheck-url`, root-only, mode 600 | Never printed |
+| B2 master key | Never on the VM. Used at most once on the laptop, see "If Write Only isn't enough" | Never on disk |
+
+The password manager copy is deliberate: with the key only on the laptop, losing the
+laptop would make every backup permanently unreadable.
+
+### Why Object Lock is what matters
+
+`writeFiles` also covers hiding files (`b2_hide_file` is on its list), and lifecycle
+rules delete hidden files. So the key's missing `deleteFiles` is not what protects old
+backups from a compromised VM. **Object Lock is:** a locked version can't be deleted
+before its retention ends, whoever asks. Backblaze's lifecycle page: "if the file version
+to which the rule applies has Object Lock enabled, then the deletion does not occur."
+A version hidden early can still be downloaded by its file ID.
+
+The lock lasts 30 days per version. It doesn't help if backups silently stop, because
+lifecycle goes by age, not by count. That's why versions stay 45 days, not 31, and why
+the dead man's switch exists.
+
+### Rules, fixed before the numbers
+
+- **A backup counts** only if the script reaches `BACKUP OK`, having checked that B2's
+  reported size and SHA-1 match the local file, and that the retention B2 reports is
+  `compliance` and at least 29 days ahead.
+- **The key passes** only with `writeFiles`, `listBuckets`, `readFileRetentions` and
+  `readBucketRetentions`, and without `deleteFiles`, `bypassGovernance` or
+  `writeFileRetentions`, restricted to this bucket, with no name prefix or expiry. The
+  bucket's default retention must read `compliance`, 30 days.
+- **A restore drill passes** only if row counts and whole-row md5 fingerprints (embeddings
+  included) are identical to production for `document_chunks`, `courses` and
+  `course_prerequisites`, with 0 rows in `question_log`. Anything else fails.
+- **Deletion must be refused twice:** with the VM's key (proves the key has no such right),
+  and by hand in the console (proves the lock itself).
+
+### 1. On the laptop: the key pair
+
+`age` v1.3.2, `age-v1.3.2-windows-amd64.zip`, sha256
+`f48d8f8f9ebe903ab5027ed067652f2cc1db94bc206976430133b905dcd8e8c7`.
+
+    New-Item -ItemType Directory -Force C:\dev\backup-keys
+    age-keygen.exe -o C:\dev\backup-keys\campus-backup.age-key
+    icacls C:\dev\backup-keys\campus-backup.age-key /inheritance:r /grant:r "${env:USERNAME}:R"
+
+It prints the public key (`age1...`), which isn't secret. Copy the file's contents into
+the password manager, and don't paste them anywhere else.
+
+### 2. In the B2 console
+
+**Lifecycle:** Buckets > `campus-assistant-backups-7` > Lifecycle Settings > Use custom
+lifecycle rules. File Path `db/`, days from uploading to hiding `45`, days from hiding to
+deleting `1`.
+
+**Application key:** Application Keys > Add a New Application Key.
+
+| Setting | Value |
+| --- | --- |
+| Name of Key | `campus-backup-vm` |
+| Allow access to Bucket(s) | `campus-assistant-backups-7` only |
+| Type of Access | Write Only |
+| Allow List All Bucket Names | not ticked |
+| File name prefix | empty |
+| Duration | empty |
+
+The secret is shown once. It goes only into `b2.env` below.
+
+### 3. In Healthchecks.io
+
+Create a check with a simple schedule, Period 1 day and Grace Time 26 hours. The ping
+URL goes only into `healthcheck-url` below. Grace is added to the period, so this alerts
+about 50 hours after the last good backup.
+
+### 4. On the VM: tools and config
+
+Pinned by exact version and checksum: `b2-linux` v5.0.2, sha256
+`8210f07b8d12363ef747847c4fcb04c60550909238177a1e5112abe4f204ca45`, and
+`age-v1.3.2-linux-amd64.tar.gz`, sha256
+`cbe24006683f8eb669266162894b9a522a1af52f2665fbc63a4bb032ed26ac10`.
+`deploy/backup/install.sh` downloads and checks them, and installs the script and timer.
+
+Fill in the secrets by hand. These commands create root-only files, and nothing here
+prints them:
+
+    sudo install -d -m 700 -o root -g root /etc/campus-backup
+    sudo install -m 600 -o root -g root /dev/null /etc/campus-backup/b2.env
+    sudo nano /etc/campus-backup/b2.env
+    # B2_APPLICATION_KEY_ID=...
+    # B2_APPLICATION_KEY=...
+    sudo install -m 600 -o root -g root /dev/null /etc/campus-backup/healthcheck-url
+    sudo nano /etc/campus-backup/healthcheck-url
+    # https://hc-ping.com/...
+    sudo install -m 644 -o root -g root /dev/null /etc/campus-backup/age-recipient.txt
+    sudo nano /etc/campus-backup/age-recipient.txt
+    # age1...
+
+Never run `b2 account authorize` or `b2 account get`: measured on 2026-11-06, `authorize`
+prints the key and writes it to `~/.b2_account_info`. With the key in environment
+variables, other commands use in-memory account info and write nothing.
+
+### 5. Check, then first backup
+
+    sudo /usr/local/lib/campus-backup/b2_check.py        # capabilities, restriction, retention
+    sudo /usr/local/sbin/campus-backup --check           # refuses if anything is missing
+    sudo systemctl start campus-backup.service
+    systemctl status campus-backup.service               # last result
+    journalctl -u campus-backup.service -n 25            # the proof lines
+    systemctl list-timers campus-backup.timer
+
+### If Write Only isn't enough
+
+Backblaze doesn't publish what the console's access types grant, so `b2_check.py`
+measures it. If only `readFileRetentions` or `readBucketRetentions` is missing, delete
+that key in the console and create one with exactly the rights needed, on the laptop,
+in **your own PowerShell window, not through a tool that records output**. It prompts for
+the master key so it never enters the shell history, which `$env:X = "..."` would.
+
+`b2-windows.exe` v5.0.2, sha256
+`d6e5b1c0918c2755fc8c14eb5b5aa698c36b43d3fdc18fca13ea163d829bbbbb`.
+
+    $id = Read-Host 'Master key ID'
+    $secure = Read-Host 'Master application key' -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    $env:B2_APPLICATION_KEY_ID = $id
+    $env:B2_APPLICATION_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    try {
+        .\b2-windows.exe key create --bucket campus-assistant-backups-7 campus-backup-vm listBuckets,writeFiles,readBucketRetentions,readFileRetentions
+    } finally {
+        Remove-Item Env:B2_APPLICATION_KEY, Env:B2_APPLICATION_KEY_ID -ErrorAction SilentlyContinue
+        Remove-Variable id, secure, bstr -ErrorAction SilentlyContinue
+    }
+    Test-Path "$HOME\.b2_account_info"
+
+It prints `<new key ID> <new key>`: copy both into `b2.env`, then `Clear-Host`. **Don't
+run `b2 account authorize`.**
+
+Measured on 2026-11-06 with this binary against a local fake server, using a marker as
+the key: `key create` wrote no account file and left the marker nowhere in the home
+folder, while `account authorize`, the control, wrote the file and printed the marker.
+So `Test-Path` should say `False` if the file wasn't there before. If it says `True`
+and you didn't have one, or you want it gone anyway:
+
+    .\b2-windows.exe account clear
+    Test-Path "$HOME\.b2_account_info"
+
+### Restore drill, monthly
+
+1. Download the latest `db/` object from the B2 console, and compare its sha256 with
+   `journalctl -u campus-backup.service`.
+2. `deploy/backup/restore-drill.sh <file>` decrypts it, restores it into a scratch project
+   (`-p a15drill`), and compares it with production by the rule above.
+3. In a real restore, use `pg_restore --no-owner --no-privileges` and then
+   `python -m app.db.migrate`: dumps hold grants to `campus_api`, which a fresh database
+   doesn't have yet.
+
+Clean up with `docker compose -p a15drill -f deploy/backup/drill-compose.yml down -v`, and
+only ever with that explicit project name.
+
 ## Deployed (2026-10-20)
 
 Azure for Students, Denmark East, Standard_B2s, at
