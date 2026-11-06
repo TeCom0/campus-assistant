@@ -1,0 +1,12 @@
+{
+  "_generated": "Generated from data/registry.toml by python -m app.scope. Don't edit by hand.",
+  "prompt_documents": "academic policies, course catalog descriptions, scholarship information",
+  "tool_documents": "academic catalog and scholarship pages",
+  "tool_topics": "academic policies, course requirements, grading, registration, admissions, or scholarships/fellowships",
+  "catalog_label": "2024–2025",
+  "catalog_card_title": "Academic Catalog 2024–2025",
+  "first_screen_documents": "public 2024–2025 Academic Catalog and AUI's scholarship pages",
+  "about_documents": "2024–2025 Academic Catalog and scholarship pages",
+  "meta_description": "An unofficial student project: answers about Al Akhawayn University's public academic catalog and scholarship pages, in English or French, with their sources.",
+  "ingestion_documents": "catalog PDF + 2 scholarship pages"
+}
