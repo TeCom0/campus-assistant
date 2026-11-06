@@ -4,6 +4,8 @@
 // containing that text, or if a figure here isn't in it, so the page can't
 // quietly drift from the documented results.
 
+import scope from "./scope.json";
+
 export const REPO_URL = "https://github.com/TeCom0/campus-assistant";
 // Set once the demo video exists; until then the page says "coming soon".
 export const DEMO_VIDEO_URL: string | null = null;
@@ -58,7 +60,7 @@ export const LIMITATIONS = [
   "Cited answers can still contain a wrong detail (the faithfulness result above).",
   "Everyday wording can miss a passage written in the catalog's vocabulary.",
   "Undergraduate and graduate rules aren't filtered by level yet.",
-  "One catalog edition, 2024–2025; newer editions exist.",
+  `One catalog edition, ${scope.catalog_label}; newer editions exist.`,
 ];
 
 export const STACK = [

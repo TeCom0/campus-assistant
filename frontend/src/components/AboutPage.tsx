@@ -1,5 +1,6 @@
 import { DEMO_VIDEO_URL, LIMITATIONS, REPO_URL, RESULTS, STACK } from "../about";
 import { limitsSentence, useDemoLimits } from "../demoLimits";
+import scope from "../scope.json";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
 import { IntervalChart } from "./IntervalChart";
 import { GitHubIcon } from "./icons";
@@ -15,8 +16,8 @@ export function AboutPage() {
         <span className="eyebrow">About this project</span>
         <h1 id="about-title">A cited, bilingual assistant for one university's rulebook</h1>
         <p className="about-lead">
-          Students ask in English or French. An agent decides whether to search the 2024–2025
-          Academic Catalog and scholarship pages or to look up structured course data, then answers
+          Students ask in English or French. An agent decides whether to search the{" "}
+          {scope.about_documents} or to look up structured course data, then answers
           only from what it found and cites the page. An unofficial student project by Youness, with
           its retrieval and its answers' faithfulness measured.
         </p>

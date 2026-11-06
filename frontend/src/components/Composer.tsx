@@ -2,6 +2,7 @@ import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
 import { limitMessages } from "../limitMessages";
 import { privacyNotice } from "../privacyNotice";
 import { charCount, COUNTER_FROM_CHARS, MAX_QUESTION_CHARS } from "../requestLimits";
+import scope from "../scope.json";
 import { SendIcon } from "./icons";
 
 const MAX_HEIGHT_PX = 160;
@@ -81,7 +82,7 @@ export function Composer({
         {notice.text}
       </p>
       <p className="disclaimer">
-        Answers are based on the Academic Catalog 2024–2025. Unofficial student project, not an
+        Answers are based on the {scope.catalog_card_title}. Unofficial student project, not an
         AUI service. Answers can be wrong: check important details with the Registrar.
       </p>
     </div>

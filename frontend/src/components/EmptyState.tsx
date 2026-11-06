@@ -3,6 +3,7 @@ import { firstParagraph, pagesLabel, stepsSummary } from "../answerFormat";
 import { DATA_COUNTS, RESULTS } from "../about";
 import { EXAMPLE_QUESTIONS, savedExample, type ExampleQuestion } from "../examples";
 import { ANSWER_REMARK_PLUGINS } from "../markdownPlugins";
+import scope from "../scope.json";
 
 // The proof card quotes this saved example (its first paragraph and its first
 // source), so the excerpt is always a real, reviewed answer, never typed here.
@@ -56,8 +57,8 @@ export function EmptyState({ onAsk }: { onAsk: (example: ExampleQuestion) => voi
           Ask the catalog. Get the <em>page</em> the answer came from.
         </h1>
         <p>
-          An AI agent searches the public 2024–2025 Academic Catalog and AUI's scholarship pages,
-          looks up course prerequisites in structured data, and cites the passages it used.
+          An AI agent searches the {scope.first_screen_documents}, looks up course prerequisites in
+          structured data, and cites the passages it used.
         </p>
         <ProofCard onAsk={onAsk} />
         <p className="facts">

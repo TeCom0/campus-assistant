@@ -47,5 +47,6 @@ describe("the text about what the assistant covers", () => {
   it("is right on the diagram", () => {
     const html = renderToStaticMarkup(<ArchitectureSvg idPrefix="test" />);
     expect(html).toContain("catalog PDF + 2 scholarship pages → clean → chunk → embed");
+    expect(html).toContain("a keyword search over the document passages and merges them");
   });
 });

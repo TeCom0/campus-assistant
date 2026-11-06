@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DATA_COUNTS } from "../about";
+import scope from "../scope.json";
 import { CloseIcon, ExpandIcon } from "./icons";
 
 // The README's Architecture section as one picture: how a question travels
@@ -117,7 +118,7 @@ export function ArchitectureSvg({ idPrefix }: { idPrefix: string }) {
       <desc id={`${idPrefix}-desc`}>
         The browser sends the question to FastAPI, which runs a LangGraph agent. The agent node calls
         the tools node at most three times: search_documents runs a vector and a keyword search over
-        the catalog passages and merges them by rank; query_courses looks up courses and their
+        the document passages and merges them by rank; query_courses looks up courses and their
         prerequisite chains. Both read PostgreSQL with pgvector, filled once offline from the public
         documents. Tokens, tool calls, sources and the trace stream back to the browser.
       </desc>
@@ -246,7 +247,7 @@ export function ArchitectureSvg({ idPrefix }: { idPrefix: string }) {
         h={52}
         offline
         title="Ingestion, run once offline"
-        lines={["catalog PDF + 2 scholarship pages → clean → chunk → embed"]}
+        lines={[`${scope.ingestion_documents} → clean → chunk → embed`]}
       />
     </svg>
   );
