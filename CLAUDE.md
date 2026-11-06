@@ -135,6 +135,21 @@ these show zero violations in both Chrome and Firefox:
 `/api/docs` is exempt: B19 turns it off. Met and enforced on 2026-11-05 (`deploy/csp-check`, which
 also covers WebKit and a source link). The enforced run is recorded under "Current status".
 
+## A2 order and decisions
+
+Decided 2026-11-06. A2 runs in the order A2.1, A2.2, A2.6b, A2.3, A2.4, A2.5, A2.6, A2.7, A2.8; step numbers don't change.
+Reason: A2.6b (the answer-level gate) depends only on A2.2, it fixes the reported off-topic answers sooner, and A2.6 is
+blocked on AUI (D8). Domain-aware retrieval and conflict handling between departments stay at B3. No LLM-based scope
+classifier: the gate is structural and costs no tokens. Later steps' acceptance criteria are in `docs/architecture.md`
+section 9.
+
+## A2.1 retrieval rule
+
+Agreed 2026-11-06, before the eval was run on any A2.1 code, following the rule of recording a decision rule before seeing the
+numbers. After A2.1, `python -m app.evaluation.run_retrieval_eval` must match
+`eval/results/retrieval/2026-11-05_a0_baseline.txt` line for line, on both the 14- and the 12-question set. If any rank
+changes: stop and report, don't adjust. 0 LLM tokens: no faithfulness or Groq calls in this step.
+
 ## How to run
 
 Full setup from a fresh clone is in the README ("Running it"). Day to day:

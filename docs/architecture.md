@@ -498,15 +498,19 @@ visibility = "public"          # public or non_public; non_public is refused for
 time_sensitive = true          # answers must name the edition
 
   [[document.edition]]
-  id = "academic_catalog_2024_2025"
+  id = "academic_catalog_2024_2025"   # equals document_chunks.source
   label = "2024-2025"
+  card_title = "Academic Catalog 2024–2025"   # exactly what the source card shows
   effective_from = "2024-08-01"     # UNSURE: AUI to confirm
   review_by = "2027-08-01"
+  retrieved_at = "2026-09-29"       # when we downloaded the file; required
+  # last_updated: the publisher's stated revision date; left out when none is stated
   language = "en"
   format = "pdf"
   source_url = "https://aui.ma/hubfs/ACADEMIC%20CATALOG%202024-2025.pdf?hsLang=en"
   fallback_url = "https://aui.ma/academic-catalogs"
   sha256 = "..."
+  course_tables = true              # the courses tables are extracted from this edition
 ```
 
 | Field | Why it exists |
@@ -519,18 +523,29 @@ time_sensitive = true          # answers must name the edition
 | `language` | Which full-text configuration applies |
 | `visibility` | Fail-closed gate |
 | `sha256`, parser version, `activated_by`, `activated_at` | Integrity and audit (A08, IN-8, DB-8) |
+| `card_title` | What a source card shows, explicit because title + label can't reproduce today's cards: the catalog's has an en dash, the web pages' have no edition label |
+| `source_url`, `fallback_url`, `format` | Where a source card's link goes; the API needs them, and the file isn't in its image, so they are synced to the table |
+| `retrieved_at`, `last_updated` | When we downloaded it, and the revision date the publisher states. A PDF's metadata date is not a stated revision, so it isn't used: "modified 2025-08-31" on a 2024-2025 catalog is a date a student would misread |
+| `course_tables` | Which edition `app/ingestion/courses.py` extracts from |
+
+**Who reads what.** The API image holds only `backend/app`, so the file isn't in it: the API reads the synced
+tables, and only the CLI and ingestion read the file. Sync runs as the owner in a one-shot Compose service with one
+read-only bind mount of `data/registry.toml`.
 
 ### 3.2 Per-edition storage
 
 ```sql
 CREATE TABLE documents (
-  id TEXT PRIMARY KEY, domain TEXT NOT NULL, owning_department TEXT NOT NULL,
+  id TEXT PRIMARY KEY, domain TEXT NOT NULL, owning_department TEXT,
   audience TEXT NOT NULL, visibility TEXT NOT NULL CHECK (visibility IN ('public','non_public')),
   time_sensitive BOOLEAN NOT NULL, title JSONB NOT NULL
 );
 CREATE TABLE document_editions (
   id TEXT PRIMARY KEY, document_id TEXT NOT NULL REFERENCES documents(id),
-  label TEXT NOT NULL, effective_from DATE, review_by DATE, language TEXT NOT NULL,
+  label TEXT NOT NULL, card_title TEXT NOT NULL, effective_from DATE, review_by DATE,
+  retrieved_at DATE NOT NULL, last_updated DATE, language TEXT NOT NULL,
+  format TEXT NOT NULL CHECK (format IN ('pdf','html')),
+  source_url TEXT NOT NULL, fallback_url TEXT, course_tables BOOLEAN NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('draft','active','superseded','withdrawn')),
   sha256 TEXT NOT NULL, parser_version TEXT NOT NULL, quality_report JSONB NOT NULL,
   activated_by TEXT, activated_at TIMESTAMPTZ
@@ -544,9 +559,17 @@ CREATE UNIQUE INDEX one_active_edition ON document_editions (document_id) WHERE 
 --   FOREIGN KEY (edition_id, course_code) REFERENCES courses.
 ```
 
-Things this breaks, to change in the same step: citation numbering keys (`(source, chunk_index)`,
-`tools.py:136`), the recursive prerequisite query (must stay inside one edition), `CATALOG_SOURCE`
-(`tools.py:33`), `SOURCES` (`sources.py:30`), and the `source` link in saved examples.
+**`owning_department` is nullable** (changed 2026-11-06). AUI hasn't confirmed the owners (Q4), and a sentinel such as
+"Unconfirmed" is one forgotten check away from appearing in a code-written "confirm with [office]" line (B24). NULL
+forces that code to handle the missing case.
+
+**`parser_version` and `quality_report`** are `'unversioned'` and `{}` until A2.4 produces real values.
+
+Things A2.3's per-edition columns break, to change in the same step (line numbers at commit `c1571e7`): citation
+numbering keys (`(source, chunk_index)`, `tools.py:136`, and `tools.py:264`), the RRF key (`hybrid_search.py:112`), the
+course lookups (`tools.py:234,241`), the recursive prerequisite query (`tools.py:322-340`, must stay inside one
+edition), the chunk upsert, replace and metadata keys (`store.py:21,65,82,100`), the course edge reset
+(`courses.py:133`), and the `source` link in saved examples. `CATALOG_SOURCE` and `SOURCES` go in A2.1.
 
 **Activation and rollback.** One transaction: old edition to `superseded`, new one to `active`, with
 actor and time recorded. Rollback is the same command the other way: no re-embedding, no deleted rows,
@@ -1205,15 +1228,43 @@ All deployed by 2026-11-06.
 
 | Step | What | Protects against | Depends on | Days |
 | --- | --- | --- | --- | --- |
-| **A2.1** | Registry: `data/registry.toml`, tables, one read function; replaces the lists in `load.py`, `sources.py`, `tools.py`, `chunk.py`. **Retrieval unchanged** | Foundation | A0, A1.4 | 0.5 |
-| **A2.2** | Generated scope and UI text: prompt, tool description, UI note, meta description, first screen; committed JSON pinned by a test. **Retrieval unchanged** | AG-5 | A2.1 | 0.5 |
-| **A2.3** | Version precedence: per-edition chunks, courses, prerequisites; filter on active; activate and rollback CLI; test with two editions. **Retrieval unchanged** | AG-5, TL-4, IN-3, IN-8, DB-8 | A2.1 | 1.5 |
-| **A2.4** | Per-document ingestion: loader interface, PDF and web loaders, HTML tables intact, refusals, dry run, sanitising, scans, `visibility` gate | IN-1 to 7, AG-1, AG-11 | A2.3 | 2 |
+| **A2.1** | Registry: `data/registry.toml`, tables, one read function; replaces the lists in `load.py`, `sources.py`, `tools.py`, `chunk.py`, `courses.py`. **Retrieval unchanged** | Foundation | A0, A1.4 | 0.5 |
+| **A2.2** | Generated scope and UI text: prompt, tool description, UI note, meta description, first screen; committed JSON pinned by a test. Also `frontend/src/about.ts:61`, `components/AboutPage.tsx:19`, `components/ArchitectureDiagram.tsx:120,249`, the tool and prompt text at `tools.py:110,119,256` and `graph.py:26-28`. Deletes the dead `generation.py` prompt: nothing imports it, and it reads like the live one. **Retrieval unchanged** | AG-5 | A2.1 | 0.5 |
+| **A2.6b** | Answer-level gate: any answer without a search call and valid citations is replaced by code-written text, so greetings and questions about the assistant still work. The answer is held until checked, because text already streamed can't be replaced. A cited course lookup counts as a search call. Adds an off-topic and injection category to the eval set; see its acceptance criteria below | AG-2, AG-3 | A2.2 | 1.5 |
+| **A2.3** | Version precedence: per-edition chunks, courses, prerequisites; filter on active; activate and rollback CLI; test with two editions. The list of what it breaks is in section 3.2. **Retrieval unchanged** | AG-5, TL-4, IN-3, IN-8, DB-8 | A2.1 | 1.5 |
+| **A2.4** | Per-document ingestion: loader interface, PDF and web loaders, HTML tables intact, refusals, dry run, sanitising, scans, `visibility` gate; see its findings and acceptance criteria below | IN-1 to 7, AG-1, AG-11 | A2.3 | 2 |
 | **A2.5** | Drop the prestigious page and remove "Lorem Ipsum" through the new pipeline. Eval sets updated. Production dump is content-only | AG-11, IN-2 | A2.4 | 0.5 |
-| **A2.6** | 2025-2026 catalog through the pipeline: page-header fix, eval questions and anchors written first, saved examples regenerated or labelled, counts updated. Then the retrieval eval, with its decision rule recorded first: no previously hit question lost unless explained, rollback if not | AG-5 | A2.4, D8 | 1.25 |
-| **A2.6b** | Answer-level gate: any answer without a search call and valid citations is replaced by code-written text, so greetings and questions about the assistant still work. The answer is held until checked, because text already streamed can't be replaced. A cited course lookup counts as a search call. Adds an off-topic and injection category to the eval set | AG-2, AG-3 | A2.2 | 1.5 |
-| **A2.7** | Scope and bottom-line-first prompt changes; catalog-year note | AG-4, section 5.2 | A2.2, A2.6b, Q1 | 0.5 |
-| **A2.8** | Faithfulness run 4, single run; hand-check failures; apply threshold D3. If it fails, the pilot waits | AG-4 | A2.7, D3 | 1 |
+| **A2.6** | 2025-2026 catalog through the pipeline: page-header fix (`PAGE_HEADER_LINES`, `chunk.py:50`, byte-identical until this step), eval questions and anchors written first, saved examples regenerated or labelled, counts updated. Then the retrieval eval, with its decision rule recorded first: no previously hit question lost unless explained, rollback if not | AG-5 | A2.4, D8 | 1.25 |
+| **A2.7** | Scope and bottom-line-first prompt changes; catalog-year note; see its acceptance criteria below | AG-4, section 5.2 | A2.2, A2.6b, Q1 | 0.5 |
+| **A2.8** | Faithfulness run 4, single run; hand-check failures; apply threshold D3. If it fails, the pilot waits. The reviewed sample excludes fallback answers, using the flag at `graph.py:205` | AG-4 | A2.7, D3 | 1 |
+
+**Order, decided 2026-11-06:** A2.1, A2.2, A2.6b, A2.3, A2.4, A2.5, A2.6, A2.7, A2.8. Step numbers don't change. Students
+testing the demo reported that it answered "What is 1 + 1?" and that answers make them read several paragraphs first.
+A2.6b depends only on A2.2, it fixes the off-topic answers sooner, and A2.6 is blocked on AUI (D8).
+
+**Also decided 2026-11-06.** Domain-aware retrieval stays at B3 (section 5.1), and conflict handling between departments
+stays at B3 (section 5.4). There is no LLM-based scope classifier: the gate is structural and costs no tokens.
+
+**Acceptance criteria, set before any results:**
+
+- **A2.6b.** The off-topic set includes "What is 1 + 1?", "What is the capital of France?", "What programs does AUI
+  offer?", "What is AUI's add/drop policy?", a mixed general + AUI question, and an AUI question the documents don't cover
+  (expected: the not-found template).
+- **A2.4.** Scratch-database fixture documents (one dining, one finance, a second academic) prove that they coexist, that
+  attribution stays correct, and that withdrawing one leaves the other documents' chunk counts and retrieval ranks
+  unchanged. Embeddings only, 0 LLM tokens.
+- **A2.7.** Full detail is kept when the student explicitly asks for it.
+
+**Findings from the audit of 2026-11-06, carried into later steps** (line numbers here and in the table above are at
+commit `c1571e7`):
+
+- **A2.4.** Three assumptions of the single-document pipeline go: the catalog's part headings are applied to every
+  document (`chunk.py:32-36`); English is hardcoded (`chunk.py:64`, `schema.sql:23`, `keyword_search.py:33,36`); folder
+  scans turn any stray file into a source (`clean.py:36`, `chunk.py:319`). Ingestion must refuse files that aren't in the
+  registry.
+- **A2.7.** The forced-answer rule must say "answer the student's question", not "the last message": the forced
+  conversation ends with the search results, not the question (`graph.py:172`). Leave the fallback's wording alone, because
+  `history.py:38` matches it by prefix. Regenerated examples change the first screen's proof card (`answerFormat.ts:27-30`).
 
 Effort is re-estimated from the original tier A figures and carries the same plus or minus 50%.
 
