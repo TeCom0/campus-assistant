@@ -37,6 +37,7 @@ CI/CD, and evaluation.
 - Every deploy or backup script uses `set -euo pipefail`, closes stdin on `docker compose run` and
   `docker exec`, and ends by printing proof the work happened (counts, size, checksum). Twice in A1.4
   a script reported success without doing the work: a clean exit alone proves nothing.
+- Permission rules live in `.claude/settings.json`: any new Groq-calling module or deploy command needs a matching ask or deny rule for both PowerShell and Bash.
 
 ## Environment
 
