@@ -19,7 +19,9 @@ EMBEDDING_DIM = 384
 
 POSTGRES_DB = os.environ["POSTGRES_DB"]
 POSTGRES_PORT = os.environ["POSTGRES_PORT"]
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
+# Not "localhost": the development port is bound to 127.0.0.1 only, and on Windows
+# psycopg waits out the whole connect timeout on ::1 first (measured: 10 s vs. 0.02 s).
+POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "127.0.0.1")
 
 # What the running app connects as: its own least-privilege role (app/db/roles.sql),
 # whose password app/db/migrate.py sets from this.

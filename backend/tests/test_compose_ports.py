@@ -30,6 +30,11 @@ def test_every_development_port_is_bound_to_this_machine_only():
     assert all(port.startswith("127.0.0.1:") for port in published)
 
 
+def test_the_default_host_is_the_address_the_port_is_bound_to():
+    config = (REPO_ROOT / "backend" / "app" / "config.py").read_text(encoding="utf-8")
+    assert 'os.environ.get("POSTGRES_HOST", "127.0.0.1")' in config
+
+
 def test_production_publishes_only_caddy():
     production = _services("docker-compose.prod.yml")
     for name in ("db", "api", "frontend"):
