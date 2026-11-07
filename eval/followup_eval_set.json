@@ -1,0 +1,50 @@
+[
+  {
+    "id": "followup_graduate",
+    "first_id": "transfer_credits_en",
+    "question": "What about for a master's student?",
+    "language": "en",
+    "kind": "substantive",
+    "notes": "Needs a search, or at least a citation: a template here is a false refusal."
+  },
+  {
+    "id": "followup_summer",
+    "first_id": "add_drop_en",
+    "question": "Is it different for the summer session?",
+    "language": "en",
+    "kind": "substantive",
+    "notes": "Needs a search, or at least a citation: a template here is a false refusal."
+  },
+  {
+    "id": "followup_fr",
+    "first_id": "transfer_credits_fr",
+    "question": "Et ces crédits comptent-ils dans ma moyenne ?",
+    "language": "fr",
+    "kind": "substantive",
+    "notes": "French. Needs a search, or at least a citation: a template here is a false refusal."
+  },
+  {
+    "id": "followup_thanks",
+    "first_id": "transfer_credits_en",
+    "question": "Thanks!",
+    "language": "en",
+    "kind": "conversational",
+    "notes": "Section 2.4's known cost. Named there."
+  },
+  {
+    "id": "followup_simpler",
+    "first_id": "add_drop_en",
+    "question": "Can you explain that more simply?",
+    "language": "en",
+    "kind": "conversational",
+    "notes": "Section 2.4's known cost: needs no new search, and the model may not cite."
+  },
+  {
+    "id": "followup_translate",
+    "first_id": "transfer_credits_en",
+    "question": "Translate that to French.",
+    "language": "en",
+    "kind": "conversational",
+    "notes": "Section 2.4's known cost. Named there."
+  }
+]

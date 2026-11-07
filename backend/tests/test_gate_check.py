@@ -188,3 +188,78 @@ def test_the_run_stops_at_groqs_daily_limit(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(check.main, "admit_question", check.main.admit_question)
     assert check.run(tmp_path / "out.jsonl") == []
     assert "daily limit" in capsys.readouterr().out
+
+
+# --- Follow-ups -----------------------------------------------------------------------
+
+
+def _saved_history(tmp_path):
+    path = tmp_path / "saved.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for first_id in ("transfer_credits_en", "add_drop_en", "transfer_credits_fr"):
+            record = {
+                "id": first_id,
+                "question": f"{first_id}?",
+                "answer": f"answer [1] {first_id}",
+            }
+            f.write(json.dumps(record) + "\n")
+    return path
+
+
+def test_a_followup_carries_its_saved_question_and_answer(tmp_path):
+    followups = {q["id"]: q for q in check.load_followups(_saved_history(tmp_path))}
+    assert followups["followup_summer"]["history"] == [
+        {"role": "user", "content": "add_drop_en?"},
+        {"role": "assistant", "content": "answer [1] add_drop_en"},
+    ]
+    kinds = [q["kind"] for q in followups.values()]
+    assert (kinds.count("substantive"), kinds.count("conversational")) == (3, 3)
+
+
+def test_the_history_goes_to_chat():
+    sent = {}
+
+    class Response:
+        text = "event: done\ndata: {}\n\n"
+
+    class Client:
+        def post(self, path, json):
+            sent.update(json)
+            return Response()
+
+    question = {**QUESTION, "history": [{"role": "user", "content": "first"}]}
+    check.ask(Client(), question)
+    assert sent == {
+        "question": "What is 1 + 1?",
+        "messages": [{"role": "user", "content": "first"}],
+    }
+
+
+def _followup_records(questions, replaced=()):
+    records = []
+    for q in questions:
+        record = _record("68 credits [1].", markers=[1], cards=[1], tools=["search_documents"])
+        if q["id"] in replaced:
+            record.update(answer=SCOPE_TEMPLATE["en"], gate="no_tool", cited_markers=[], cards=[])
+        record["id"] = q["id"]
+        records.append(record)
+    return records
+
+
+def test_a_template_on_a_conversational_followup_doesnt_fail_the_rule(tmp_path, capsys):
+    questions = check.load_followups(_saved_history(tmp_path))
+    records = _followup_records(questions, replaced={"followup_thanks", "followup_simpler"})
+    assert check.print_followup_summary(records, questions)
+    assert "known cost): 2/3" in capsys.readouterr().out
+
+
+def test_a_template_on_a_substantive_followup_fails_the_rule(tmp_path, capsys):
+    questions = check.load_followups(_saved_history(tmp_path))
+    records = _followup_records(questions, replaced={"followup_summer"})
+    assert not check.print_followup_summary(records, questions)
+    assert "NOT PASSED" in capsys.readouterr().out
+
+
+def test_a_followup_that_didnt_run_fails_the_rule(tmp_path):
+    questions = check.load_followups(_saved_history(tmp_path))
+    assert not check.print_followup_summary(_followup_records(questions)[:-1], questions)

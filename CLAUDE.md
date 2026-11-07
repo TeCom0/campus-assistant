@@ -172,6 +172,15 @@ and not the not-found template that `docs/architecture.md` section 9 expects, be
 isn't met and waits on Youness. `mixed` answered "1 + 1 = 2." next to a cited sentence, which an answer-level gate can't stop.
 With the uncited answers check, 2/24 on these questions, a different one each time: about 2.5 of 30 false refusals, at the limit.
 
+Decided 2026-11-07 by Claude, with Youness's go-ahead to decide: the scope template is accepted for an AUI question the model
+doesn't search for, because the gate can only read that no tool ran. One automatic retry of an uncited answer is a candidate to
+decide before run 4, after A2.7's prompt changes, not part of this deploy.
+
+Follow-ups, set 2026-11-07 before they ran, because section 2.4 says to measure them before deciding: 6 follow-ups through `/chat`,
+each with a saved answer as history (`eval/followup_eval_set.json`), about 15k tokens. A template on any of the 3 substantive
+ones, which need a new search: stop and report, and don't deploy. The 3 conversational ones ("Thanks!") are the known cost in
+section 2.4: a template on them is recorded and doesn't block.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

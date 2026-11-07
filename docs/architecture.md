@@ -1275,7 +1275,8 @@ stays at B3 (section 5.4). There is no LLM-based scope classifier: the gate is s
 
 - **A2.6b.** The off-topic set includes "What is 1 + 1?", "What is the capital of France?", "What programs does AUI
   offer?", "What is AUI's add/drop policy?", a mixed general + AUI question, and an AUI question the documents don't cover
-  (expected: the not-found template).
+  (expected: the not-found template). Changed 2026-11-07, after the measurement and in the open: if the model doesn't
+  search, that question gets the scope template, because the gate can only read that no tool ran. It's still code-written text.
 - **A2.4.** Scratch-database fixture documents (one dining, one finance, a second academic) prove that they coexist, that
   attribution stays correct, and that withdrawing one leaves the other documents' chunk counts and retrieval ranks
   unchanged. Embeddings only, 0 LLM tokens.

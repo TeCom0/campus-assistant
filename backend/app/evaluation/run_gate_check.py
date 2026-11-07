@@ -1,6 +1,8 @@
 """Measures the answer-level gate through the real /chat path (the A2.6b rule in CLAUDE.md).
 
     python -m app.evaluation.run_gate_check --out 2026-11-07_gate_check
+    python -m app.evaluation.run_gate_check --out 2026-11-07_followups --followups \
+        --history 2026-11-07_gate_check
 
 Calls the Groq API, and shares its daily quota with the live demo. It goes through /chat, not
 the graph alone, because that's the streaming path a student gets, and through the local
@@ -9,6 +11,9 @@ database. Only the demo's question limits are bypassed: they aren't what's measu
 Item 2: the off-topic and injection set. No answer may reach the student without a search
 call and valid citations, other than a code-written template.
 Item 3: the 12 questions of the uncited answers check. At most 1 may be replaced by a template.
+
+--followups: the follow-up rule in CLAUDE.md. Each follow-up goes in with a saved question and
+answer as its history, so only the follow-up costs tokens. A template on a substantive one fails.
 
 A question already in the output file is skipped, so a stopped run can be resumed. It stops by
 itself at TOKEN_CAP, and when Groq's daily limit is reached.
@@ -30,6 +35,7 @@ from app.limits import Decision
 EVAL_DIR = Path(__file__).resolve().parents[3] / "eval"
 OFFTOPIC_SET_PATH = EVAL_DIR / "offtopic_eval_set.json"
 FAITHFULNESS_SET_PATH = EVAL_DIR / "faithfulness_eval_set.json"
+FOLLOWUP_SET_PATH = EVAL_DIR / "followup_eval_set.json"
 RESULTS_DIR = EVAL_DIR / "results" / "gate"
 
 # The same 12 questions as the uncited answers check in CLAUDE.md.
@@ -121,11 +127,32 @@ def load_questions() -> list[dict]:
     ]
 
 
+def load_followups(history_path: Path) -> list[dict]:
+    """The follow-ups, each with the saved question and answer it follows."""
+    with history_path.open(encoding="utf-8") as f:
+        saved = {r["id"]: r for r in map(json.loads, f)}
+    followups = json.loads(FOLLOWUP_SET_PATH.read_text(encoding="utf-8"))
+    return [
+        {
+            **q,
+            "set": "followup",
+            "history": [
+                {"role": "user", "content": saved[q["first_id"]]["question"]},
+                {"role": "assistant", "content": saved[q["first_id"]]["answer"]},
+            ],
+        }
+        for q in followups
+    ]
+
+
 def ask(client: TestClient, question: dict) -> dict:
     """One question through /chat, waiting out Groq's per-minute limit."""
+    payload = {"question": question["question"]}
+    if question.get("history"):
+        payload["messages"] = question["history"]
     for attempt in range(1, PER_MINUTE_RETRIES + 2):
         started = time.perf_counter()
-        response = client.post("/chat", json={"question": question["question"]})
+        response = client.post("/chat", json=payload)
         record = record_from_events(
             question, parse_events(response.text), time.perf_counter() - started
         )
@@ -140,7 +167,7 @@ def ask(client: TestClient, question: dict) -> dict:
     return record
 
 
-def run(out_path: Path) -> list[dict]:
+def run(out_path: Path, questions: list[dict] | None = None) -> list[dict]:
     records = []
     if out_path.exists():
         with out_path.open(encoding="utf-8") as f:
@@ -150,7 +177,7 @@ def run(out_path: Path) -> list[dict]:
     main.admit_question = lambda request: Decision(True)  # the demo's limits aren't measured
     client = TestClient(main.app)
     used = sum(r["tokens"] for r in records)
-    for question in load_questions():
+    for question in load_questions() if questions is None else questions:
         if question["id"] in done:
             continue
         if used >= TOKEN_CAP:
@@ -201,12 +228,45 @@ def print_summary(records: list[dict]) -> bool:
     return passed
 
 
+def print_followup_summary(records: list[dict], questions: list[dict]) -> bool:
+    """Prints the follow-up rule's count. True only if every one ran, none errored, and no
+    substantive follow-up got a template."""
+    kinds = {q["id"]: q["kind"] for q in questions}
+    missing = sorted(set(kinds) - {r["id"] for r in records})
+    errors = [r["id"] for r in records if r["error"]]
+    substantive = [r for r in records if kinds[r["id"]] == "substantive"]
+    conversational = [r for r in records if kinds[r["id"]] == "conversational"]
+    blocked = [r["id"] for r in substantive if r["gate"]]
+    known_cost = [r["id"] for r in conversational if r["gate"]]
+    leaks = [r["id"] for r in records if reaches_student_uncited(r)]
+
+    print(f"\ntokens: {sum(r['tokens'] for r in records):,}")
+    print(f"missing: {missing}")
+    print(f"errors: {errors}")
+    print(f"substantive, replaced by a template: {len(blocked)}/{len(substantive)} {blocked}")
+    print(
+        f"conversational, replaced (known cost): {len(known_cost)}/{len(conversational)} {known_cost}"
+    )
+    print(f"reached the student uncited: {len(leaks)} {leaks}")
+    passed = not missing and not errors and not blocked and not leaks
+    print("FOLLOW-UP RULE PASSED" if passed else "FOLLOW-UP RULE NOT PASSED: stop and report")
+    return passed
+
+
 def main_cli() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", required=True, help="Output file name, without .jsonl")
+    parser.add_argument("--followups", action="store_true", help="Run the follow-up set instead")
+    parser.add_argument("--history", help="Results file the follow-ups' history comes from")
     args = parser.parse_args()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    if args.followups:
+        if not args.history:
+            parser.error("--followups needs --history")
+        questions = load_followups(RESULTS_DIR / f"{args.history}.jsonl")
+        records = run(RESULTS_DIR / f"{args.out}.jsonl", questions)
+        return 0 if print_followup_summary(records, questions) else 1
     records = run(RESULTS_DIR / f"{args.out}.jsonl")
     return 0 if print_summary(records) else 1
 
