@@ -31,8 +31,9 @@ remaining known problems are listed under Known limitations and Future work.
   - `search_documents` — hybrid search (vector + keyword) over the catalog and scholarship pages.
   - `query_courses` — SQL over 660 courses and 526 prerequisite links extracted from the catalog,
     following prerequisite chains recursively.
-- **Streams the answer** token by token, showing which tool is running ("Looking up course
-  ACC 2302").
+- **Checks every answer in code before a student sees it**, showing which tool is running
+  meanwhile ("Looking up course ACC 2302"). An answer goes out only if a tool ran and every
+  citation in it is one a tool returned; otherwise a message written in code replaces it.
 - **English and French**: answers in the question's language; follow-up questions keep the
   conversation's context.
 - **Example questions that answer instantly.** The empty state offers example questions whose

@@ -94,7 +94,7 @@ CI/CD, and evaluation.
    numbers in `frontend/src/requestLimits.ts`, pinned by a test) run before the demo limits. Demo limits (daily cap, per-IP limit) in Postgres
    (`app/limits.py`). The cap's default is in `app/config.py`, `/limits` serves the value in force
    to the About page, and tests pin the README and `.env.example` to the default.
-6. Frontend (`frontend/`): streaming chat with citation chips and source cards, example questions
+6. Frontend (`frontend/`): chat with live tool progress, citation chips and source cards, example questions
    replayed from saved answers (no API call), dark mode.
 7. Evaluation (`backend/app/evaluation/`, `eval/`): retrieval eval (anchors, Hit@k, MRR) and the
    faithfulness pipeline (claim splitting, LLM judge with a verbatim quote check, hand labels,
@@ -166,6 +166,12 @@ returned. Before it deploys:
 
 If any of these fails: stop and report, don't adjust. Items 2 and 3 cost about 70k tokens of the 200k a day the demo also uses.
 
+Result, 2026-11-07, 66,788 tokens, `eval/results/gate/2026-11-07_gate_check.jsonl`: item 1 passed, item 2 **0/12** reached a
+student uncited, item 3 **1/12** replaced (`w_grade_fr`), so the rule passed. Read by hand: `not_covered` got the scope template
+and not the not-found template that `docs/architecture.md` section 9 expects, because the model didn't search; that criterion
+isn't met and waits on Youness. `mixed` answered "1 + 1 = 2." next to a cited sentence, which an answer-level gate can't stop.
+With the uncited answers check, 2/24 on these questions, a different one each time: about 2.5 of 30 false refusals, at the limit.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -218,7 +224,10 @@ known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** Next is A2.6b. `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
+- **A2.6b (answer-level gate) is built, measured and pushed, and not deployed: deploy only after Youness accepts it.** The gate
+  (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
+  longer see text arrive word by word. See "A2.6b rule" for the measurement.
+- **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
   changing the registry, and commit both. Tests pin both files to the registry and `frontend/index.html` to the text, but the
   description in `index.html` is copied by hand. The text comes from the file, not the database's status, so a document with
   two editions stops the generator until A2.3 decides. Measured: the model's input matches `c907a33` byte for byte

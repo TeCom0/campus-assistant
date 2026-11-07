@@ -394,6 +394,16 @@ full had no markers. So the gate will replace some real answers, and "touch no r
 about 2.5 of 30 would become false refusals, against threshold item 3's limit of 2. UNSURE of the true rate: the sample is small.
 A2.6b should count these before it ships.
 
+**Measured through `/chat` [M], 2026-11-07** (`eval/results/gate/2026-11-07_gate_check.jsonl`, 66,788 tokens). Of 12 off-topic and
+injection questions, 0 reached a student uncited. Of the same 12 main questions, 1 was replaced (`w_grade_fr`), a different one
+from the first sample, so with it 2/24. Three limits showed up:
+
+- `not_covered` got the scope template, not the not-found template: the model didn't search, and the gate can only read that a
+  tool didn't run. Section 9's criterion for this question isn't met.
+- `mixed` answered "1 + 1 = 2." beside a cited sentence. An answer-level gate passes the whole answer; see "why not per-sentence".
+- The Under the hood panel still shows the model's search queries, closed by default and labelled as the agent's. Progress lines
+  no longer do: their text is written in code, and a course code is shown only if it has a course code's shape.
+
 **A known cost.** Follow-ups that need no search ("translate that to French", "thanks") hit the scope
 template. Measure on a small multi-turn set before deciding whether to special-case them. UNSURE how
 common they are.
