@@ -181,6 +181,11 @@ each with a saved answer as history (`eval/followup_eval_set.json`), about 15k t
 ones, which need a new search: stop and report, and don't deploy. The 3 conversational ones ("Thanks!") are the known cost in
 section 2.4: a template on them is recorded and doesn't block.
 
+Result, 2026-11-07, 20,966 tokens, `eval/results/gate/2026-11-07_followups.jsonl`: **not passed, so A2.6b isn't deployed.** Substantive
+1/3 replaced (`followup_summer`, which the catalog covers), conversational 3/3 replaced, 0 reached a student uncited. On real
+questions so far, 3/27 replaced. Read by hand: `followup_fr` says transferred credits count toward the GPA, cites only the
+pass/fail rule, and a rough search of the catalog found no sentence saying so: a cited claim the gate can't judge (AG-4).
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -233,7 +238,7 @@ known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A2.6b (answer-level gate) is built, measured and pushed, and not deployed: deploy only after Youness accepts it.** The gate
+- **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, see "A2.6b rule".** The gate
   (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
   longer see text arrive word by word. See "A2.6b rule" for the measurement.
 - **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
