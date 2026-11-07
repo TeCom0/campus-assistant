@@ -185,4 +185,14 @@ describe("UnderTheHood", () => {
     const stopped = renderToStaticMarkup(<UnderTheHood trace={{ ...TRACE, status: "limit" }} citations={[]} />);
     expect(stopped).toContain("The run stopped at a usage limit");
   });
+
+  it.each([
+    ["no_tool", "answered without searching"],
+    ["no_citation", "cited no passage"],
+    ["invented_marker", "cited a passage no tool returned"],
+  ] as const)("says why the gate replaced the answer: %s", (gate, words) => {
+    const shown = renderToStaticMarkup(<UnderTheHood trace={{ ...TRACE, gate }} citations={[]} />);
+    expect(shown).toContain(words);
+    expect(shown).toContain("written in code");
+  });
 });

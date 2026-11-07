@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from langchain_core.messages import AIMessageChunk
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 from app import main
 from app.config import (
@@ -315,18 +315,19 @@ def test_the_frontend_holds_the_same_limits(name, value):
 # --- Streaming through the middleware -----------------------------------------
 
 
-def test_a_valid_answer_streams_token_by_token(monkeypatch, admitted):
-    """The order of events proves it: each token reaches `send` before the agent
-    is asked for the next. A middleware that buffered the response would show all
-    the tokens produced first, and only then sent. Driven through ASGI directly,
+def test_progress_lines_stream_one_by_one(monkeypatch, admitted):
+    """The order of events proves it: each tool call reaches `send` before the agent
+    is asked for the next. A middleware that buffered the response would show them all
+    produced first, and only then sent. The answer itself is held for the gate, so these
+    lines are what keeps the screen alive during a run. Driven through ASGI directly,
     because TestClient collects the whole response before returning it."""
-    tokens = ["The ", "limit ", "is ", "68."]
     order = []
 
     async def stub_agent(*args, **kwargs):
-        for token in tokens:
-            order.append(f"produced {token}")
-            yield "messages", (AIMessageChunk(content=token), {"langgraph_node": "agent"})
+        for query in ["first", "second", "third"]:
+            order.append(f"produced {query}")
+            call = {"id": query, "name": "search_documents", "args": {"query": query}}
+            yield "updates", {"agent": {"messages": [AIMessage("", tool_calls=[call])]}}
 
     monkeypatch.setattr(main._compiled_graph, "astream", stub_agent)
 
@@ -360,8 +361,9 @@ def test_a_valid_answer_streams_token_by_token(monkeypatch, admitted):
                 order.append(f"status {message['status']}")
             elif message["type"] == "http.response.body":
                 text = message.get("body", b"").decode()
-                if text.startswith("event: token"):
-                    order.append(f"sent {json.loads(text.split('data: ', 1)[1])['text']}")
+                if text.startswith("event: tool_call"):
+                    data = json.loads(text.split("data: ", 1)[1])
+                    order.append(f"sent {data['args']['query']}")
 
         await main.app(scope, receive, send)
 
@@ -369,12 +371,10 @@ def test_a_valid_answer_streams_token_by_token(monkeypatch, admitted):
 
     assert order == [
         "status 200",
-        "produced The ",
-        "sent The ",
-        "produced limit ",
-        "sent limit ",
-        "produced is ",
-        "sent is ",
-        "produced 68.",
-        "sent 68.",
+        "produced first",
+        "sent first",
+        "produced second",
+        "sent second",
+        "produced third",
+        "sent third",
     ]

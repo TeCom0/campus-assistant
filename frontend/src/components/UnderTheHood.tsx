@@ -24,6 +24,13 @@ const STATUS_NOTES: Partial<Record<Trace["status"], string>> = {
   error: "The run stopped on an error; this is what it did until then.",
 };
 
+const GATE_NOTES: Record<NonNullable<Trace["gate"]>, string> = {
+  no_tool: "The model answered without searching, so its text was replaced by the message above, written in code.",
+  no_citation: "The model's answer cited no passage, so it was replaced by the message above, written in code.",
+  invented_marker:
+    "The model's answer cited a passage no tool returned, so it was replaced by the message above, written in code.",
+};
+
 function Timeline({ trace }: { trace: Trace }) {
   const percents = segmentPercents(trace.timeline);
   const { first_token_ms } = trace.totals;
@@ -230,7 +237,7 @@ export function UnderTheHood({
   savedAt?: string;
 }) {
   const cited = new Set(citations.map((c) => c.marker));
-  const note = STATUS_NOTES[trace.status];
+  const note = trace.gate ? GATE_NOTES[trace.gate] : STATUS_NOTES[trace.status];
   return (
     <details className="uth">
       <summary>

@@ -77,6 +77,8 @@ export type Segment =
 
 export interface Trace {
   status: "done" | "fallback" | "limit" | "error";
+  // Why the gate replaced the model's answer. Absent when it didn't.
+  gate?: "no_tool" | "no_citation" | "invented_marker";
   steps: TraceStep[];
   timeline: Segment[];
   totals: {

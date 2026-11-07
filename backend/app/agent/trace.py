@@ -90,6 +90,7 @@ class RunTrace:
         self.timeline: list[dict] = []
         self.call_ids: list[str] = []
         self.first_token_ms: int | None = None
+        self.gate_reason: str | None = None
 
     def _now_ms(self) -> int:
         return round((self._clock() - self._started) * 1000)
@@ -130,6 +131,10 @@ class RunTrace:
         """The run ended in an error before the node in progress finished."""
         self._segment("stopped")
 
+    def gate(self, reason: str) -> None:
+        """The gate replaced the answer. Only its fixed reason, never the rejected text."""
+        self.gate_reason = reason
+
     @property
     def fell_back(self) -> bool:
         return any(segment["kind"] == "fallback" for segment in self.timeline)
@@ -146,7 +151,10 @@ class RunTrace:
         def known_sum(key: str) -> int:
             return sum(s[key] for s in llm_calls if s[key] is not None)
 
+        # Only when it happened, so a saved example's trace keeps its shape.
+        gate = {"gate": self.gate_reason} if self.gate_reason else {}
         return {
+            **gate,
             "status": status,
             "steps": in_call_order(trace_steps() or [], self.call_ids),
             "timeline": self.timeline,

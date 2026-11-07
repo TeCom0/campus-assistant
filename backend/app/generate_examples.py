@@ -66,11 +66,7 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
         config={"recursion_limit": MAX_AGENT_STEPS, "configurable": {"language": language}},
         stream_mode=["messages", "updates"],
     ):
-        if stream_mode == "messages":
-            msg_chunk, metadata = chunk
-            if metadata.get("langgraph_node") == "agent" and msg_chunk.content:
-                run.token()
-        elif stream_mode == "updates":
+        if stream_mode == "updates":
             for node_name, node_output in chunk.items():
                 new_messages = node_output.get("messages", [])
                 messages.extend(new_messages)
@@ -79,7 +75,12 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
                         run.agent_message(msg)
                 elif node_name == "tools":
                     run.tools_done()
+                elif node_name == "gate":
+                    for msg in new_messages:
+                        run.gate(msg.response_metadata["gate"])
     answer = final_answer(messages)
+    if answer:
+        run.token()  # as in /chat: the answer is sent once the gate has checked it
     tool_calls = [
         {"tool": tc["name"], "label": build_tool_call_label(tc["name"], tc["args"], language)}
         for m in messages

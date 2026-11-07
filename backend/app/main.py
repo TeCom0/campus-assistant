@@ -188,10 +188,11 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
         start_trace()
         run = RunTrace()
         citations: list[dict] = []
-        # Everything streamed as answer text, so the citations event can list
-        # only the markers the answer actually uses. A marker can arrive split
-        # across tokens ("[" then "3]"), hence the whole text, not per token.
+        # The answer is held until the graph's gate has checked it, because text already
+        # sent can't be taken back. So nothing the model writes reaches the browser if the
+        # gate rejects it, or if the run fails partway.
         answer_parts: list[str] = []
+        gate_template: str | None = None
 
         try:
             history = [m.model_dump() for m in request.messages or []]
@@ -206,10 +207,7 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                 if stream_mode == "messages":
                     msg_chunk, metadata = chunk
                     if metadata.get("langgraph_node") == "agent" and msg_chunk.content:
-                        text = normalize_brackets(msg_chunk.content)
-                        answer_parts.append(text)
-                        run.token()
-                        yield _sse("token", {"text": text})
+                        answer_parts.append(normalize_brackets(msg_chunk.content))
 
                 elif stream_mode == "updates":
                     for node_name, node_output in chunk.items():
@@ -228,9 +226,18 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                                 artifact = getattr(msg, "artifact", None)
                                 if artifact:
                                     citations.extend(artifact)
+                        elif node_name == "gate":
+                            for msg in node_output.get("messages", []):
+                                gate_template = msg.content
+                                run.gate(msg.response_metadata["gate"])
+
+            answer = gate_template if gate_template is not None else "".join(answer_parts)
+            if answer:
+                run.token()
+                yield _sse("token", {"text": answer})
 
             cited = with_display_info(
-                without_passage_text(keep_cited(citations, "".join(answer_parts))),
+                without_passage_text(keep_cited(citations, answer)),
                 load_sources(),
             )
             yield _sse("citations", {"citations": cited})
