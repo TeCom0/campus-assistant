@@ -78,3 +78,12 @@ def test_a_fallback_is_a_failure_only_where_an_answer_was_expected():
     judgements = [{"id": "m", "abstains": False, "claims": []}]
     failures = collect_failures(answers, [], judgements, QUESTIONS)
     assert [(f["id"], f["type"]) for f in failures] == [("f", "fallback")]
+
+
+def test_a_gate_template_is_a_false_refusal_only_where_an_answer_was_expected():
+    answers = [{"id": "m", "error": None, "gate": "no_citation"},
+               {"id": "u", "error": None, "gate": "no_citation"}]  # fmt: skip
+    # Even with a judge that saw no decline.
+    judgements = [{"id": "m", "abstains": False, "claims": []}]
+    failures = collect_failures(answers, [], judgements, QUESTIONS)
+    assert [(f["id"], f["type"]) for f in failures] == [("m", "false_refusal")]

@@ -68,6 +68,10 @@ def summarize_answer(
     answer: dict, question: dict, claims: list[dict], labels: dict, abstains: bool | None
 ) -> dict:
     """One answer's numbers; claims are this answer's claims only."""
+    # A template replaced the answer, so the student got no answer, whatever the judge says.
+    # .get: records generated before the gate existed have no field.
+    if answer.get("gate"):
+        abstains = True
     excluded = [c for c in claims if c.get("exclude")]
     claims = [c for c in claims if not c.get("exclude")]
     # .get: records generated before fallbacks existed have no field.

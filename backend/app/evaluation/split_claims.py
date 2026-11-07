@@ -310,12 +310,15 @@ def no_claims_reason(answer: dict) -> str | None:
 
     A fallback (the graph's code-built "these passages may help: [1] [2]")
     states nothing; splitting it would send a list of markers to the judge as
-    if it were a fact. Records from before fallbacks existed have no field.
+    if it were a fact. A gate template is text we wrote, not a claim about the documents.
+    Records from before these existed have no field.
     """
     if answer["error"]:
         return answer["error"]
     if answer.get("fallback"):
         return "fallback answer"
+    if answer.get("gate"):
+        return "gate template"
     if not answer["answer"].strip():
         return "empty"
     return None

@@ -152,3 +152,14 @@ def test_a_fallback_is_kept_out_of_the_headline_and_counted_as_no_answer():
 def test_records_without_a_fallback_field_are_read_as_real_answers():
     answer = {"id": "q", "run": 1, "error": None}  # runs 1-2 predate the field
     assert summarize_answer(answer, QUESTION, [], {}, abstains=False)["fallback"] is False
+
+
+def test_a_gate_template_counts_as_declining_whatever_the_judge_says():
+    answer = {"id": "q", "run": 4, "error": None, "fallback": False, "gate": "no_citation"}
+    # An answer was expected: a false refusal, even if the judge saw no decline.
+    s = summarize_answer(answer, QUESTION, [], {}, abstains=False)
+    assert (s["abstains"], s["false_refusal"]) == (True, True)
+    # None was expected: a correct refusal, not a missed one.
+    should_decline = {**QUESTION, "expected_behavior": "abstain"}
+    s = summarize_answer(answer, should_decline, [], {}, abstains=None)
+    assert (s["abstains"], s["false_refusal"], s["missed_refusal"]) == (True, False, False)

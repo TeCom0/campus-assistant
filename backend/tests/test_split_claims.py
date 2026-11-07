@@ -324,3 +324,13 @@ def test_fallback_and_crashed_answers_get_no_claims():
     assert no_claims_reason({"error": None, "fallback": False, "answer": "  "})
     # Records from runs 1-2 have no "fallback" field and are split as before.
     assert no_claims_reason({"error": None, "answer": TRANSFER_EN}) is None
+
+
+def test_a_gate_template_gets_no_claims():
+    answer = {
+        "error": None,
+        "fallback": False,
+        "gate": "no_citation",
+        "answer": "I couldn't find this.",
+    }
+    assert no_claims_reason(answer) == "gate template"

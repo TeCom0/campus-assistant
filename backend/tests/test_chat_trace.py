@@ -280,12 +280,12 @@ def test_a_refused_question_gets_its_429_and_no_trace(monkeypatch):
 
 # --- the evaluation ---------------------------------------------------------
 
-# Every key of a faithfulness answer record, as in runs 1-3: the trace must
-# not add one.
+# Every key of a faithfulness answer record, as in runs 1-3 plus the gate's reason: the
+# trace must not add one.
 EVAL_RECORD_KEYS = {
     "id", "run", "question", "language", "detected_language", "provider", "model",
     "answer", "cited_markers", "passages", "tool_calls", "searches", "usage",
-    "seconds", "error", "fallback", "generated_at",
+    "seconds", "error", "fallback", "gate", "generated_at",
 }  # fmt: skip
 
 

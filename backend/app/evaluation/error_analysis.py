@@ -83,7 +83,9 @@ def collect_failures(
             if q["expected_behavior"] == "answer":
                 failures.append({"id": a["id"], "type": "fallback", "answer": a["id"]})
             continue
-        if q["expected_behavior"] == "answer" and abstains.get(a["id"]) is True:
+        # A template replaced the answer: no answer, whatever the judge says.
+        declined = a.get("gate") or abstains.get(a["id"]) is True
+        if q["expected_behavior"] == "answer" and declined:
             failures.append({"id": a["id"], "type": "false_refusal", "answer": a["id"]})
         if q["set"] != "main":
             continue

@@ -11,10 +11,11 @@ import groq
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.utils.function_calling import convert_to_openai_tool
-from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.agent.citations import reset_citation_counter
+from app.agent.gate import final_answer, gate_answer
 from app.agent.model import get_agent_model
 from app.agent.tools import query_courses, search_documents
 from app.config import MAX_TOOL_ROUNDS
@@ -248,13 +249,44 @@ def _agent_node(state: MessagesState, config: RunnableConfig | None = None) -> d
     return {"messages": [response]}
 
 
+def _gate_node(state: MessagesState, config: RunnableConfig | None = None) -> dict:
+    """The last step of every run: checks the finished answer against this turn's tools.
+
+    Only what happened since the student's latest message counts. A rejected answer gets
+    a template added after it, marked in response_metadata; final_answer reads that. An
+    answer that passes adds nothing.
+    """
+    messages = state["messages"]
+    this_turn = messages[_latest_question_index(messages) + 1 :]
+    tool_messages = [m for m in this_turn if m.type == "tool"]
+    result = gate_answer(
+        final_answer(this_turn),
+        tool_ran=bool(tool_messages),
+        known_markers={
+            citation["marker"]
+            for m in tool_messages
+            for citation in getattr(m, "artifact", None) or []
+        },
+        language=(config or {}).get("configurable", {}).get("language"),
+        fallback=any(m.type == "ai" and m.response_metadata.get("fallback") for m in this_turn),
+    )
+    if result.reason is None:
+        return {"messages": []}
+    print(f"[agent] gate replaced the answer: {result.reason}")
+    return {"messages": [AIMessage(result.answer, response_metadata={"gate": result.reason})]}
+
+
 def build_graph():
     graph = StateGraph(MessagesState)
     graph.add_node("agent", _agent_node)
     graph.add_node("tools", ToolNode(TOOLS))
+    graph.add_node("gate", _gate_node)
     graph.add_edge(START, "agent")
-    graph.add_conditional_edges("agent", tools_condition)
+    # tools_condition says "tools" or END. An answer that's finished goes through the gate,
+    # so no path out of the agent can skip it.
+    graph.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: "gate"})
     graph.add_edge("tools", "agent")
+    graph.add_edge("gate", END)
     return graph.compile()
 
 

@@ -86,8 +86,8 @@ MAX_ASSISTANT_CONTENT_CHARS = 6000
 # since the prompt's "at most two searches" rule alone was ignored in testing.
 MAX_TOOL_ROUNDS = 3
 
-# Hard cap on agent steps per request (each agent or tool-node run counts as one).
-# A backstop only: MAX_TOOL_ROUNDS keeps a normal run at most 3 * 2 + 1 = 7 steps.
+# Hard cap on agent steps per request (each agent, tool-node or gate run counts as one).
+# A backstop only: MAX_TOOL_ROUNDS keeps a normal run at most 3 * 2 + 1 + 1 = 8 steps.
 # Hitting this raises GraphRecursionError, which ends the answer with an error.
 MAX_AGENT_STEPS = 10
 

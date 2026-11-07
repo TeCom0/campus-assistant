@@ -47,6 +47,32 @@ NOT_FOUND_TEMPLATE = {
 }
 
 
+_TEMPLATES = {*SCOPE_TEMPLATE.values(), *NOT_FOUND_TEMPLATE.values()}
+
+
+def is_gate_template(text: str) -> bool:
+    """True for a template (the client sends answers back as history)."""
+    return text.strip() in _TEMPLATES
+
+
+def gate_reason(messages) -> str | None:
+    """Why the gate replaced this run's answer, or None if it didn't."""
+    for message in messages:
+        if message.type == "ai" and message.response_metadata.get("gate"):
+            return message.response_metadata["gate"]
+    return None
+
+
+def final_answer(messages) -> str:
+    """What the student reads: the gate's template if it replaced the answer, or else
+    the text of every agent message, in order."""
+    agent = [m for m in messages if m.type == "ai" and isinstance(m.content, str)]
+    for message in agent:
+        if message.response_metadata.get("gate"):
+            return message.content
+    return normalize_brackets("".join(message.content for message in agent))
+
+
 @dataclass(frozen=True)
 class GateResult:
     answer: str

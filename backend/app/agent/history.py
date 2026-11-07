@@ -9,12 +9,13 @@ Fallback answers (built in code when the model failed to answer, see
 graph._fallback_answer) are left out, the way the UI leaves out interrupted
 answers: they say nothing about the question, and with their markers stripped
 only "I couldn't finish this answer..." would remain for the model to imitate.
-The student's question stays.
+The gate's templates are left out for the same reason. The student's question stays.
 """
 
 import re
 
 from app.agent.citations import CITATION_MARKER_RE
+from app.agent.gate import is_gate_template
 from app.agent.graph import is_fallback_answer
 from app.config import MAX_HISTORY_MESSAGES
 
@@ -35,7 +36,10 @@ def build_input_messages(
     kept = [
         turn
         for turn in history or []
-        if not (turn["role"] == "assistant" and is_fallback_answer(turn["content"]))
+        if not (
+            turn["role"] == "assistant"
+            and (is_fallback_answer(turn["content"]) or is_gate_template(turn["content"]))
+        )
     ]
     prior = []
     for turn in kept[-MAX_HISTORY_MESSAGES:]:

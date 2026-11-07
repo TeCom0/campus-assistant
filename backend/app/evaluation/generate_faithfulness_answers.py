@@ -26,7 +26,8 @@ from pathlib import Path
 
 from groq import RateLimitError
 
-from app.agent.citations import cited_markers, normalize_brackets, reset_citation_counter
+from app.agent.citations import cited_markers, reset_citation_counter
+from app.agent.gate import final_answer, gate_reason
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
@@ -50,9 +51,8 @@ def is_per_minute_limit(error: Exception) -> bool:
 
 
 def answer_text(messages) -> str:
-    """The answer as /chat streams it: the text of every agent message, in order."""
-    parts = [m.content for m in messages if m.type == "ai" and isinstance(m.content, str)]
-    return normalize_brackets("".join(parts))
+    """The answer as a student reads it, after the gate."""
+    return final_answer(messages)
 
 
 def is_fallback(messages) -> bool:
@@ -198,6 +198,7 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
             "seconds": round(time.perf_counter() - started, 1),
             "error": error,
             "fallback": is_fallback(messages),
+            "gate": gate_reason(messages),
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         }
         with out_path.open("a", encoding="utf-8") as f:
@@ -209,6 +210,8 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
             status = f"ERROR {error}"
         elif record["fallback"]:
             status = "FALLBACK (forced answer failed twice; no real answer)"
+        elif record["gate"]:
+            status = f"REPLACED by the gate ({record['gate']})"
         else:
             status = f"{len(record['cited_markers'])} markers cited"
         print(

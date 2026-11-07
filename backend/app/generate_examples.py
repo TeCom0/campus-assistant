@@ -32,7 +32,8 @@ from pathlib import Path
 
 from groq import RateLimitError
 
-from app.agent.citations import keep_cited, normalize_brackets, reset_citation_counter
+from app.agent.citations import keep_cited, reset_citation_counter
+from app.agent.gate import final_answer
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
@@ -78,9 +79,7 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
                         run.agent_message(msg)
                 elif node_name == "tools":
                     run.tools_done()
-    answer = normalize_brackets(
-        "".join(m.content for m in messages if m.type == "ai" and isinstance(m.content, str))
-    )
+    answer = final_answer(messages)
     tool_calls = [
         {"tool": tc["name"], "label": build_tool_call_label(tc["name"], tc["args"], language)}
         for m in messages
