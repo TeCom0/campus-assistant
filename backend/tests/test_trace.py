@@ -150,3 +150,63 @@ def test_snippet_cuts_at_a_word_and_marks_the_cut():
 
 def test_snippet_cuts_one_long_word_at_the_limit():
     assert snippet("x" * 50, limit=10) == "x" * 10 + "…"
+
+
+# --- Recording a run node by node (RunTrace.node_finished) --------------------------
+
+
+def _usage(tokens: int) -> dict:
+    return {"input_tokens": tokens, "output_tokens": 0, "total_tokens": tokens}
+
+
+def _run_through(*updates) -> dict:
+    from app.agent.trace import RunTrace
+
+    run = RunTrace(clock=iter(range(100)).__next__)
+    for node, messages in updates:
+        run.node_finished(node, messages)
+    return run.event("done")
+
+
+def _first_attempt(gate_messages) -> list:
+    return [
+        ("agent", [AIMessage("", tool_calls=[{"id": "c1", "name": "s", "args": {}}])]),
+        ("tools", []),
+        ("agent", [AIMessage("No marker.", usage_metadata=_usage(100))]),
+        ("gate", gate_messages),
+    ]
+
+
+_REJECTED = [AIMessage("template", response_metadata={"gate": "no_citation"})]
+
+
+def test_a_retry_that_passes_leaves_no_gate_and_says_it_was_retried():
+    event = _run_through(
+        *_first_attempt(_REJECTED),
+        ("retry", [AIMessage("68 [1].", usage_metadata=_usage(40))]),
+        ("retry_gate", []),
+    )
+    assert "gate" not in event
+    assert event["retry"] == "no_citation"
+    assert [s.get("retry", False) for s in event["timeline"] if s["kind"] == "llm"] == [
+        False,
+        False,
+        True,
+    ]
+    assert event["totals"]["input_tokens"] == 140  # the retry's tokens count
+
+
+def test_a_retry_the_second_check_rejects_keeps_both_verdicts():
+    rejected_again = [AIMessage("template", response_metadata={"gate": "invented_marker"})]
+    event = _run_through(
+        *_first_attempt(_REJECTED),
+        ("retry", [AIMessage("68 [7].", usage_metadata=_usage(40))]),
+        ("retry_gate", rejected_again),
+    )
+    assert (event["retry"], event["gate"]) == ("no_citation", "invented_marker")
+
+
+def test_a_run_without_a_retry_keeps_its_old_shape():
+    event = _run_through(*_first_attempt([]))
+    assert "retry" not in event and "gate" not in event
+    assert all("retry" not in s for s in event["timeline"])

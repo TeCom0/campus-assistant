@@ -31,6 +31,9 @@ const GATE_NOTES: Record<NonNullable<Trace["gate"]>, string> = {
     "The model's answer cited a passage no tool returned, so it was replaced by the message above, written in code.",
 };
 
+const RETRY_NOTE =
+  "The model's first answer cited no passage, so it was asked once to write it again from the same passages, with no new search.";
+
 function Timeline({ trace }: { trace: Trace }) {
   const percents = segmentPercents(trace.timeline);
   const { first_token_ms } = trace.totals;
@@ -245,6 +248,7 @@ export function UnderTheHood({
         <span className="uth-stats">{summaryParts(trace).join(" · ")}</span>
       </summary>
       <div className="uth-body">
+        {trace.retry && <p className="uth-note">{RETRY_NOTE}</p>}
         {note && <p className="uth-note">{note}</p>}
         <Timeline trace={trace} />
         {trace.steps.length > 0 && (

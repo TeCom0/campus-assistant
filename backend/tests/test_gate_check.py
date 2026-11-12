@@ -55,6 +55,43 @@ def test_a_record_holds_what_the_browser_received():
     assert (record["seconds"], record["error"]) == (1.3, None)
 
 
+def test_a_record_counts_the_retry_and_its_tokens():
+    timeline = [
+        {"kind": "llm", "input_tokens": 90, "output_tokens": 10},
+        {"kind": "tools"},
+        {"kind": "llm", "input_tokens": 300, "output_tokens": 50},
+        {"kind": "llm", "input_tokens": 280, "output_tokens": 40, "retry": True},
+    ]
+    trace = {
+        "status": "done",
+        "retry": "no_citation",
+        "timeline": timeline,
+        "totals": {"input_tokens": 670, "output_tokens": 100},
+    }
+    record = check.record_from_events(QUESTION, [("trace", trace)], 1.0)
+    assert record["retried"] is True
+    assert record["gate"] is None  # the retry passed
+    assert (record["tokens"], record["retry_tokens"]) == (770, 320)
+
+
+def test_a_record_without_a_retry_says_so():
+    trace = {"status": "done", "timeline": [{"kind": "llm", "input_tokens": 9, "output_tokens": 1}]}
+    record = check.record_from_events(QUESTION, [("trace", trace)], 1.0)
+    assert (record["retried"], record["retry_tokens"]) == (False, 0)
+
+
+def test_the_summary_lists_each_retry_and_how_it_ended(capsys):
+    records = [
+        {**_record(), "id": "a", "retried": True, "retry_tokens": 300},
+        {**_record(gate="no_citation"), "id": "b", "retried": True, "retry_tokens": 200},
+        {**_record(), "id": "c", "retried": False, "retry_tokens": 0},
+    ]
+    check.print_retries(records)
+    out = capsys.readouterr().out
+    assert "retried: 2/3 ['a: passed', 'b: no_citation']" in out
+    assert "retry tokens: 500" in out
+
+
 def test_a_record_with_no_trace_still_builds():
     # The trace is display data: a run can end without one.
     record = check.record_from_events(QUESTION, [("error", {"message": "x"})], 0.1)

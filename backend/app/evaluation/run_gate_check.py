@@ -83,6 +83,7 @@ def record_from_events(question: dict, events: list[tuple[str, dict]], seconds: 
     traces = [data for name, data in events if name == "trace"]
     trace = traces[0] if traces else {}
     totals = trace.get("totals", {})
+    retry_segments = [s for s in trace.get("timeline", []) if s.get("retry")]
     errors = [data for name, data in events if name == "error"]
     return {
         "id": question["id"],
@@ -96,9 +97,15 @@ def record_from_events(question: dict, events: list[tuple[str, dict]], seconds: 
         "cards": sorted(cards),
         "tool_calls": [data["tool"] for name, data in events if name == "tool_call"],
         "progress_lines": [data["label"] for name, data in events if name == "tool_call"],
+        # The final verdict: after a retry, the gate's check of the retried answer.
         "gate": trace.get("gate"),
+        "retried": "retry" in trace,
         "status": trace.get("status"),
+        # All the run's tokens, the retry's included; retry_tokens is the retry's share.
         "tokens": totals.get("input_tokens", 0) + totals.get("output_tokens", 0),
+        "retry_tokens": sum(
+            (s["input_tokens"] or 0) + (s["output_tokens"] or 0) for s in retry_segments
+        ),
         "seconds": round(seconds, 1),
         "error": errors[0] if errors else None,
     }
@@ -193,11 +200,23 @@ def run(out_path: Path, questions: list[dict] | None = None) -> list[dict]:
         records.append(record)
         used += record["tokens"]
         outcome = record["gate"] or ("ERROR" if record["error"] else "passed")
+        # .get: records saved before the retry existed don't have these keys.
+        retried = ""
+        if record.get("retried"):
+            retried = f" (retried, {record['retry_tokens']} tokens)"
         print(
             f"{record['id']:<28} {outcome:<16} {len(record['tool_calls'])} tools, "
-            f"{record['tokens']:>6} tokens, {record['seconds']:>5}s"
+            f"{record['tokens']:>6} tokens, {record['seconds']:>5}s{retried}"
         )
     return records
+
+
+def print_retries(records: list[dict]) -> None:
+    """How many answers were retried, how each ended, and what the retries cost."""
+    retried = [r for r in records if r.get("retried")]
+    outcomes = [f"{r['id']}: {r['gate'] or 'passed'}" for r in retried]
+    print(f"retried: {len(retried)}/{len(records)} {outcomes}")
+    print(f"retry tokens: {sum(r.get('retry_tokens', 0) for r in records):,}")
 
 
 def print_summary(records: list[dict]) -> bool:
@@ -222,6 +241,7 @@ def print_summary(records: list[dict]) -> bool:
         f"(limit {MAX_SAMPLE_REPLACED})"
     )
     print(f"on the sample, reached the student uncited: {len(sample_leaks)} {sample_leaks}")
+    print_retries(records)
 
     passed = not missing and not leaks and not sample_leaks and len(replaced) <= MAX_SAMPLE_REPLACED
     print("RULE PASSED" if passed else "RULE NOT PASSED: stop and report")
@@ -248,6 +268,7 @@ def print_followup_summary(records: list[dict], questions: list[dict]) -> bool:
         f"conversational, replaced (known cost): {len(known_cost)}/{len(conversational)} {known_cost}"
     )
     print(f"reached the student uncited: {len(leaks)} {leaks}")
+    print_retries(records)
     passed = not missing and not errors and not blocked and not leaks
     print("FOLLOW-UP RULE PASSED" if passed else "FOLLOW-UP RULE NOT PASSED: stop and report")
     return passed

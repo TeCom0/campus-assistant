@@ -72,6 +72,8 @@ export type Segment =
       input_tokens: number | null;
       output_tokens: number | null;
       reasoning_tokens: number | null;
+      // The one retry of an answer that cited nothing. Absent on other calls.
+      retry?: boolean;
     }
   | { kind: "tools" | "fallback" | "stopped"; start_ms: number; end_ms: number };
 
@@ -79,6 +81,9 @@ export interface Trace {
   status: "done" | "fallback" | "limit" | "error";
   // Why the gate replaced the model's answer. Absent when it didn't.
   gate?: "no_tool" | "no_citation" | "invented_marker";
+  // Why the first answer was written again (only ever no_citation). Absent when it wasn't.
+  // With a retry, `gate` is the check of the retried answer.
+  retry?: "no_citation";
   steps: TraceStep[];
   timeline: Segment[];
   totals: {

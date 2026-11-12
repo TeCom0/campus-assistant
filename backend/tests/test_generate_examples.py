@@ -123,3 +123,39 @@ def test_a_saved_example_carries_the_trace_of_its_own_run():
     assert trace["totals"]["input_tokens"] == 1800
     assert trace["totals"]["first_token_ms"] is not None
     assert "model" in trace
+
+
+class _RetryingGraph(_StreamingGraph):
+    """The same run, but the first answer cites nothing and the retry does."""
+
+    def stream(self, *args, **kwargs):
+        from langchain_core.messages import AIMessage
+
+        updates = list(super().stream(*args, **kwargs))
+        *before, (_, last) = updates
+        uncited = AIMessage(
+            "REJECTED 68 credits.", usage_metadata=last["agent"]["messages"][0].usage_metadata
+        )
+        template = AIMessage("template", response_metadata={"gate": "no_citation"})
+        retried = AIMessage(
+            "Up to 68 credits [1].",
+            usage_metadata={"input_tokens": 700, "output_tokens": 30, "total_tokens": 730},
+            response_metadata={"retry": True},
+        )
+        yield from before[:-1]  # without the first answer's streamed text
+        yield "updates", {"agent": {"messages": [uncited]}}
+        yield "updates", {"gate": {"messages": [template]}}
+        yield "updates", {"retry": {"messages": [retried]}}
+        yield "updates", {"retry_gate": {"messages": []}}
+
+
+def test_a_saved_example_records_a_retry_as_chat_does():
+    example = {"id": "x", "question": "How many credits can I transfer?", "language": "en"}
+    saved, _cited = generate_examples.answer_example(_RetryingGraph(), example)
+
+    assert saved["answer"] == "Up to 68 credits [1]."
+    trace = saved["trace"]
+    assert "gate" not in trace
+    assert trace["retry"] == "no_citation"
+    assert trace["totals"]["llm_calls"] == 3
+    assert trace["totals"]["input_tokens"] == 2500

@@ -36,6 +36,7 @@ export function summaryParts(trace: Trace): string[] {
 export function segmentLabel(segment: Segment): string {
   switch (segment.kind) {
     case "llm":
+      if (segment.retry) return "LLM writes the answer again";
       return segment.tool_calls.length > 0 ? "LLM picks tools" : "LLM writes the answer";
     case "tools":
       return "tools";

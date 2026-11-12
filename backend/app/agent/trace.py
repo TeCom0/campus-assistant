@@ -137,6 +137,22 @@ class RunTrace:
         """The gate replaced the answer. Only its fixed reason, never the rejected text."""
         self.gate_reason = reason
 
+    def node_finished(self, node: str, messages: list) -> None:
+        """One graph node finished, with the messages it added. /chat and the example
+        generator both record through here, so a saved example's trace can't drift from a
+        live one's."""
+        if node == "agent":
+            for message in messages:
+                self.agent_message(message)
+        elif node == "tools":
+            self.tools_done()
+        elif node in ("gate", "retry_gate"):
+            for message in messages:  # nothing when the answer passed
+                self.gate(message.response_metadata["gate"])
+        elif node == "retry":
+            for message in messages:
+                self.retry(message)
+
     def retry(self, message) -> None:
         """The first answer cited nothing and was written again (graph._retry_node).
 

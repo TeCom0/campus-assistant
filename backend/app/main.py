@@ -211,9 +211,9 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
 
                 elif stream_mode == "updates":
                     for node_name, node_output in chunk.items():
+                        run.node_finished(node_name, node_output.get("messages", []))
                         if node_name == "agent":
                             for msg in node_output.get("messages", []):
-                                run.agent_message(msg)
                                 for tc in getattr(msg, "tool_calls", None) or []:
                                     label = build_tool_call_label(tc["name"], tc["args"], language)
                                     yield _sse(
@@ -221,7 +221,6 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                                         {"tool": tc["name"], "args": tc["args"], "label": label},
                                     )
                         elif node_name == "tools":
-                            run.tools_done()
                             for msg in node_output.get("messages", []):
                                 artifact = getattr(msg, "artifact", None)
                                 if artifact:
@@ -229,12 +228,10 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                         elif node_name in ("gate", "retry_gate"):
                             for msg in node_output.get("messages", []):
                                 gate_template = msg.content
-                                run.gate(msg.response_metadata["gate"])
                         elif node_name == "retry":
                             # The first answer cited nothing: the retried one replaces it,
                             # and the second gate check decides again.
                             for msg in node_output.get("messages", []):
-                                run.retry(msg)
                                 answer_parts = [normalize_brackets(msg.content)]
                                 gate_template = None
 

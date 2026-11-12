@@ -285,7 +285,7 @@ def test_a_refused_question_gets_its_429_and_no_trace(monkeypatch):
 EVAL_RECORD_KEYS = {
     "id", "run", "question", "language", "detected_language", "provider", "model",
     "answer", "cited_markers", "passages", "tool_calls", "searches", "usage",
-    "seconds", "error", "fallback", "gate", "generated_at",
+    "seconds", "error", "fallback", "gate", "retried", "generated_at",
 }  # fmt: skip
 
 

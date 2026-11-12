@@ -27,7 +27,7 @@ from pathlib import Path
 from groq import RateLimitError
 
 from app.agent.citations import cited_markers, reset_citation_counter
-from app.agent.gate import final_answer, gate_reason
+from app.agent.gate import final_answer, gate_reason, was_retried
 from app.agent.graph import build_graph
 from app.agent.history import build_input_messages
 from app.agent.language import detect_language
@@ -199,6 +199,8 @@ def generate(questions: list[dict], out_path: Path, run: int) -> list[dict]:
             "error": error,
             "fallback": is_fallback(messages),
             "gate": gate_reason(messages),
+            # Its tokens are already in "usage": the retry is one more AI message.
+            "retried": was_retried(messages),
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         }
         with out_path.open("a", encoding="utf-8") as f:

@@ -7,11 +7,12 @@ import {
   formatMs,
   passageUse,
   scoreFraction,
+  segmentLabel,
   segmentPercents,
   summaryParts,
   writtenWords,
 } from "./traceView";
-import type { RankedPassage, SearchStep, Trace } from "./types";
+import type { RankedPassage, SearchStep, Segment, Trace } from "./types";
 
 function passage(marker: number, extra: Partial<RankedPassage> = {}): RankedPassage {
   return {
@@ -186,6 +187,20 @@ describe("UnderTheHood", () => {
     expect(stopped).toContain("The run stopped at a usage limit");
   });
 
+  it("says when the answer was written again, and still says why the retry was replaced", () => {
+    const passed = renderToStaticMarkup(
+      <UnderTheHood trace={{ ...TRACE, retry: "no_citation" }} citations={[]} />,
+    );
+    expect(passed).toContain("asked once to write it again");
+    expect(passed).not.toContain("written in code");
+
+    const replaced = renderToStaticMarkup(
+      <UnderTheHood trace={{ ...TRACE, retry: "no_citation", gate: "no_citation" }} citations={[]} />,
+    );
+    expect(replaced).toContain("asked once to write it again");
+    expect(replaced).toContain("cited no passage, so it was replaced");
+  });
+
   it.each([
     ["no_tool", "answered without searching"],
     ["no_citation", "cited no passage"],
@@ -194,5 +209,24 @@ describe("UnderTheHood", () => {
     const shown = renderToStaticMarkup(<UnderTheHood trace={{ ...TRACE, gate }} citations={[]} />);
     expect(shown).toContain(words);
     expect(shown).toContain("written in code");
+  });
+});
+
+describe("segmentLabel", () => {
+  const llm = (extra: Partial<Extract<Segment, { kind: "llm" }>> = {}): Segment => ({
+    kind: "llm",
+    start_ms: 0,
+    end_ms: 10,
+    tool_calls: [],
+    input_tokens: 1,
+    output_tokens: 1,
+    reasoning_tokens: null,
+    ...extra,
+  });
+
+  it("names what each LLM call did, the retry included", () => {
+    expect(segmentLabel(llm({ tool_calls: ["search_documents"] }))).toBe("LLM picks tools");
+    expect(segmentLabel(llm())).toBe("LLM writes the answer");
+    expect(segmentLabel(llm({ retry: true }))).toBe("LLM writes the answer again");
   });
 });

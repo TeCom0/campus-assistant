@@ -70,14 +70,7 @@ def answer_example(graph, example: dict) -> tuple[dict, list[dict]]:
             for node_name, node_output in chunk.items():
                 new_messages = node_output.get("messages", [])
                 messages.extend(new_messages)
-                if node_name == "agent":
-                    for msg in new_messages:
-                        run.agent_message(msg)
-                elif node_name == "tools":
-                    run.tools_done()
-                elif node_name == "gate":
-                    for msg in new_messages:
-                        run.gate(msg.response_metadata["gate"])
+                run.node_finished(node_name, new_messages)
     answer = final_answer(messages)
     if answer:
         run.token()  # as in /chat: the answer is sent once the gate has checked it
