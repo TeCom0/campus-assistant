@@ -217,6 +217,43 @@ def test_the_run_stops_at_the_token_cap(tmp_path, monkeypatch, capsys):
     assert "Stopped at the cap" in capsys.readouterr().out
 
 
+def test_a_lower_cap_stops_the_run_sooner(tmp_path, monkeypatch, capsys):
+    asked = []
+
+    def fake_ask(client, question):
+        asked.append(question["id"])
+        return {**_record(), "id": question["id"], "set": question["set"], "tokens": 4_000}
+
+    monkeypatch.setattr(check, "ask", fake_ask)
+    monkeypatch.setattr(check.main, "admit_question", check.main.admit_question)
+    check.run(tmp_path / "out.jsonl", check.sample_questions(), cap=10_000)
+
+    assert len(asked) == 3  # 12k after the third: the cap is checked before each question
+    assert "Stopped at the cap" in capsys.readouterr().out
+
+
+def test_sample_only_is_the_twelve_questions_of_the_recorded_rule():
+    assert [q["id"] for q in check.sample_questions()] == check.SAMPLE_IDS
+
+
+def test_substantive_only_keeps_the_three_that_need_a_search(tmp_path):
+    history = tmp_path / "history.jsonl"
+    saved = [
+        {"id": q["first_id"], "question": "q", "answer": "a"}
+        for q in json.loads(check.FOLLOWUP_SET_PATH.read_text(encoding="utf-8"))
+    ]
+    history.write_text("\n".join(json.dumps(r) for r in saved), encoding="utf-8")
+    kept = check.substantive_followups(check.load_followups(history))
+    assert [q["id"] for q in kept] == ["followup_graduate", "followup_summer", "followup_fr"]
+
+
+def test_a_sample_only_summary_doesnt_count_the_offtopic_set_as_missing(capsys):
+    questions = check.sample_questions()
+    records = [{**_record(set_name="sample"), "id": q["id"]} for q in questions]
+    assert check.print_summary(records, questions)
+    assert "missing: []" in capsys.readouterr().out
+
+
 def test_the_run_stops_at_groqs_daily_limit(tmp_path, monkeypatch, capsys):
     def fake_ask(client, question):
         raise check.DailyLimitReached

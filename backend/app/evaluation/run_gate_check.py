@@ -16,7 +16,11 @@ Item 3: the 12 questions of the uncited answers check. At most 1 may be replaced
 answer as its history, so only the follow-up costs tokens. A template on a substantive one fails.
 
 A question already in the output file is skipped, so a stopped run can be resumed. It stops by
-itself at TOKEN_CAP, and when Groq's daily limit is reached.
+itself at the token cap (--cap, default TOKEN_CAP), and when Groq's daily limit is reached. The cap
+is checked before each question, so a run can go over it by one answer.
+
+--sample-only and --substantive-only: the retry rule in CLAUDE.md, which measures only the 12
+sample questions and the 3 substantive follow-ups.
 """
 
 import argparse
@@ -174,7 +178,7 @@ def ask(client: TestClient, question: dict) -> dict:
     return record
 
 
-def run(out_path: Path, questions: list[dict] | None = None) -> list[dict]:
+def run(out_path: Path, questions: list[dict] | None = None, cap: int = TOKEN_CAP) -> list[dict]:
     records = []
     if out_path.exists():
         with out_path.open(encoding="utf-8") as f:
@@ -187,7 +191,7 @@ def run(out_path: Path, questions: list[dict] | None = None) -> list[dict]:
     for question in load_questions() if questions is None else questions:
         if question["id"] in done:
             continue
-        if used >= TOKEN_CAP:
+        if used >= cap:
             print(f"\nStopped at the cap: {used:,} tokens. Re-run tomorrow to resume.")
             break
         try:
@@ -219,9 +223,21 @@ def print_retries(records: list[dict]) -> None:
     print(f"retry tokens: {sum(r.get('retry_tokens', 0) for r in records):,}")
 
 
-def print_summary(records: list[dict]) -> bool:
+def sample_questions() -> list[dict]:
+    """Only the 12 sample questions. The retry rule proves the off-topic item offline (a
+    test replays the saved outcomes), so re-running them would spend tokens for nothing."""
+    return [q for q in load_questions() if q["set"] == "sample"]
+
+
+def substantive_followups(questions: list[dict]) -> list[dict]:
+    """Only the follow-ups that need a new search; the conversational ones are the known
+    cost and don't block."""
+    return [q for q in questions if q["kind"] == "substantive"]
+
+
+def print_summary(records: list[dict], questions: list[dict] | None = None) -> bool:
     """Prints the rule's two counts. True only if every question ran and both items pass."""
-    expected_ids = {q["id"] for q in load_questions()}
+    expected_ids = {q["id"] for q in (load_questions() if questions is None else questions)}
     missing = sorted(expected_ids - {r["id"] for r in records})
     errors = [r["id"] for r in records if r["error"]]
 
@@ -280,16 +296,29 @@ def main_cli() -> int:
     parser.add_argument("--out", required=True, help="Output file name, without .jsonl")
     parser.add_argument("--followups", action="store_true", help="Run the follow-up set instead")
     parser.add_argument("--history", help="Results file the follow-ups' history comes from")
+    parser.add_argument("--sample-only", action="store_true", help="Only the 12 sample questions")
+    parser.add_argument(
+        "--substantive-only", action="store_true", help="With --followups: only substantive ones"
+    )
+    parser.add_argument(
+        "--cap", type=int, default=TOKEN_CAP, help=f"Token cap for this run (default {TOKEN_CAP:,})"
+    )
     args = parser.parse_args()
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    out_path = RESULTS_DIR / f"{args.out}.jsonl"
     if args.followups:
         if not args.history:
             parser.error("--followups needs --history")
         questions = load_followups(RESULTS_DIR / f"{args.history}.jsonl")
-        records = run(RESULTS_DIR / f"{args.out}.jsonl", questions)
+        if args.substantive_only:
+            questions = substantive_followups(questions)
+        records = run(out_path, questions, cap=args.cap)
         return 0 if print_followup_summary(records, questions) else 1
-    records = run(RESULTS_DIR / f"{args.out}.jsonl")
-    return 0 if print_summary(records) else 1
+    if args.substantive_only:
+        parser.error("--substantive-only needs --followups")
+    questions = sample_questions() if args.sample_only else load_questions()
+    records = run(out_path, questions, cap=args.cap)
+    return 0 if print_summary(records, questions) else 1
 
 
 if __name__ == "__main__":
