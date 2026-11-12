@@ -1,6 +1,9 @@
 """The gate as the last step of the graph. A fake model and a fake tool stand in, so these
 make no LLM calls and need no database."""
 
+import json
+from pathlib import Path
+
 import groq
 import httpx
 import pytest
@@ -20,6 +23,7 @@ from app.agent.gate import (
     was_retried,
 )
 from app.agent.history import build_input_messages
+from app.agent.language import detect_language
 from app.config import MAX_AGENT_STEPS, MAX_TOOL_ROUNDS
 
 # In every rejected answer, so it's easy to check it isn't passed on.
@@ -302,3 +306,60 @@ def test_templates_are_recognised_and_left_out_of_history(template):
 
 def test_a_real_answer_is_not_mistaken_for_a_template():
     assert not is_gate_template("I couldn't find this in the documents I have, but [1] says 68.")
+
+
+# --- The retry leaves the off-topic set's outcome unchanged (A2.6b rule, offline) ----
+
+GATE_CHECK_RUN = (
+    Path(__file__).resolve().parents[2] / "eval/results/gate/2026-11-07_gate_check.jsonl"
+)
+
+
+def _offtopic_records() -> list[dict]:
+    with GATE_CHECK_RUN.open(encoding="utf-8") as f:
+        records = [json.loads(line) for line in f]
+    return [r for r in records if r["set"] == "offtopic"]
+
+
+def test_the_saved_offtopic_set_ended_only_in_no_tool_or_a_pass():
+    # The premise of the replay below: no off-topic answer could have been retried.
+    records = _offtopic_records()
+    assert len(records) == 12
+    assert {r["gate"] for r in records} == {NO_TOOL, None}
+
+
+@pytest.mark.parametrize("record", _offtopic_records(), ids=lambda r: r["id"])
+def test_each_offtopic_outcome_is_unchanged_by_the_retry(monkeypatch, record):
+    """Replays the saved outcome through the graph with the retry: the student gets the
+    same text, with no retry and no extra model call. 0 LLM tokens.
+
+    The model's own text wasn't saved for a replaced answer, only the template. It doesn't
+    matter: with no tool call the gate never reads it, so a text with valid-looking markers
+    stands in, the case most likely to slip through.
+    """
+    cards = record["cards"]
+
+    @tool("search_documents", response_format="content_and_artifact")
+    def saved_search(query: str) -> tuple[str, list[dict]]:
+        """Returns the passages whose markers the saved answer cited."""
+        return "passages", [{"marker": m, "source": "fake", "pages": [1]} for m in cards]
+
+    monkeypatch.setattr(graph, "TOOLS", [saved_search])
+    if record["gate"] == NO_TOOL:
+        replies = [AIMessage("Paris [1][2].")]
+    else:
+        call = {"id": "c1", "name": "search_documents", "args": {"query": "q"}}
+        replies = [AIMessage("", tool_calls=[call]), AIMessage(record["answer"])]
+    model = _ScriptedModel(*replies)
+    monkeypatch.setattr(graph, "get_agent_model", lambda: model)
+
+    language = detect_language(record["question"])  # as /chat does
+    messages = graph.build_graph().invoke(
+        {"messages": [HumanMessage(record["question"])]},
+        config={"recursion_limit": MAX_AGENT_STEPS, "configurable": {"language": language}},
+    )["messages"]
+
+    assert final_answer(messages) == record["answer"]
+    assert gate_reason(messages) == record["gate"]
+    assert not was_retried(messages)
+    assert len(model.calls) == len(replies)
