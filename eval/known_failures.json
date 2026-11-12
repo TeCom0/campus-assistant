@@ -26,5 +26,26 @@
       }
     ],
     "use": "Known failure for A2.7 (prompt changes) and A2.8 (run 4 hand-check). Kept out of faithfulness_eval_set.json so run 4's denominators (x/26, x/13 French) stay the ones the pilot threshold was agreed on."
+  },
+  {
+    "id": "transfer_credits_en_uncited",
+    "found": "2026-11-12",
+    "checked_by_hand": "2026-11-12",
+    "source_run": "eval/results/gate/2026-11-12_diagnosis.jsonl",
+    "question": "How many credits can I transfer to AUI from another university?",
+    "language": "en",
+    "finding": "AG-3",
+    "touches": "false refusal: the gate replaces a correct answer with the not-found template",
+    "pilot_threshold": "item 3: at most 2/30 false refusals",
+    "gate": "replaced (no_citation): correct, because the answer shows no source",
+    "claims": [
+      {
+        "claim": "The first answer, 4/4 times on 2026-11-12: 68 undergraduate and 12 graduate credits, correct, ending 'These limits are stated in the academic catalog' with no [N] marker; once empty.",
+        "cited": [],
+        "verdict": "uncited",
+        "evidence": "The retry cited the same figures as [2] and [6] in 2/3 runs, so the passages were found; the main answer leaves the markers out."
+      }
+    ],
+    "use": "Citation failure for A2.7 (the main prompt's citation wording) to fix: the first answer, not the retry, should cite. Re-ask it after A2.7."
   }
 ]

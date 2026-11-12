@@ -226,6 +226,26 @@ limits are stated in the academic catalog" instead of markers; once it was empty
 no marker. `academic_probation_fr` 3 times: passed 3/3, so its `invented_marker` was a rare draw. So on this question the
 templates are false refusals of correct answers, and the retry helps but isn't enough on its own.
 
+Next steps, decided 2026-11-12 by Claude with Youness's go-ahead to decide, before any of them ran, following the rule of
+recording a decision rule before seeing the numbers:
+
+- **The main prompt isn't pulled forward.** The first answer leaving out markers is the main prompt's wording, which belongs to
+  A2.7 (A2.2 kept wording out of A2.6b). A2.6b changes only the retry's own note. `transfer_credits_en`'s uncited first answers go
+  into `eval/known_failures.json` as a citation failure A2.7 must fix.
+- **Step 1, 0 tokens:** a stronger retry note, sent as the last message the model reads (nearest the answer) instead of the end
+  of the system prompt, naming the failure seen: every fact ends with `[N]`, and pointing to "the catalog" in words instead of a
+  number doesn't count. Offline tests as before; the main prompt still matches the fixture byte for byte.
+- **Step 2, the retry on its own, about 25-30k tokens:** a harness re-runs the 3 diagnosis runs' saved search queries (local
+  retrieval, 0 tokens) and calls only the retry, 10 times with the current note and 10 with the new one, round-robin over the 3
+  search sets. The new note is kept only if at least 9/10 of its retries pass the gate and at least as many as the current
+  note's. Each passing retry is read by hand: a marker on a passage that doesn't hold the figure it's cited for counts as a
+  failure. Otherwise: stop and report.
+- **Step 3, the retry rule again, with a larger sample:** 12 questions, one answer each, swapped 3 outcomes between two runs, so
+  the sample is doubled. Through `/chat`: the 12 sample questions **twice each, at most 2/24 replaced** (the old rate of 1/12),
+  and the 3 substantive follow-ups **twice each, 0/6 replaced**; 0 reaching a student uncited, as before. Item 1 stays proved
+  offline. About 90k + 35k tokens, so it runs over two days, each checked against the 60k floor. If any item fails: stop and
+  report, don't adjust, don't deploy.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
