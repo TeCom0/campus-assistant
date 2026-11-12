@@ -1252,7 +1252,7 @@ All deployed by 2026-11-06.
 | **A2.5** | Drop the prestigious page and remove "Lorem Ipsum" through the new pipeline. Eval sets updated. Production dump is content-only | AG-11, IN-2 | A2.4 | 0.5 |
 | **A2.6** | 2025-2026 catalog through the pipeline: page-header fix (`PAGE_HEADER_LINES`, `chunk.py:50`, byte-identical until this step), eval questions and anchors written first, saved examples regenerated or labelled, counts updated. Then the retrieval eval, with its decision rule recorded first: no previously hit question lost unless explained, rollback if not | AG-5 | A2.4, D8 | 1.25 |
 | **A2.7** | Scope and bottom-line-first prompt changes; catalog-year note; see its acceptance criteria below | AG-4, section 5.2 | A2.2, A2.6b, Q1 | 0.5 |
-| **A2.8** | Faithfulness run 4, single run; hand-check failures; apply threshold D3. If it fails, the pilot waits. The reviewed sample excludes fallback answers, using the flag at `graph.py:205` | AG-4 | A2.7, D3 | 1 |
+| **A2.8** | Faithfulness run 4, single run; hand-check failures; apply threshold D3. If it fails, the pilot waits. The reviewed sample excludes fallback answers, using the `fallback` flag `_fallback_answer` sets in `graph.py`. Also re-ask the known failures in `eval/known_failures.json` (A2.7 should fix them) | AG-4 | A2.7, D3 | 1 |
 
 **A2.1 is deployed (`c907a33`, 2026-11-06).** Retrieval eval identical to the A0 baseline, line for line:
 `eval/results/retrieval/2026-11-06_a2_1.txt`.

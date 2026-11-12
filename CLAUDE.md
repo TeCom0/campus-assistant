@@ -186,6 +186,31 @@ Result, 2026-11-07, 20,966 tokens, `eval/results/gate/2026-11-07_followups.jsonl
 questions so far, 3/27 replaced. Read by hand: `followup_fr` says transferred credits count toward the GPA, cites only the
 pass/fail rule, and a rough search of the catalog found no sentence saying so: a cited claim the gate can't judge (AG-4).
 
+Checked by Youness on 2026-11-12, catalog pp. 30-31 and 110-111: `followup_fr` is wrong twice. No sentence says transferred credits
+count toward the GPA, and it lists D+ and D as transferable where p. 30 says "a grade of 'D+' or below are not considered for
+credit transfer". An unsupported cited claim (AG-4) touching an eligibility outcome, the kind D3 item 2 forbids. It's recorded
+in `eval/known_failures.json` for A2.7/A2.8. The gate isn't meant to catch it, so it doesn't block A2.6b.
+
+Retry rule, set 2026-11-12 by Youness, before the retry was measured, following the rule of recording a decision rule before
+seeing the numbers. Deploying on the failed follow-up rule would be changing the rule after the numbers, and 3/27 real questions
+replaced can't meet the pilot's 2/30, so the retry moved into A2.6b from A2.7. Built in `e3b6cbd`, `f4c0a2f`: on the gate's
+`no_citation` only (never `no_tool`), one retry per question, enforced by the graph's shape (`gate -> retry -> retry_gate -> END`,
+no edge back). Same tool results, no new search, no tools bound, plus a note to cite only the numbers given. The gate checks the
+retried answer as before; if that fails, the not-found template stands. The retry's tokens are in the trace and the eval output.
+Before A2.6b deploys:
+
+1. Offline, 0 LLM tokens: the no-tool path is unchanged, so the off-topic set's outcome doesn't change. Proved by a test, not a
+   re-run (`b360f78`): `tests/test_gate_node.py` replays the 12 off-topic outcomes of `2026-11-07_gate_check.jsonl` (all `no_tool`
+   or passed) and gets the same text, with no retry and no extra model call.
+2. Through the real `/chat` path, the 3 substantive follow-ups, with the same saved history as on 2026-11-07: 0/3 replaced by a
+   template.
+3. Through the same path, the 12 questions of the uncited answers check: at most 1/12 replaced.
+
+If any of these fails: stop and report, don't adjust, don't deploy. The 3 conversational follow-ups stay the known cost, don't
+block, and aren't re-run. Budget: Youness estimated about 40k; the same questions cost 43,090 (sample) and 17,017 (substantive
+follow-ups) on 2026-11-07, so about 60-65k with retries. Check the day's usage first, run when the demo is quiet, and stop if
+it would leave less than 60k for the day: the sample and the follow-ups run separately, each with `--cap` set from that check.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

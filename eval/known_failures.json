@@ -1,0 +1,30 @@
+[
+  {
+    "id": "followup_fr",
+    "found": "2026-11-07",
+    "checked_by_hand": "2026-11-12",
+    "source_run": "eval/results/gate/2026-11-07_followups.jsonl",
+    "question": "Et ces crédits comptent-ils dans ma moyenne ?",
+    "history_question_id": "transfer_credits_fr",
+    "language": "fr",
+    "finding": "AG-4",
+    "touches": "eligibility",
+    "pilot_threshold": "D3 item 2: a failing claim that would change an eligibility outcome",
+    "gate": "passed: its one marker is real, so the gate can't catch it",
+    "claims": [
+      {
+        "claim": "Transferred credits with regular grades count toward the GPA.",
+        "cited": [1],
+        "verdict": "unsupported",
+        "evidence": "No catalog sentence says transferred credits count toward the GPA. The only GPA rules are for P (not counted), F after a repeat, audit, W and credit by examination ('no effect on grade point average'). Marker [1] is the pass/fail rule only."
+      },
+      {
+        "claim": "Courses graded D+ or D can transfer if acceptable for the program.",
+        "cited": [],
+        "verdict": "contradicted",
+        "evidence": "Catalog 2024-2025 p. 30: 'Courses in which the student received a grade of 'D+' or below are not considered for credit transfer.' p. 31: undergraduate courses must be completed 'with grades A, B, or C (pluses and minuses inclusive) or Pass'; other grades 'only if they meet the university grading system criteria'."
+      }
+    ],
+    "use": "Known failure for A2.7 (prompt changes) and A2.8 (run 4 hand-check). Kept out of faithfulness_eval_set.json so run 4's denominators (x/26, x/13 French) stay the ones the pilot threshold was agreed on."
+  }
+]
