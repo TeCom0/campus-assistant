@@ -218,6 +218,14 @@ retried (2,492 tokens) and the retry cited nothing either; `academic_probation_f
 move from run to run. 0 reached a student uncited. The demo had 0 questions in the 24 hours before the run. The records hold
 only what the browser received, so the rejected texts, and what the retry wrote, aren't known.
 
+Diagnosis, 2026-11-12, 32,980 tokens, `eval/results/gate/2026-11-12_diagnosis.jsonl` (`app.evaluation.run_gate_diagnosis`, which
+keeps every attempt; it decides nothing and counts toward no rule). `transfer_credits_en` 3 times: the first answer cited
+nothing 3/3 (4/4 today with the sample run). Twice it was the right answer (68 undergraduate, 12 graduate credits) ending "These
+limits are stated in the academic catalog" instead of markers; once it was empty. The retry passed 2/3: the empty one became
+"68 credits [2][3]", one became the same answer with [2] and [6], and the third repeated "stated in the academic catalog" with
+no marker. `academic_probation_fr` 3 times: passed 3/3, so its `invented_marker` was a rare draw. So on this question the
+templates are false refusals of correct answers, and the retry helps but isn't enough on its own.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
