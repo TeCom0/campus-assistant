@@ -211,6 +211,13 @@ block, and aren't re-run. Budget: Youness estimated about 40k; the same question
 follow-ups) on 2026-11-07, so about 60-65k with retries. Check the day's usage first, run when the demo is quiet, and stop if
 it would leave less than 60k for the day: the sample and the follow-ups run separately, each with `--cap` set from that check.
 
+Result, 2026-11-12, 47,992 tokens, `eval/results/gate/2026-11-12_retry_sample.jsonl`: **item 3 not passed, so the follow-ups
+weren't run and A2.6b isn't deployed.** Item 1 passed offline. Item 3: **2/12** replaced, limit 1. `transfer_credits_en` was
+retried (2,492 tokens) and the retry cited nothing either; `academic_probation_fr` cited a number no tool returned
+(`invented_marker`, not retried by design). Both passed on 2026-11-07, and `w_grade_fr`, replaced then, passed: the failures
+move from run to run. 0 reached a student uncited. The demo had 0 questions in the 24 hours before the run. The records hold
+only what the browser received, so the rejected texts, and what the retry wrote, aren't known.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -263,7 +270,8 @@ known_hosts).
 
 ## Current status (2026-11-06)
 
-- **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, see "A2.6b rule".** The gate
+- **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, and on 2026-11-12 neither did
+  the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`).** The gate
   (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
   longer see text arrive word by word. See "A2.6b rule" for the measurement.
 - **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after

@@ -369,6 +369,51 @@ the API log holds no permission error, and the live page has the generated descr
 passages". The backup before it reached `BACKUP OK` at 23:41:37 UTC. `generation.py` and `llm.py` were left on
 the VM by the copy and removed by hand before the build, so the image doesn't hold them.
 
+## A2.6b: the answer gate and its one retry
+
+Written before the deploy, and only to be used once the A2.6b rule in CLAUDE.md (the retry rule included)
+has passed. `C` as above. No schema or content change: a plain `update.sh`. What changes for a student:
+an answer arrives whole once the gate has checked it, no longer word by word, and an answer with no tool
+call or no valid citation is replaced by a template written in code.
+
+### Rule, fixed before the numbers
+
+`update.sh` stopping before `up` means **stop**. Expected: `UPDATE OK`, 3 documents, 3 editions all active,
+1,161 chunks, 660 courses and 526 prerequisites.
+
+After `up`, **roll back** on any one of these:
+
+1. The running API's prompt or tool schemas differ from `backend/tests/fixtures/agent_text_c907a33.json`.
+2. A live AUI question ("How many credits can I transfer to AUI?") doesn't come back as one answer with at
+   least one `[N]` marker and its source cards. If it's the not-found template, ask once more: a template
+   twice in a row means roll back.
+3. A live off-topic question ("What is the capital of France?") gets anything other than the scope template.
+4. The API log holds a question's text, an answer's text or an exception's text: a gate or retry line may
+   hold only its fixed reason (`no_tool`, `no_citation`, `invented_marker`, "the model called a tool").
+5. Any permission error in the API's log, or any CSP violation in Chrome's console on the live question.
+
+Items 2 and 3 cost about 6k tokens of the day's quota.
+
+### Steps
+
+1. **A fresh backup, then keep both running images for the rollback**, `campus-api` and `campus-frontend`, as
+   `pre-a26b`. Check the backup's timestamps as in A2.1.
+2. **Copy the commit** as in step 4 above.
+3. **Deploy:** `bash deploy/update.sh`.
+4. **Check the rule above.**
+
+### Rollback
+
+`<prev>` is `8472f3b`. Copy it as in step 4, then:
+
+    # VM
+    cd ~/campus
+    docker tag campus-api:pre-a26b campus-api:latest
+    docker tag campus-frontend:pre-a26b campus-frontend:latest
+    $C up -d --no-deps --no-build --force-recreate api frontend
+
+Nothing stays behind: A2.6b changes no table.
+
 ## VM hardening
 
 The key has a passphrase and lives in the Windows ssh-agent, so from this laptop use
