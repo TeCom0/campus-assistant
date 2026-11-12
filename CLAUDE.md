@@ -296,7 +296,7 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `bash deploy/update.sh`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-06)
+## Current status (2026-11-12)
 
 - **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, and on 2026-11-12 neither did
   the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`).** The gate
