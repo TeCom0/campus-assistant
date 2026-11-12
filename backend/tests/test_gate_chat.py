@@ -105,7 +105,11 @@ def _citations(events) -> list:
     [
         ([AIMessage(f"{REJECTED}: 1 + 1 = 2.")], SCOPE_TEMPLATE["en"], NO_TOOL),
         (
-            [_search_turn(), AIMessage(f"{REJECTED}: 68 credits.")],
+            [
+                _search_turn(),
+                AIMessage(f"{REJECTED}: 68 credits."),
+                AIMessage(f"{REJECTED}: retried, still 68 credits."),
+            ],
             NOT_FOUND_TEMPLATE["en"],
             NO_CITATION,
         ),
@@ -150,6 +154,31 @@ def test_a_cited_answer_is_sent_whole_after_the_tools_and_before_the_citations(m
     assert [c["marker"] for c in _citations(events)] == [1]
     assert _citations(events)[0]["title"] == "Academic Catalog 2024–2025"
     assert "gate" not in _trace(events)
+
+
+def test_a_cited_retry_is_sent_and_the_uncited_first_answer_isnt(monkeypatch):
+    usage = {"input_tokens": 900, "output_tokens": 100, "total_tokens": 1000}
+    body, events = _chat(
+        monkeypatch,
+        _search_turn(),
+        AIMessage(f"{REJECTED}: 68 credits."),
+        AIMessage("Up to 68 credits [1].", usage_metadata=usage),
+    )
+
+    assert REJECTED not in body
+    assert _text(events) == "Up to 68 credits [1]."
+    assert [c["marker"] for c in _citations(events)] == [1]
+    trace = _trace(events)
+    assert "gate" not in trace  # the second check passed
+    assert trace["retry"] == NO_CITATION
+    # The retry is an LLM call like any other: its tokens are in the totals.
+    assert trace["totals"]["llm_calls"] == 3
+    assert trace["totals"]["input_tokens"] == 900
+    assert [s.get("retry", False) for s in trace["timeline"] if s["kind"] == "llm"] == [
+        False,
+        False,
+        True,
+    ]
 
 
 def test_the_first_word_is_timed_when_the_student_gets_it(monkeypatch):

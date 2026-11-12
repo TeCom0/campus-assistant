@@ -226,10 +226,17 @@ async def chat(request: ChatRequest, http_request: Request) -> StreamingResponse
                                 artifact = getattr(msg, "artifact", None)
                                 if artifact:
                                     citations.extend(artifact)
-                        elif node_name == "gate":
+                        elif node_name in ("gate", "retry_gate"):
                             for msg in node_output.get("messages", []):
                                 gate_template = msg.content
                                 run.gate(msg.response_metadata["gate"])
+                        elif node_name == "retry":
+                            # The first answer cited nothing: the retried one replaces it,
+                            # and the second gate check decides again.
+                            for msg in node_output.get("messages", []):
+                                run.retry(msg)
+                                answer_parts = [normalize_brackets(msg.content)]
+                                gate_template = None
 
             answer = gate_template if gate_template is not None else "".join(answer_parts)
             if answer:

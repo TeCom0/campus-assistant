@@ -91,6 +91,8 @@ class RunTrace:
         self.call_ids: list[str] = []
         self.first_token_ms: int | None = None
         self.gate_reason: str | None = None
+        # Why the first answer was retried (always no_citation), or None if it wasn't.
+        self.retry_reason: str | None = None
 
     def _now_ms(self) -> int:
         return round((self._clock() - self._started) * 1000)
@@ -135,6 +137,17 @@ class RunTrace:
         """The gate replaced the answer. Only its fixed reason, never the rejected text."""
         self.gate_reason = reason
 
+    def retry(self, message) -> None:
+        """The first answer cited nothing and was written again (graph._retry_node).
+
+        An LLM call like any other, so its tokens are in the totals; its segment says it
+        was the retry. The first verdict is kept apart: the gate's second check decides
+        what the student reads, and sets gate_reason again only if it rejects the retry.
+        """
+        self.agent_message(message)
+        self.timeline[-1]["retry"] = True
+        self.retry_reason, self.gate_reason = self.gate_reason, None
+
     @property
     def fell_back(self) -> bool:
         return any(segment["kind"] == "fallback" for segment in self.timeline)
@@ -153,8 +166,10 @@ class RunTrace:
 
         # Only when it happened, so a saved example's trace keeps its shape.
         gate = {"gate": self.gate_reason} if self.gate_reason else {}
+        retry = {"retry": self.retry_reason} if self.retry_reason else {}
         return {
             **gate,
+            **retry,
             "status": status,
             "steps": in_call_order(trace_steps() or [], self.call_ids),
             "timeline": self.timeline,

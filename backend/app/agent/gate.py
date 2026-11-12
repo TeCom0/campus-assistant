@@ -55,9 +55,28 @@ def is_gate_template(text: str) -> bool:
     return text.strip() in _TEMPLATES
 
 
+def _is_retry(message) -> bool:
+    return message.type == "ai" and bool(message.response_metadata.get("retry"))
+
+
+def was_retried(messages) -> bool:
+    """True if the answer was written again because the first one cited nothing."""
+    return any(_is_retry(m) for m in messages)
+
+
+def _latest_attempt(messages) -> list:
+    """The messages from the latest retry on, or all of them if there was none.
+
+    After a retry, the first answer and the template that replaced it are only history:
+    what the student reads is decided by the retried answer and the gate's second check.
+    """
+    retries = [i for i, m in enumerate(messages) if _is_retry(m)]
+    return messages[retries[-1] :] if retries else messages
+
+
 def gate_reason(messages) -> str | None:
     """Why the gate replaced this run's answer, or None if it didn't."""
-    for message in messages:
+    for message in _latest_attempt(messages):
         if message.type == "ai" and message.response_metadata.get("gate"):
             return message.response_metadata["gate"]
     return None
@@ -65,8 +84,8 @@ def gate_reason(messages) -> str | None:
 
 def final_answer(messages) -> str:
     """What the student reads: the gate's template if it replaced the answer, or else
-    the text of every agent message, in order."""
-    agent = [m for m in messages if m.type == "ai" and isinstance(m.content, str)]
+    the text of every agent message, in order. After a retry, only the retry counts."""
+    agent = [m for m in _latest_attempt(messages) if m.type == "ai" and isinstance(m.content, str)]
     for message in agent:
         if message.response_metadata.get("gate"):
             return message.content

@@ -15,7 +15,7 @@ from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
 from app.agent.citations import reset_citation_counter
-from app.agent.gate import final_answer, gate_answer
+from app.agent.gate import NO_CITATION, final_answer, gate_answer
 from app.agent.model import get_agent_model
 from app.agent.tools import query_courses, search_documents
 from app.config import MAX_TOOL_ROUNDS
@@ -100,6 +100,11 @@ contain the answer, say plainly that you don't know based on the available infor
 # Added for the one retry after the model called a tool anyway (see _forced_answer).
 FORCED_RETRY_NOTE = """Do not call any tool, and do not write a tool call or a search query: \
 no tool can be used any more. Write your answer as plain text now."""
+
+# Added for the one retry of an answer that cited nothing (see _retry_node).
+CITATION_RETRY_NOTE = """Cite every fact in your answer with the bracket number of the result \
+it comes from, e.g. [6]. Use only the bracket numbers that appear in the results above, never \
+any other number."""
 
 # The answer built in code when both forced attempts fail: no LLM text, just
 # the passages the searches found, cited by their markers so /chat lists them
@@ -276,17 +281,57 @@ def _gate_node(state: MessagesState, config: RunnableConfig | None = None) -> di
     return {"messages": [AIMessage(result.answer, response_metadata={"gate": result.reason})]}
 
 
+def _after_gate(state: MessagesState) -> str:
+    """Retry only an answer that cited nothing although tools ran. An answer with no tool
+    call isn't retried (nothing to cite), nor one that invented a number (it cited, wrongly)."""
+    if state["messages"][-1].response_metadata.get("gate") == NO_CITATION:
+        return "retry"
+    return END
+
+
+def _retry_node(state: MessagesState, config: RunnableConfig | None = None) -> dict:
+    """The one retry of an answer that cited nothing (the gate's no_citation).
+
+    Same input as the forced answer: this turn's tool results as plain text and no tools
+    bound, so no new search. The rejected answer isn't shown, so the model writes from the
+    passages again instead of adding markers to sentences it already wrote. One call only:
+    if the model calls a tool anyway, the retry has no text and the gate keeps its template.
+    """
+    messages = state["messages"]
+    language = (config or {}).get("configurable", {}).get("language")
+    prompt = "\n\n".join(
+        [_build_system_prompt(language), BUDGET_EXHAUSTED_NOTE, CITATION_RETRY_NOTE]
+    )
+    try:
+        response = get_agent_model().invoke(
+            [{"role": "system", "content": prompt}, *_without_tool_calls(messages)]
+        )
+    except Exception as e:
+        if not _is_refused_tool_call(e):
+            raise
+        print("[agent] retry: the model called a tool")
+        response = AIMessage("")
+    metadata = {**response.response_metadata, "retry": True}
+    return {"messages": [response.model_copy(update={"response_metadata": metadata})]}
+
+
 def build_graph():
     graph = StateGraph(MessagesState)
     graph.add_node("agent", _agent_node)
     graph.add_node("tools", ToolNode(TOOLS))
     graph.add_node("gate", _gate_node)
+    graph.add_node("retry", _retry_node)
+    # The same check, on the retried answer. Its only way out is END: there's no edge back
+    # to the retry, so a question gets at most one, whatever the messages say.
+    graph.add_node("retry_gate", _gate_node)
     graph.add_edge(START, "agent")
     # tools_condition says "tools" or END. An answer that's finished goes through the gate,
     # so no path out of the agent can skip it.
     graph.add_conditional_edges("agent", tools_condition, {"tools": "tools", END: "gate"})
     graph.add_edge("tools", "agent")
-    graph.add_edge("gate", END)
+    graph.add_conditional_edges("gate", _after_gate, {"retry": "retry", END: END})
+    graph.add_edge("retry", "retry_gate")
+    graph.add_edge("retry_gate", END)
     return graph.compile()
 
 
