@@ -246,6 +246,15 @@ recording a decision rule before seeing the numbers:
   offline. About 90k + 35k tokens, so it runs over two days, each checked against the 60k floor. If any item fails: stop and
   report, don't adjust, don't deploy.
 
+Step 1 done 2026-11-13 (`6e8addb`): `CITATION_RETRY_LAST_NOTE`, sent last by `graph._retry_input`; the main prompt still matches
+the fixture. Step 2 result, 2026-11-13, 47,912 tokens (the estimate of 25-30k was low: one retry is about 2-3k),
+`eval/results/gate/2026-11-13_retry_note.jsonl` (`app.evaluation.run_retry_note_check`; the rebuilt searches gave the diagnosis'
+markers): **new note 9/10 passed the gate, previous 7/10, so the new note is kept** and the previous one left the graph (it lives
+in the harness, to re-run the comparison). Read by hand, the 9 passing retries put 68 on [2] (or [2][3]: [3] overlaps [2] and
+ends with the same sentence) and 12 on [6], nothing else claimed: 9/10 stands. Both notes failed on pair 3, the same set (set 3).
+Seen, not counted: the new note's answers are shorter (one or two sentences, no grade rules), and two of the previous note's
+passing retries said the catalog sets no graduate limit, on set 1, which didn't retrieve [6]. Next: step 3.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -296,10 +305,11 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `bash deploy/update.sh`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-12)
+## Current status (2026-11-13)
 
 - **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, and on 2026-11-12 neither did
-  the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`).** The gate
+  the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`); its stronger note passed step 2 on
+  2026-11-13 (9/10 vs 7/10), and step 3, the retry rule again on a doubled sample, is next.** The gate
   (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
   longer see text arrive word by word. See "A2.6b rule" for the measurement.
 - **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after

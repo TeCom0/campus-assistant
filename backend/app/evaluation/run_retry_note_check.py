@@ -1,11 +1,11 @@
 """A2.6b step 2: the retry on its own, with the previous note and the new one.
 
     python -m app.evaluation.run_retry_note_check --dry-run
-    python -m app.evaluation.run_retry_note_check --out 2026-11-13_retry_note --cap 35000
+    python -m app.evaluation.run_retry_note_check --out 2026-11-13_retry_note --cap 59000
 
 The rule, recorded in CLAUDE.md ("A2.6b rule", "Next steps") before this ran: re-run the saved
 search queries of the 3 diagnosis runs of transfer_credits_en (local retrieval, 0 tokens) and call
-only the retry, 10 times with the previous note (graph._retry_input_current) and 10 with the new
+only the retry, 10 times with the previous note (retry_input_previous, below) and 10 with the new
 one (graph._retry_input), round-robin over the 3 search sets. The new note is kept only if at least
 9/10 of its retries pass the gate and at least as many as the previous note's. Each passing retry
 is then read by hand: a marker on a passage that doesn't hold the figure it's cited for counts as
@@ -45,10 +45,24 @@ DIAGNOSIS = RESULTS_DIR / "2026-11-12_diagnosis.jsonl"
 QUESTION_ID = "transfer_credits_en"
 LANGUAGE = "en"
 PAIRS = 10
-DEFAULT_CAP = 35_000
+DEFAULT_CAP = 59_000
+
+# The retry's note before A2.6b step 1. It lost on 2026-11-13 (7/10 against 9/10), so the graph
+# no longer has it; it lives here so the comparison can be run again as it was.
+PREVIOUS_CITATION_RETRY_NOTE = """Cite every fact in your answer with the bracket number of the \
+result it comes from, e.g. [6]. Use only the bracket numbers that appear in the results above, \
+never any other number."""
+
+
+def retry_input_previous(messages, language: str | None) -> list:
+    """The retry's input before step 1: the note at the end of the system prompt, no last note."""
+    system, *conversation, _note = graph._retry_input(messages, language)
+    content = system["content"] + "\n\n" + PREVIOUS_CITATION_RETRY_NOTE
+    return [{"role": "system", "content": content}, *conversation]
+
 
 NOTES = {
-    "current": graph._retry_input_current,  # the note at the end of the system prompt
+    "current": retry_input_previous,  # the note at the end of the system prompt
     "new": graph._retry_input,  # the note as the last message (step 1)
 }
 

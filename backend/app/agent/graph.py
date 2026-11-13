@@ -101,16 +101,12 @@ contain the answer, say plainly that you don't know based on the available infor
 FORCED_RETRY_NOTE = """Do not call any tool, and do not write a tool call or a search query: \
 no tool can be used any more. Write your answer as plain text now."""
 
-# The retry's note until A2.6b step 2, added to the end of the system prompt
-# (see _retry_input_current). Kept only so step 2 can compare it with the new one.
-CITATION_RETRY_NOTE = """Cite every fact in your answer with the bracket number of the result \
-it comes from, e.g. [6]. Use only the bracket numbers that appear in the results above, never \
-any other number."""
-
-# The retry's note from A2.6b step 1, sent as the last message the model reads (see
+# The retry's note (A2.6b step 1), sent as the last message the model reads (see
 # _retry_input). It names the failure seen in the diagnosis: correct answers ending "These
 # limits are stated in the academic catalog" with no bracket number. The example is generic
-# on purpose: a figure from a real question would hint at that question's answer.
+# on purpose: a figure from a real question would hint at that question's answer. It replaced
+# a shorter note at the end of the system prompt: 9/10 retries passed against 7/10 on the same
+# searches (2026-11-13, app.evaluation.run_retry_note_check).
 CITATION_RETRY_LAST_NOTE = """Now write your answer from the results above. End every \
 sentence that states a fact with the bracket number of the result it comes from, like this: \
 "The form must be signed by the advisor [4]." Naming the source in words ("the catalog", "the \
@@ -315,18 +311,6 @@ def _retry_input(messages, language: str | None) -> list:
         *_without_tool_calls(messages),
         HumanMessage(CITATION_RETRY_LAST_NOTE),
     ]
-
-
-def _retry_input_current(messages, language: str | None) -> list:
-    """The retry's input before A2.6b step 1: the note at the end of the system prompt.
-
-    Not used by the graph. Kept only so step 2 can compare the two notes on the same
-    searches; whichever loses is deleted then.
-    """
-    prompt = "\n\n".join(
-        [_build_system_prompt(language), BUDGET_EXHAUSTED_NOTE, CITATION_RETRY_NOTE]
-    )
-    return [{"role": "system", "content": prompt}, *_without_tool_calls(messages)]
 
 
 def _retry_node(state: MessagesState, config: RunnableConfig | None = None) -> dict:

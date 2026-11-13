@@ -2,7 +2,39 @@
 
 from collections import Counter
 
-from app.evaluation.run_retry_note_check import NOTES, diagnosis_runs, schedule
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+
+from app.agent import graph
+from app.evaluation.run_retry_note_check import (
+    NOTES,
+    PREVIOUS_CITATION_RETRY_NOTE,
+    diagnosis_runs,
+    retry_input_previous,
+    schedule,
+)
+
+
+def test_the_previous_input_is_what_the_retry_sent_before_step_1():
+    # Before step 1 the graph sent: system prompt, budget note and citation note in one system
+    # message, then the conversation without tool calls, and nothing after it.
+    messages = [
+        HumanMessage("q"),
+        AIMessage("", tool_calls=[{"id": "c1", "name": "search_documents", "args": {}}]),
+        ToolMessage("[1] a passage", tool_call_id="c1", artifact=[{"marker": 1}]),
+    ]
+    system, *conversation = retry_input_previous(messages, "en")
+    assert system["content"] == "\n\n".join(
+        [
+            graph._build_system_prompt("en"),
+            graph.BUDGET_EXHAUSTED_NOTE,
+            PREVIOUS_CITATION_RETRY_NOTE,
+        ]
+    )
+    assert conversation == graph._without_tool_calls(messages)
+    # Nothing but the note differs from the new input.
+    new_system, *new_conversation, _note = graph._retry_input(messages, "en")
+    assert new_conversation == conversation
+    assert system["content"] == new_system["content"] + "\n\n" + PREVIOUS_CITATION_RETRY_NOTE
 
 
 def test_each_note_gets_ten_calls_on_the_same_search_sets():
