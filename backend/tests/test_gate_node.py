@@ -172,11 +172,23 @@ def test_the_retry_has_no_tools_no_tool_calls_and_the_same_results(monkeypatch):
     )
     bound, sent = model.calls[-1]
     assert not bound  # no tools bound, so no new search
-    system, *conversation = sent
-    assert system["content"].endswith(graph.CITATION_RETRY_NOTE)
+    system, *conversation, note = sent
     assert all(m.type == "human" for m in conversation)  # no tool calls to imitate
     assert "[1] a passage" in conversation[-1].content
     assert REJECTED not in str(sent)  # the rejected answer isn't shown
+    # The note is the last message, nearest the answer, and not in the system prompt.
+    assert note.type == "human" and note.content == graph.CITATION_RETRY_LAST_NOTE
+    assert system["content"].endswith(graph.BUDGET_EXHAUSTED_NOTE)
+    assert graph.CITATION_RETRY_NOTE not in system["content"]
+
+
+def test_the_previous_retry_input_differs_only_in_the_note():
+    # Step 2 compares the two notes on the same searches: nothing else may differ.
+    messages = [HumanMessage("q"), _search_turn(), _result_with_marker(1), AIMessage("No marker.")]
+    system_new, *rest_new, _note = graph._retry_input(messages, "en")
+    system_old, *rest_old = graph._retry_input_current(messages, "en")
+    assert rest_new == rest_old
+    assert system_old["content"] == system_new["content"] + "\n\n" + graph.CITATION_RETRY_NOTE
 
 
 def test_a_tool_call_in_the_retry_leaves_the_template(monkeypatch):
