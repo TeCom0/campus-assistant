@@ -337,3 +337,82 @@ def test_a_template_on_a_substantive_followup_fails_the_rule(tmp_path, capsys):
 def test_a_followup_that_didnt_run_fails_the_rule(tmp_path):
     questions = check.load_followups(_saved_history(tmp_path))
     assert not check.print_followup_summary(_followup_records(questions)[:-1], questions)
+
+
+# --- Rounds (step 3 of the retry rule: each question twice) ----------------------------
+
+
+def test_rounds_ask_the_whole_first_round_before_the_second():
+    questions = check.with_rounds(check.sample_questions(), 2)
+    assert len(questions) == 24
+    assert [q["round"] for q in questions] == [1] * 12 + [2] * 12
+    assert [q["id"] for q in questions[12:]] == check.SAMPLE_IDS
+
+
+def test_a_record_says_which_round_it_belongs_to():
+    record = check.record_from_events({**QUESTION, "round": 2}, [], 0.1)
+    assert record["round"] == 2
+    assert check.record_from_events(QUESTION, [], 0.1)["round"] == 1
+
+
+def test_a_record_saved_before_rounds_is_round_one():
+    assert check.key({"id": "q"}) == ("q", 1)
+
+
+def test_a_resumed_two_round_run_asks_only_whats_missing(tmp_path, monkeypatch):
+    out = tmp_path / "out.jsonl"
+    questions = check.with_rounds(check.sample_questions(), 2)
+    done = [{**_record(set_name="sample"), "id": q["id"], "round": 1} for q in questions[:12]]
+    out.write_text("\n".join(json.dumps(r) for r in done) + "\n", encoding="utf-8")
+    asked = []
+
+    def fake_ask(client, question):
+        asked.append((question["id"], question["round"]))
+        return {**_record(set_name="sample"), "id": question["id"], "round": question["round"]}
+
+    monkeypatch.setattr(check, "ask", fake_ask)
+    monkeypatch.setattr(check.main, "admit_question", check.main.admit_question)
+    records = check.run(out, questions)
+
+    assert asked == [(i, 2) for i in check.SAMPLE_IDS]  # the same ids, not skipped
+    assert len(records) == 24
+
+
+def _sample_records(rounds, replaced):
+    questions = check.with_rounds(check.sample_questions(), rounds)
+    records = []
+    for q in questions:
+        record = _record("68 [1].", markers=[1], cards=[1], tools=["search_documents"])
+        record.update(id=q["id"], round=q["round"], set="sample")
+        records.append(record)
+    for record in records[:replaced]:
+        record.update(answer=NOT_FOUND_TEMPLATE["en"], gate="no_citation", cited_markers=[])
+    return questions, records
+
+
+def test_two_rounds_pass_at_two_replaced_of_twenty_four(capsys):
+    assert check.print_summary(*reversed(_sample_records(2, replaced=2)))
+    out = capsys.readouterr().out
+    assert "2/24" in out and "(limit 2)" in out
+
+
+def test_two_rounds_fail_at_three_replaced(capsys):
+    assert not check.print_summary(*reversed(_sample_records(2, replaced=3)))
+    assert "(limit 2)" in capsys.readouterr().out
+
+
+def test_two_rounds_fail_if_the_second_round_didnt_run():
+    questions, records = _sample_records(2, replaced=0)
+    assert not check.print_summary(records[:12], questions)
+
+
+def test_a_substantive_template_in_the_second_round_fails_the_followups(tmp_path):
+    questions = check.with_rounds(
+        check.substantive_followups(check.load_followups(_saved_history(tmp_path))), 2
+    )
+    records = _followup_records(questions)
+    for record, q in zip(records, questions):
+        record["round"] = q["round"]
+    assert check.print_followup_summary(records, questions)
+    records[-1].update(answer=SCOPE_TEMPLATE["en"], gate="no_tool", cited_markers=[], cards=[])
+    assert not check.print_followup_summary(records, questions)

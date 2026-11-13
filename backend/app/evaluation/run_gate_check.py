@@ -21,6 +21,10 @@ is checked before each question, so a run can go over it by one answer.
 
 --sample-only and --substantive-only: the retry rule in CLAUDE.md, which measures only the 12
 sample questions and the 3 substantive follow-ups.
+
+--rounds N: asks each question N times (step 3 of the retry rule: twice). Round 1 runs in full
+before round 2, so a run stopped at the cap leaves whole rounds. A record is identified by its id
+and round, and the sample's limit scales with the rounds: 1 per 12, so 2 per 24.
 """
 
 import argparse
@@ -91,6 +95,7 @@ def record_from_events(question: dict, events: list[tuple[str, dict]], seconds: 
     errors = [data for name, data in events if name == "error"]
     return {
         "id": question["id"],
+        "round": question.get("round", 1),
         "set": question["set"],
         "category": question.get("category"),
         "expected": question.get("expected"),
@@ -113,6 +118,26 @@ def record_from_events(question: dict, events: list[tuple[str, dict]], seconds: 
         "seconds": round(seconds, 1),
         "error": errors[0] if errors else None,
     }
+
+
+def key(record: dict) -> tuple[str, int]:
+    """A record's identity: its question and round. Records saved before rounds existed are
+    round 1."""
+    return record["id"], record.get("round", 1)
+
+
+def label(record: dict) -> str:
+    """How a record is named in the summary: its id, with the round when there's one."""
+    return f"{record['id']}#{record['round']}" if "round" in record else record["id"]
+
+
+def with_rounds(questions: list[dict], rounds: int) -> list[dict]:
+    """Each question once per round, the whole of round 1 first."""
+    return [{**q, "round": r} for r in range(1, rounds + 1) for q in questions]
+
+
+def rounds_in(questions: list[dict]) -> int:
+    return max((q.get("round", 1) for q in questions), default=1)
 
 
 def reaches_student_uncited(record: dict) -> bool:
@@ -183,13 +208,13 @@ def run(out_path: Path, questions: list[dict] | None = None, cap: int = TOKEN_CA
     if out_path.exists():
         with out_path.open(encoding="utf-8") as f:
             records = [json.loads(line) for line in f if line.strip()]
-    done = {r["id"] for r in records}
+    done = {key(r) for r in records}
 
     main.admit_question = lambda request: Decision(True)  # the demo's limits aren't measured
     client = TestClient(main.app)
     used = sum(r["tokens"] for r in records)
     for question in load_questions() if questions is None else questions:
-        if question["id"] in done:
+        if key(question) in done:
             continue
         if used >= cap:
             print(f"\nStopped at the cap: {used:,} tokens. Re-run tomorrow to resume.")
@@ -209,7 +234,7 @@ def run(out_path: Path, questions: list[dict] | None = None, cap: int = TOKEN_CA
         if record.get("retried"):
             retried = f" (retried, {record['retry_tokens']} tokens)"
         print(
-            f"{record['id']:<28} {outcome:<16} {len(record['tool_calls'])} tools, "
+            f"{label(record):<28} {outcome:<16} {len(record['tool_calls'])} tools, "
             f"{record['tokens']:>6} tokens, {record['seconds']:>5}s{retried}"
         )
     return records
@@ -218,7 +243,7 @@ def run(out_path: Path, questions: list[dict] | None = None, cap: int = TOKEN_CA
 def print_retries(records: list[dict]) -> None:
     """How many answers were retried, how each ended, and what the retries cost."""
     retried = [r for r in records if r.get("retried")]
-    outcomes = [f"{r['id']}: {r['gate'] or 'passed'}" for r in retried]
+    outcomes = [f"{label(r)}: {r['gate'] or 'passed'}" for r in retried]
     print(f"retried: {len(retried)}/{len(records)} {outcomes}")
     print(f"retry tokens: {sum(r.get('retry_tokens', 0) for r in records):,}")
 
@@ -237,29 +262,29 @@ def substantive_followups(questions: list[dict]) -> list[dict]:
 
 def print_summary(records: list[dict], questions: list[dict] | None = None) -> bool:
     """Prints the rule's two counts. True only if every question ran and both items pass."""
-    expected_ids = {q["id"] for q in (load_questions() if questions is None else questions)}
-    missing = sorted(expected_ids - {r["id"] for r in records})
-    errors = [r["id"] for r in records if r["error"]]
+    questions = load_questions() if questions is None else questions
+    missing = sorted({key(q) for q in questions} - {key(r) for r in records})
+    errors = [label(r) for r in records if r["error"]]
+    limit = MAX_SAMPLE_REPLACED * rounds_in(questions)
 
     offtopic = [r for r in records if r["set"] == "offtopic"]
-    leaks = [r["id"] for r in offtopic if reaches_student_uncited(r)]
+    leaks = [label(r) for r in offtopic if reaches_student_uncited(r)]
     sample = [r for r in records if r["set"] == "sample"]
-    replaced = [r["id"] for r in sample if r["gate"]]
+    replaced = [label(r) for r in sample if r["gate"]]
     # Also on the sample: the check doesn't rely on the gate's own verdict.
-    sample_leaks = [r["id"] for r in sample if reaches_student_uncited(r)]
+    sample_leaks = [label(r) for r in sample if reaches_student_uncited(r)]
 
     print(f"\ntokens: {sum(r['tokens'] for r in records):,}")
     print(f"missing: {missing}")
     print(f"errors (reported, not counted): {errors}")
     print(f"item 2, reached the student uncited: {len(leaks)}/{len(offtopic)} {leaks}")
     print(
-        f"item 3, replaced by a template: {len(replaced)}/{len(sample)} {replaced} "
-        f"(limit {MAX_SAMPLE_REPLACED})"
+        f"item 3, replaced by a template: {len(replaced)}/{len(sample)} {replaced} (limit {limit})"
     )
     print(f"on the sample, reached the student uncited: {len(sample_leaks)} {sample_leaks}")
     print_retries(records)
 
-    passed = not missing and not leaks and not sample_leaks and len(replaced) <= MAX_SAMPLE_REPLACED
+    passed = not missing and not leaks and not sample_leaks and len(replaced) <= limit
     print("RULE PASSED" if passed else "RULE NOT PASSED: stop and report")
     return passed
 
@@ -268,13 +293,13 @@ def print_followup_summary(records: list[dict], questions: list[dict]) -> bool:
     """Prints the follow-up rule's count. True only if every one ran, none errored, and no
     substantive follow-up got a template."""
     kinds = {q["id"]: q["kind"] for q in questions}
-    missing = sorted(set(kinds) - {r["id"] for r in records})
-    errors = [r["id"] for r in records if r["error"]]
+    missing = sorted({key(q) for q in questions} - {key(r) for r in records})
+    errors = [label(r) for r in records if r["error"]]
     substantive = [r for r in records if kinds[r["id"]] == "substantive"]
     conversational = [r for r in records if kinds[r["id"]] == "conversational"]
-    blocked = [r["id"] for r in substantive if r["gate"]]
-    known_cost = [r["id"] for r in conversational if r["gate"]]
-    leaks = [r["id"] for r in records if reaches_student_uncited(r)]
+    blocked = [label(r) for r in substantive if r["gate"]]
+    known_cost = [label(r) for r in conversational if r["gate"]]
+    leaks = [label(r) for r in records if reaches_student_uncited(r)]
 
     print(f"\ntokens: {sum(r['tokens'] for r in records):,}")
     print(f"missing: {missing}")
@@ -301,9 +326,14 @@ def main_cli() -> int:
         "--substantive-only", action="store_true", help="With --followups: only substantive ones"
     )
     parser.add_argument(
+        "--rounds", type=int, default=1, help="Ask each question this many times (default 1)"
+    )
+    parser.add_argument(
         "--cap", type=int, default=TOKEN_CAP, help=f"Token cap for this run (default {TOKEN_CAP:,})"
     )
     args = parser.parse_args()
+    if args.rounds < 1:
+        parser.error("--rounds must be at least 1")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = RESULTS_DIR / f"{args.out}.jsonl"
     if args.followups:
@@ -312,11 +342,13 @@ def main_cli() -> int:
         questions = load_followups(RESULTS_DIR / f"{args.history}.jsonl")
         if args.substantive_only:
             questions = substantive_followups(questions)
+        questions = with_rounds(questions, args.rounds)
         records = run(out_path, questions, cap=args.cap)
         return 0 if print_followup_summary(records, questions) else 1
     if args.substantive_only:
         parser.error("--substantive-only needs --followups")
     questions = sample_questions() if args.sample_only else load_questions()
+    questions = with_rounds(questions, args.rounds)
     records = run(out_path, questions, cap=args.cap)
     return 0 if print_summary(records, questions) else 1
 
