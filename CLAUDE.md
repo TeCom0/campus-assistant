@@ -278,6 +278,20 @@ a decision rule before seeing the numbers:
   before A2.6b is accepted deploys from a branch cut at `8472f3b` (the deployed A2.2 commit), not from main: `deploy/DEPLOY.md`,
   A2.6b.
 
+Step 3, sample part, 2026-11-14, 94,805 tokens recorded (about 105k used: errored records log 0),
+`eval/results/gate/2026-11-14_step3_sample.jsonl`: **0/24 replaced (limit 2), 0 reached a student uncited: passed.** Retried
+2/24, both passed the second gate: `transfer_credits_en` round 1 (its first answer uncited again, 5/5 since 11-12) and
+`repeat_course_en` round 2 (a new one, cites [1] five times, not checked against the passage). `transfer_credits_en`'s pass
+after the retry isn't independent evidence: the note was chosen on its searches. Its round 2 cited in the first answer. Three
+questions first errored (`scholarship_work_hours_fr` 1, `acc2302_chain_en` 1, `transfer_credits_en` 2): the local Postgres
+restarted mid-run, because the run started while Docker Desktop was still starting. Decided by Claude with Youness's go-ahead,
+after the numbers and in the open: they never got an answer, so the 3 were asked again in their own rounds, once each, with
+Docker and the database checked first. The errored
+records are kept in `2026-11-14_step3_sample_errors.jsonl`. Seen there, not counted: the gate passed
+`scholarship_work_hours_fr`'s answer with a real [11], `/chat` sent it, then `load_sources()` timed out on the database, so the
+student would see a marker with no source card, then the error. Next: the 3 substantive follow-ups twice each (0/6), on
+2026-11-15 after the floor check.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -328,11 +342,11 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `bash deploy/update.sh`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-13)
+## Current status (2026-11-14)
 
 - **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, and on 2026-11-12 neither did
   the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`); its stronger note passed step 2 on
-  2026-11-13 (9/10 vs 7/10), and step 3, the retry rule again on a doubled sample, is next.** The gate
+  2026-11-13 (9/10 vs 7/10). Step 3's sample part passed on 2026-11-14 (0/24 replaced); its follow-up part (0/6) is next.** The gate
   (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
   longer see text arrive word by word. See "A2.6b rule" for the measurement.
 - **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
