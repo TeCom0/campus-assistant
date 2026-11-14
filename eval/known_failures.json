@@ -47,5 +47,47 @@
       }
     ],
     "use": "Citation failure for A2.7 (the main prompt's citation wording) to fix: the first answer, not the retry, should cite. Re-ask it after A2.7."
+  },
+  {
+    "id": "retry_drops_context",
+    "found": "2026-11-13",
+    "checked_by_hand": "2026-11-13",
+    "source_run": "eval/results/gate/2026-11-13_retry_note.jsonl",
+    "question": "How many credits can I transfer to AUI from another university?",
+    "language": "en",
+    "finding": "answer quality, not citation",
+    "touches": "completeness: the retried answer keeps the figures and drops the rules around them",
+    "pilot_threshold": "none directly; A2.7's criterion that full detail is kept when the student asks for it",
+    "gate": "passed: every marker is real",
+    "claims": [
+      {
+        "claim": "The new note's 9 passing retries are one or two sentences: 68 undergraduate [2] and, where [6] was retrieved, 12 graduate [6]. None keeps the caveat that courses must also meet the grading and other transfer criteria, which the diagnosis' first answers and the previous note's longer retries carried.",
+        "cited": [2, 6],
+        "verdict": "supported but incomplete",
+        "evidence": "Pairs 1, 4, 7 and 10 (set 1) state only the undergraduate limit; pairs 2, 5, 6, 8 and 9 both limits. The previous note's passing retries were longer."
+      }
+    ],
+    "use": "A2.7: a retried answer should keep what the first answer said, with markers added, not shrink to the one cited figure. A2.8's hand check reads retried answers specifically."
+  },
+  {
+    "id": "retry_no_graduate_limit",
+    "found": "2026-11-13",
+    "checked_by_hand": "2026-11-13",
+    "source_run": "eval/results/gate/2026-11-13_retry_note.jsonl",
+    "question": "How many credits can I transfer to AUI from another university?",
+    "language": "en",
+    "finding": "AG-4",
+    "touches": "eligibility: a graduate transfer student is told there is no limit, where the catalog sets 12 credits",
+    "pilot_threshold": "D3 item 2: a failing claim that would change an eligibility outcome",
+    "gate": "passed: its markers [2][3] are real and hold the undergraduate figure, so the gate can't catch the uncited graduate claim",
+    "claims": [
+      {
+        "claim": "The catalog sets no separate transfer limit for graduate programs (previous note, pair 4: 'there is no stated maximum for graduate-level credit transfer'; pair 10: 'The catalog does not specify a separate maximum for graduate-level credit transfers').",
+        "cited": [],
+        "verdict": "contradicted",
+        "evidence": "Passage [6] in sets 2 and 3 holds the graduate limit of 12 semester credits. Set 1's search didn't retrieve it, and the retry can't search, so it filled the gap with a confident claim. Pair 1 on the same set hedged ('in the catalog excerpts you provided'); the new note's set 1 retries left graduate out instead of claiming anything."
+      }
+    ],
+    "use": "A2.7/A2.8: when the passage a part of the question needs is missing, the answer must say it wasn't found, not that the catalog is silent. A2.8's hand check reads retried answers specifically."
   }
 ]

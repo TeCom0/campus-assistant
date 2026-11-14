@@ -376,6 +376,17 @@ has passed. `C` as above. No schema or content change: a plain `update.sh`. What
 an answer arrives whole once the gate has checked it, no longer word by word, and an answer with no tool
 call or no valid citation is replaced by a template written in code.
 
+### Until A2.6b is accepted: no deploy from main
+
+The gate is on main with no switch, so any deploy of HEAD ships it. A hotfix needed before A2.6b is accepted
+is deployed from a branch cut at the deployed A2.2 commit, never from main:
+
+    git switch -c hotfix/<name> 8472f3b
+    # fix, test, commit, push the branch; then copy it as in step 4 with the branch's commit, and update.sh
+
+Once the hotfix is live, cherry-pick it onto main, so the next A2.6b deploy doesn't drop it. Set 2026-11-14,
+before step 3 of the A2.6b rule ran.
+
 ### Rule, fixed before the numbers
 
 `update.sh` stopping before `up` means **stop**. Expected: `UPDATE OK`, 3 documents, 3 editions all active,

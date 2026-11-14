@@ -255,6 +255,29 @@ ends with the same sentence) and 12 on [6], nothing else claimed: 9/10 stands. B
 Seen, not counted: the new note's answers are shorter (one or two sentences, no grade rules), and two of the previous note's
 passing retries said the catalog sets no graduate limit, on set 1, which didn't retrieve [6]. Next: step 3.
 
+Before step 3, set 2026-11-14 by Youness after reading `e3b6cbd` to `02bfd3f`, before step 3 ran, following the rule of recording
+a decision rule before seeing the numbers:
+
+- **If step 3 fails: no more iterations on the retry note.** The root cause is the main prompt's citation wording (A2.7), and
+  A2.6b has taken a week and about 260k tokens of measurement (the uncited answers check included) against an estimate of 1.5
+  days. If any step 3 item fails, A2.6b doesn't deploy on its own. It deploys together with A2.7's prompt changes (answer
+  first, every fact ends with `[N]`, never "stated in the catalog"), and that combined change is measured once with step 3's
+  exact rule (at most 2/24 replaced, 0/6 on the follow-ups, 0 uncited reaching a student) plus A2.7's own criteria. The
+  catalog-year note waits for Q1 and doesn't block it. If this branch is taken, the order note in `docs/architecture.md`
+  section 9 is updated.
+- **Step 3 isn't fully independent of step 2.** The new note was chosen on `transfer_credits_en`'s search sets, and that
+  question is one of step 3's 12: its result is reported with that caveat. 9/10 against 7/10 isn't proof the new note is
+  better, because with n=10 the difference isn't significant. The rule asked for at least 9/10 and not worse, and that is
+  what was shown.
+- **Two things seen in step 2 are in `eval/known_failures.json` for A2.7/A2.8:** `retry_drops_context` (the new note's
+  retries keep one or two sentences: answer quality, not citation) and `retry_no_graduate_limit` (the previous note's
+  retries on set 1, which didn't retrieve [6], said the catalog sets no graduate limit: a wrong claim the gate passes). The
+  retry can't search, so when the passage it needs is missing it can state a confident falsehood. A2.8's hand check looks at
+  retried answers specifically.
+- **main can't be deployed partially.** The gate is on main with no switch, so any deploy of HEAD ships it. A hotfix needed
+  before A2.6b is accepted deploys from a branch cut at `8472f3b` (the deployed A2.2 commit), not from main: `deploy/DEPLOY.md`,
+  A2.6b.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
