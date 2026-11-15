@@ -9,6 +9,10 @@ image doesn't contain it, and the API imports modules that use this one.
 
     python -m app.registry sync             # descriptive fields; new editions as draft
     python -m app.registry sync --initial   # once, on empty tables: every edition active
+    python -m app.registry activate <edition> --by <who>   # make it the one in force
+
+`activate` is also the rollback: activate the previous edition again. It reads only the
+database, never the file, and changes status in one transaction (see `activate`).
 
 Sync copies the file to the documents and document_editions tables, run as the owner.
 It never changes the status of an existing edition: status lives only in the database,
@@ -475,6 +479,120 @@ def editions_not_in_file(conn: psycopg.Connection, registry: Registry) -> list[s
     return [row[0] for row in rows if row[0] not in known]
 
 
+# --- Activate: which edition is in force -------------------------------------
+
+# Locks every edition of the document, so two activations of the same document can't
+# interleave: the second waits, then sees the first one's result.
+LOCK_DOCUMENT_EDITIONS_SQL = """
+    SELECT id, status FROM document_editions
+    WHERE document_id = (SELECT document_id FROM document_editions WHERE id = %s)
+    ORDER BY id
+    FOR UPDATE
+"""
+
+SUPERSEDE_SQL = """
+    UPDATE document_editions SET status = 'superseded'
+    WHERE document_id = (SELECT document_id FROM document_editions WHERE id = %s)
+      AND status = 'active'
+    RETURNING id
+"""
+
+ACTIVATE_SQL = """
+    UPDATE document_editions SET status = 'active', activated_by = %s, activated_at = now()
+    WHERE id = %s
+"""
+
+
+@dataclass(frozen=True)
+class Activation:
+    edition_id: str
+    superseded: tuple[str, ...]  # the edition that was active before, if any
+    chunks: int
+    courses: int
+
+
+def _check_can_activate(
+    conn: psycopg.Connection, edition_id: str, statuses: dict[str, str], activated_by: str
+) -> tuple[int, int]:
+    """Refuse what would leave students with less than before; returns (chunks, courses)."""
+    if not activated_by.strip():
+        raise RegistryError("--by is empty: an activation records who made it. Nothing changed.")
+    if edition_id not in statuses:
+        raise RegistryError(f"no edition {edition_id!r} in document_editions. Nothing changed.")
+    status = statuses[edition_id]
+    if status == "active":
+        raise RegistryError(f"{edition_id!r} is already active. Nothing changed.")
+    if status == "withdrawn":
+        # Withdrawn means pulled on purpose (A2.5); putting it back is a decision, not a rollback.
+        raise RegistryError(f"{edition_id!r} is withdrawn and stays so. Nothing changed.")
+    chunks = conn.execute(
+        "SELECT count(*) FROM document_chunks WHERE source = %s", (edition_id,)
+    ).fetchone()[0]
+    if not chunks:
+        # Its document would vanish from every search, and the command would say success.
+        raise RegistryError(f"{edition_id!r} has no chunks: ingest it first. Nothing changed.")
+    courses = conn.execute(
+        "SELECT count(*) FROM courses WHERE source = %s", (edition_id,)
+    ).fetchone()[0]
+    holds_course_tables = conn.execute(
+        "SELECT course_tables FROM document_editions WHERE id = %s", (edition_id,)
+    ).fetchone()[0]
+    if holds_course_tables and not courses:
+        raise RegistryError(
+            f"{edition_id!r} holds the course tables but has no courses: run the course "
+            "extraction first. Nothing changed."
+        )
+    return chunks, courses
+
+
+def activate(conn: psycopg.Connection, edition_id: str, *, activated_by: str) -> Activation:
+    """Make `edition_id` the edition in force for its document, in one transaction.
+
+    The active edition, if any, becomes superseded first, then this one active, with
+    who and when recorded: the one-active-edition index is checked row by row, so the
+    other order would fail. One transaction, so no request ever sees the document with
+    no edition in force, or two. Searches read the registry on every request
+    (app/editions.py), so the change applies to the next question, with no restart and
+    nothing re-embedded or deleted. A rollback is this again, with the previous edition.
+    """
+    with conn.transaction():
+        statuses = dict(conn.execute(LOCK_DOCUMENT_EDITIONS_SQL, (edition_id,)).fetchall())
+        chunks, courses = _check_can_activate(conn, edition_id, statuses, activated_by)
+        superseded = tuple(row[0] for row in conn.execute(SUPERSEDE_SQL, (edition_id,)))
+        conn.execute(ACTIVATE_SQL, (activated_by.strip(), edition_id))
+    return Activation(edition_id, superseded, chunks, courses)
+
+
+def document_statuses(conn: psycopg.Connection, edition_id: str) -> list[tuple]:
+    """(id, status, activated_by, activated_at) for every edition of edition_id's document."""
+    return conn.execute(
+        "SELECT id, status, activated_by, activated_at FROM document_editions "
+        "WHERE document_id = (SELECT document_id FROM document_editions WHERE id = %s) "
+        "ORDER BY id",
+        (edition_id,),
+    ).fetchall()
+
+
+def _run_activate(edition_id: str, activated_by: str) -> int:
+    conn = get_owner_connection()
+    try:
+        result = activate(conn, edition_id, activated_by=activated_by)
+        rows = document_statuses(conn, edition_id)
+    finally:
+        conn.close()
+    was = ", ".join(result.superseded) or "no edition"
+    print(f"[registry] activated {result.edition_id} ({result.chunks} chunks, "
+          f"{result.courses} courses); superseded: {was}")  # fmt: skip
+    # Proof read back from the table, not what the command meant to do.
+    for row_id, status, by, at in rows:
+        print(f"[registry]   {row_id}: {status}, activated by {by} at {at}")
+    if (result.edition_id, "active") not in {(r[0], r[1]) for r in rows}:
+        print("[registry] FAILED: the edition isn't active after the update")
+        return 1
+    print("[registry] activate done")
+    return 0
+
+
 def _run_sync(*, initial: bool) -> int:
     registry = load_registry()
     conn = get_owner_connection()
@@ -507,8 +625,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Only on empty tables: mark every edition in the file active",
     )
+    activate_command = commands.add_parser(
+        "activate", help="Make an edition the one in force (also the rollback)"
+    )
+    activate_command.add_argument("edition", help="The edition id, as in document_editions")
+    activate_command.add_argument(
+        "--by", required=True, help="Who is activating it, recorded as activated_by"
+    )
     args = parser.parse_args(argv)
     try:
+        if args.command == "activate":
+            return _run_activate(args.edition, args.by)
         return _run_sync(initial=args.initial)
     except RegistryError as e:
         print(f"[registry] refused: {e}")

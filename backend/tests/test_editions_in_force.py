@@ -13,7 +13,7 @@ connection until a commit that never comes. The query embedding is fixed, so no 
 """
 
 import pytest
-from edition_rows import add_edition
+from edition_rows import Lent, add_edition
 
 from app.agent import tools
 from app.agent.citations import reset_citation_counter
@@ -26,19 +26,6 @@ pytestmark = pytest.mark.skipif(not database_reachable(), reason="Postgres not r
 WORD = "zyxquorbal"  # in no real chunk, so only the test chunks match the keyword search
 VECTOR = [1.0] + [0.0] * (EMBEDDING_DIM - 1)  # every test chunk, and the query: distance 0
 TEST_EDITIONS = {"test_old", "test_new", "test_private"}
-
-
-class _Lent:
-    """The test's connection, lent to code that closes what it opens."""
-
-    def __init__(self, conn):
-        self._conn = conn
-
-    def execute(self, *args, **kwargs):
-        return self._conn.execute(*args, **kwargs)
-
-    def close(self) -> None:
-        pass  # the test's transaction stays open, to be rolled back
 
 
 def _chunk(conn, source: str) -> None:
@@ -92,7 +79,7 @@ def conn(monkeypatch):
         _edge(connection, "ZZZ 1001", "ZZZ 1004", "test_new")
         _course(connection, "ZZZ 1003", "Internal course", "test_private")
 
-        lent = _Lent(connection)
+        lent = Lent(connection)
         for module in (vector_search, keyword_search, tools):
             monkeypatch.setattr(module, "get_connection", lambda **_: lent)
         monkeypatch.setattr(vector_search, "embed_query", lambda _query: VECTOR)

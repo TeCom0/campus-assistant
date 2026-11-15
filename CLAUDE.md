@@ -372,6 +372,16 @@ transaction, fails them. On the real data, re-seeding and `--sections-only` left
 unchanged. Not run on the real data: `--replace` itself, because re-embedding 1,161 chunks may not reproduce the vectors bit for
 bit, which would change the fingerprint for a reason that isn't A2.3; its scope is covered by the tests.
 
+Sub-step 4 done 2026-11-15, `python -m app.registry activate <edition> --by <who>`: in one transaction it locks the document's
+editions, supersedes the active one, then activates the named one with `activated_by` and `activated_at` (that order because the
+one-active index is checked row by row). The rollback is the same command with the previous edition. It refuses an unknown,
+already active or withdrawn edition, an empty `--by`, an edition with no chunks (its document would vanish from search) and a
+course-tables edition with no courses; each refusal says "Nothing changed" and exits 1. It prints the document's statuses read
+back from the table. `tests/test_activate.py` (rule item 5): activation and rollback each change the next search and course
+lookup, both editions keep their rows, and a failure injected between the two updates leaves the old edition in force.
+Mutation-checked: without the transaction, that test fails. Run against the real local database, activating the edition already
+in force is refused. No request-path code changed in this step.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

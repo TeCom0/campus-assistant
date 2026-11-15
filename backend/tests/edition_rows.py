@@ -16,6 +16,7 @@ def add_edition(
     document_id: str | None = None,
     status: str = "active",
     visibility: str = "public",
+    course_tables: bool = False,
 ) -> None:
     document_id = document_id or f"{edition_id}_document"
     conn.execute(
@@ -27,6 +28,20 @@ def add_edition(
         "INSERT INTO document_editions (id, document_id, label, card_title, retrieved_at, "
         "language, format, source_url, course_tables, status, sha256, parser_version, "
         "quality_report) VALUES (%s, %s, 'test', 'Test edition', '2026-11-15', 'en', 'pdf', "
-        "'https://example.invalid/test.pdf', false, %s, 'test', 'unversioned', '{}')",
-        (edition_id, document_id, status),
+        "'https://example.invalid/test.pdf', %s, %s, 'test', 'unversioned', '{}')",
+        (edition_id, document_id, course_tables, status),
     )
+
+
+class Lent:
+    """A test's connection, lent to code that opens and closes its own (searches, lookups):
+    rows the test inserted stay visible to it, inside the transaction that is rolled back."""
+
+    def __init__(self, conn):
+        self._conn = conn
+
+    def execute(self, *args, **kwargs):
+        return self._conn.execute(*args, **kwargs)
+
+    def close(self) -> None:
+        pass  # the test's transaction stays open, to be rolled back
