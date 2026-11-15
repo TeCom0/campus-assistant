@@ -425,6 +425,23 @@ Items 2 and 3 cost about 6k tokens of the day's quota.
 
 Nothing stays behind: A2.6b changes no table.
 
+### Deployed (2026-11-15)
+
+`8011e99`, after step 3 of the retry rule passed (0/24, 0/6), plain `update.sh`: `UPDATE OK`, 3 documents, 3
+active editions, 1,161 chunks, 660 courses and 526 prerequisites, source link 302. The backup before it reached
+`BACKUP OK` and `PING OK` at 15:22:30 UTC, after the 15:22:26 start; `pre-a26b` tags on both images. The copy
+left no file the commit doesn't hold (`.env` only). No rollback condition met:
+
+1. The running API's prompt and tool schemas hash the same as the fixture (sha256 `a02045f1...`, `a95a4760...`).
+2. "How many credits can I transfer to AUI?" came back as one answer (68 undergraduate [3][4], 12 graduate [5])
+   with 3 source cards, 5,339 tokens. The API log's `no_citation` line shows its first answer was uncited again
+   and the retry's answer passed the gate.
+3. "What is the capital of France?" got the scope template, 0 tool calls (`no_tool`).
+4. The API log holds no question, answer or exception text: the gate lines are `no_citation` and `no_tool`.
+5. No permission error in the API log; 0 CSP violations and 0 console errors in Chrome 157 on both questions.
+
+The "no deploy from main" rule above ends with this deploy: main is the deployed line again.
+
 ## VM hardening
 
 The key has a passphrase and lives in the Windows ssh-agent, so from this laptop use

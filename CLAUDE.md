@@ -302,7 +302,11 @@ touching an amount and a deadline, the kind D3 item 2 forbids, in `eval/known_fa
 with `followup_fr` on 2026-11-12, the gate isn't meant to catch it, so it doesn't block the rule, but it's a second case of the
 retry stating a confident falsehood (after `retry_no_graduate_limit`). `followup_fr` said both times that the catalog doesn't say
 whether transferred credits count toward the GPA, with no D+/D claim: the 2026-11-07 errors didn't recur. `followup_graduate`
-said 12 credits [3] both times. Deploying is Youness's decision.
+said 12 credits [3] both times.
+
+Deployed 2026-11-15 (`8011e99`), decided by Claude with Youness's go-ahead to decide, after the numbers: the rule was set before
+them and passed, the deployed A2.2 already lets uncited answers reach students, and the retry's wrong claims are AG-4, which the
+rule leaves to A2.7/A2.8. No rollback condition in `deploy/DEPLOY.md` (A2.6b) was met.
 
 ## A2.2 rule
 
@@ -356,10 +360,9 @@ known_hosts).
 
 ## Current status (2026-11-15)
 
-- **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, and on 2026-11-12 neither did
-  the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`); its stronger note passed step 2 on
-  2026-11-13 (9/10 vs 7/10). Step 3 passed: 0/24 replaced on 2026-11-14, 0/6 on the follow-ups on 2026-11-15, so the rule is met;
-  the deploy waits on Youness. Both retried follow-up answers got refund/deadline rules wrong (`retry_summer_refund_deadline`).** The gate
+- **A2.6b (answer-level gate and its one retry) is accepted and deployed (`8011e99`, 2026-11-15)**, after the retry rule's step 3
+  passed (0/24 replaced on 2026-11-14, 0/6 on the follow-ups on 2026-11-15), see "A2.6b rule". Both retried follow-up answers got
+  refund/deadline rules wrong (`retry_summer_refund_deadline`), for A2.7/A2.8. Next in the A2 order: A2.3. The gate
   (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
   longer see text arrive word by word. See "A2.6b rule" for the measurement.
 - **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after
