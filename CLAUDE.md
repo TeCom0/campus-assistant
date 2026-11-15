@@ -292,6 +292,18 @@ records are kept in `2026-11-14_step3_sample_errors.jsonl`. Seen there, not coun
 student would see a marker with no source card, then the error. Next: the 3 substantive follow-ups twice each (0/6), on
 2026-11-15 after the floor check.
 
+Step 3, follow-up part, 2026-11-15, 40,450 tokens, `eval/results/gate/2026-11-15_step3_followups.jsonl`: **0/6 replaced (limit 0),
+0 reached a student uncited: passed, so step 3 passed and the A2.6b rule is met.** Floor check first: 0 demo questions in the
+prior 24 hours, the last eval run ended 2026-11-14 03:33 UTC; local Postgres checked healthy before the run. Retried 2/6, both
+`followup_summer` (its first answer uncited in both rounds; replaced on 2026-11-07), both passed the second gate. Read by hand:
+both retried `followup_summer` answers state refund or deadline rules the catalog contradicts (round 1 turns "no refund ... up to
+the 40th class day" into a refund window; round 2 says add/drop ends on the 40th class day, then the 4th one bullet earlier): AG-4
+touching an amount and a deadline, the kind D3 item 2 forbids, in `eval/known_failures.json` (`retry_summer_refund_deadline`). As
+with `followup_fr` on 2026-11-12, the gate isn't meant to catch it, so it doesn't block the rule, but it's a second case of the
+retry stating a confident falsehood (after `retry_no_graduate_limit`). `followup_fr` said both times that the catalog doesn't say
+whether transferred credits count toward the GPA, with no D+/D claim: the 2026-11-07 errors didn't recur. `followup_graduate`
+said 12 credits [3] both times. Deploying is Youness's decision.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -342,11 +354,12 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `bash deploy/update.sh`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-14)
+## Current status (2026-11-15)
 
 - **A2.6b (answer-level gate) is built and pushed, and not deployed: the follow-up rule didn't pass, and on 2026-11-12 neither did
   the retry rule (2/12 replaced), see "A2.6b rule". The one retry is built (`e3b6cbd`); its stronger note passed step 2 on
-  2026-11-13 (9/10 vs 7/10). Step 3's sample part passed on 2026-11-14 (0/24 replaced); its follow-up part (0/6) is next.** The gate
+  2026-11-13 (9/10 vs 7/10). Step 3 passed: 0/24 replaced on 2026-11-14, 0/6 on the follow-ups on 2026-11-15, so the rule is met;
+  the deploy waits on Youness. Both retried follow-up answers got refund/deadline rules wrong (`retry_summer_refund_deadline`).** The gate
   (`app/agent/gate.py`) is the graph's last node. `/chat` holds the answer until it has run and sends it whole, so students no
   longer see text arrive word by word. See "A2.6b rule" for the measurement.
 - **A2.2 (generated scope text) is accepted and deployed (`8472f3b`, 2026-11-06).** `python -m app.scope` writes `backend/app/scope.json` and `frontend/src/scope.json` from the registry: run it after

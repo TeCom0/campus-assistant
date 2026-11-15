@@ -89,5 +89,39 @@
       }
     ],
     "use": "A2.7/A2.8: when the passage a part of the question needs is missing, the answer must say it wasn't found, not that the catalog is silent. A2.8's hand check reads retried answers specifically."
+  },
+  {
+    "id": "retry_summer_refund_deadline",
+    "found": "2026-11-15",
+    "checked_by_hand": "2026-11-15",
+    "source_run": "eval/results/gate/2026-11-15_step3_followups.jsonl",
+    "question": "Is it different for the summer session?",
+    "history_question_id": "add_drop_en",
+    "language": "en",
+    "finding": "AG-4",
+    "touches": "amount and deadline: refunds and the add/drop deadline",
+    "pilot_threshold": "D3 item 2: a failing claim that would change a deadline or an amount",
+    "gate": "passed after the retry, both rounds: the first answer cited nothing (no_citation), and the retried answer's markers are real, so the gate can't judge what they're cited for",
+    "claims": [
+      {
+        "claim": "Round 1, retried: 'Refunds for dropping a course are available up to the 18th class day of the summer session, while the regular semester allows refunds up to the 40th class day [1].'",
+        "cited": [1],
+        "verdict": "contradicted",
+        "evidence": "Catalog: 'Although no refund will be given up to the 40th class day of the regular semester and up to 18 class days of the summer session (...), students may drop one or more courses and receive a grade of W.' The answer turns 'no refund' into a refund window."
+      },
+      {
+        "claim": "Round 2, retried: 'The add/drop period for the regular semester ends on the 40th class day, and for the summer session it ends on the 18th class day. [2]'",
+        "cited": [2],
+        "verdict": "contradicted",
+        "evidence": "Catalog: 'Courses dropped within the official add/drop period (4th class day in regular term and 2nd class day in summer) are not reflected on the academic record.' The 40th and 18th class days are the last days for a W grade. The same answer states the 4th/2nd class day correctly one bullet earlier."
+      },
+      {
+        "claim": "Round 2, retried: 'After the add/drop period, instructors determine the grade, assigning either WP or WF. [2]'",
+        "cited": [2],
+        "verdict": "unsupported",
+        "evidence": "Between the add/drop period and the 40th (summer: 18th) class day the catalog gives a W; WP or WF come after that ('WP: Indicates official withdrawal after the specified period for a W grade')."
+      }
+    ],
+    "use": "A2.7/A2.8: the retry can't search and rewrites the first answer's facts under a note that asks for markers; here it got the refund and deadline rules wrong while citing real passages. A2.8's hand check reads retried answers specifically. The rejected first answers aren't recorded, so whether they held the same errors isn't known."
   }
 ]
