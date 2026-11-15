@@ -304,7 +304,7 @@ are test questions, so UNSURE how long real questions are; revisit after the fir
 | `messages` | At most 20 items, or 422. Server still uses the last 10 | Silent discarding hides bugs |
 | `messages[].content` | User 2,000; assistant 6,000 characters | Longest answer in 3 runs is 2,827 [M] |
 | `GET /sources/{id}` | `^[a-z0-9_]{1,64}$`; `page` 1-5000 | Paths are logged, so bound them |
-| `/health`, `/ready`, `/limits` | No parameters | |
+| `/health`, `/ready`, `/limits`, `/editions` | No parameters | |
 | Docs routes | Off unless `ENV=development`, live since 2026-11-06 | AP-4 |
 | Tool `query`, `query_en` | At most 300 characters | The model also writes these |
 | Tool `code` | `^[A-Z]{3} ?\d{4}$` after upper-casing, else "not found" with no DB call | TL-2 |

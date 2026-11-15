@@ -1,6 +1,7 @@
 import Markdown from "react-markdown";
 import { firstParagraph, pagesLabel, stepsSummary } from "../answerFormat";
 import { DATA_COUNTS, RESULTS } from "../about";
+import { useCatalogEdition, withEdition } from "../editions";
 import { EXAMPLE_QUESTIONS, savedExample, type ExampleQuestion } from "../examples";
 import { ANSWER_REMARK_PLUGINS } from "../markdownPlugins";
 import scope from "../scope.json";
@@ -49,6 +50,7 @@ function ProofCard({ onAsk }: { onAsk: (example: ExampleQuestion) => void }) {
 }
 
 export function EmptyState({ onAsk }: { onAsk: (example: ExampleQuestion) => void }) {
+  const edition = useCatalogEdition();
   return (
     <section className="empty" aria-labelledby="empty-title">
       <div className="hero">
@@ -57,7 +59,7 @@ export function EmptyState({ onAsk }: { onAsk: (example: ExampleQuestion) => voi
           Ask the catalog. Get the <em>page</em> the answer came from.
         </h1>
         <p>
-          An AI agent searches the {scope.first_screen_documents}, looks up course prerequisites in
+          An AI agent searches the {withEdition(scope.first_screen_documents, edition)}, looks up course prerequisites in
           structured data, and cites the passages it used.
         </p>
         <ProofCard onAsk={onAsk} />

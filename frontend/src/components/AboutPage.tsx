@@ -1,5 +1,6 @@
 import { DEMO_VIDEO_URL, LIMITATIONS, REPO_URL, RESULTS, STACK } from "../about";
 import { limitsSentence, useDemoLimits } from "../demoLimits";
+import { useCatalogEdition, withEdition } from "../editions";
 import scope from "../scope.json";
 import { ArchitectureDiagram } from "./ArchitectureDiagram";
 import { IntervalChart } from "./IntervalChart";
@@ -10,6 +11,7 @@ import { GitHubIcon } from "./icons";
 // checked against the README by about.test.ts.
 export function AboutPage() {
   const limits = useDemoLimits();
+  const edition = useCatalogEdition();
   return (
     <article className="about" aria-labelledby="about-title">
       <header className="about-head">
@@ -17,7 +19,7 @@ export function AboutPage() {
         <h1 id="about-title">A cited, bilingual assistant for one university's rulebook</h1>
         <p className="about-lead">
           Students ask in English or French. An agent decides whether to search the{" "}
-          {scope.about_documents} or to look up structured course data, then answers
+          {withEdition(scope.about_documents, edition)} or to look up structured course data, then answers
           only from what it found and cites the page. An unofficial student project by Youness, with
           its retrieval and its answers' faithfulness measured.
         </p>
@@ -71,7 +73,7 @@ export function AboutPage() {
         <h2 id="limits-title">What it doesn't do well yet</h2>
         <ul className="limits">
           {LIMITATIONS.map((limitation) => (
-            <li key={limitation}>{limitation}</li>
+            <li key={limitation}>{withEdition(limitation, edition)}</li>
           ))}
         </ul>
       </section>

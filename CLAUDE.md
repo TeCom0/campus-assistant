@@ -90,7 +90,7 @@ CI/CD, and evaluation.
 4. Generation: answer only from retrieved passages, cite them as `[N]`, say "I don't know" when
    the passages don't cover it. Citation numbers are per passage, once per request.
 5. API (`backend/app/main.py`): `/chat` (SSE: token, tool_call, citations, done, error),
-   `/health`, `/limits`, `/sources/{source}`. Request limits (`MAX_*` in `app/config.py`, the same
+   `/health`, `/limits`, `/editions`, `/sources/{source}`. Request limits (`MAX_*` in `app/config.py`, the same
    numbers in `frontend/src/requestLimits.ts`, pinned by a test) run before the demo limits. Demo limits (daily cap, per-IP limit) in Postgres
    (`app/limits.py`). The cap's default is in `app/config.py`, `/limits` serves the value in force
    to the About page, and tests pin the README and `.env.example` to the default.
@@ -404,6 +404,16 @@ Sub-step 5a done 2026-11-15: `GET /editions` (`app/main.py`, query in `app/editi
 serves the active public one only, and `activate` and its rollback change that; not counted in `question_log`; the failure's text
 reaches neither the response nor the logs. Mutation-checked: without the filter, two tests fail. The interface doesn't read it
 yet (5b).
+
+Sub-step 5b done 2026-11-15: `frontend/src/editions.ts` fetches `/editions` once per page (shared by every component), takes the
+one catalog edition only if exactly one is in force (anything else: the built-in text), and swaps its year into the generated
+sentences with `withEdition`. The composer note, the first screen, the About page and its limitations line use it.
+`src/editions.test.tsx` (jsdom): with today's edition every text reads as before; with a newer one all four name it; on a failed
+request the built-in text stays; one request per page; each generated sentence holds the built-in year exactly once.
+`scope.test.tsx`, unchanged, still passes: it renders without effects, so it pins the fallback. Mutation-checked: a hook that
+ignores the answer fails the newer-edition test. In the local app in Chrome (0 tokens): the real `/editions` answered 200 with the
+CORS header and the page read as today; a newer edition served in the browser changed all four places; a 503 kept the built-in
+text. The CSP check of the first screen with the new request runs at the deploy (sub-step 6).
 
 ## A2.2 rule
 

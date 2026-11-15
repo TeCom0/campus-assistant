@@ -500,7 +500,7 @@ backend/
     ingestion/    load -> clean -> chunk -> store; course extraction
     evaluation/   retrieval evaluation runner
     db/           connections, schema.sql, roles.sql, migrate and verify_role commands
-    main.py       FastAPI app: /health, /limits, /chat (SSE)
+    main.py       FastAPI app: /health, /limits, /editions, /chat (SSE)
   tests/
 frontend/src/     App.tsx (chat UI), chatStream.ts (SSE client), components/ (answer, Under the
                   hood panel, About page, diagrams), examples/ (saved example answers)

@@ -1,8 +1,8 @@
 import { useEffect, useRef, type FormEvent, type KeyboardEvent } from "react";
+import { useCatalogEdition } from "../editions";
 import { limitMessages } from "../limitMessages";
 import { privacyNotice } from "../privacyNotice";
 import { charCount, COUNTER_FROM_CHARS, MAX_QUESTION_CHARS } from "../requestLimits";
-import scope from "../scope.json";
 import { SendIcon } from "./icons";
 
 const MAX_HEIGHT_PX = 160;
@@ -21,6 +21,7 @@ export function Composer({
   placeholder: string;
 }) {
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const edition = useCatalogEdition();
   // After trimming, as the server counts it. Going over blocks sending but keeps
   // the text: a maxLength attribute would silently cut what was pasted.
   const count = charCount(value.trim());
@@ -82,7 +83,7 @@ export function Composer({
         {notice.text}
       </p>
       <p className="disclaimer">
-        Answers are based on the {scope.catalog_card_title}. Unofficial student project, not an
+        Answers are based on the {edition.cardTitle}. Unofficial student project, not an
         AUI service. Answers can be wrong: check important details with the Registrar.
       </p>
     </div>
