@@ -10,6 +10,7 @@ infrastructure, per CLAUDE.md's "Postgres full-text search or BM25" note.
 from dataclasses import dataclass, field
 
 from app.db.connection import get_connection
+from app.editions import SOURCE_IN_FORCE
 
 
 @dataclass
@@ -27,13 +28,15 @@ class SearchResult:
 def search_keyword(query: str, top_k: int = 5) -> list[SearchResult]:
     """Return the top_k chunks ranked by Postgres full-text search relevance."""
     conn = get_connection()
+    # Only the editions in force (app/editions.py).
     rows = conn.execute(
-        """
+        f"""
         SELECT source, chunk_index, pages, text,
                ts_rank(text_search, websearch_to_tsquery('english', %s)) AS score, section, level,
                sections
         FROM document_chunks
         WHERE text_search @@ websearch_to_tsquery('english', %s)
+          AND {SOURCE_IN_FORCE}
         ORDER BY score DESC
         LIMIT %s
         """,

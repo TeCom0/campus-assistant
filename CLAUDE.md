@@ -354,6 +354,15 @@ orders courses and edges by edition first; its `course_prerequisites` hash chang
 restore drill of a dump from before A2.3 differs on that one line (noted at the deploy). Item 4 on a copy of the production backup
 is still to do, at the deploy.
 
+Sub-step 2 done 2026-11-15, the filter: `app/editions.py`'s `SOURCE_IN_FORCE` (a subquery on the registry: active edition,
+public document) is in the WHERE clause of vector search, keyword search, the course lookup and the referenced-code check, and
+the prerequisite walk reads edges and titles from the found course's edition only. A subquery and not a cached id list, so a
+status change applies to the next request. `tests/test_editions_in_force.py` puts a superseded, an active and a non-public
+edition side by side and checks only the active public one surfaces, that a status change applies at once, and that a withdrawn
+edition isn't searched. Checked by mutation: with the filter replaced by `true` all 8 tests fail, and removing any one of the
+walk's three edition conditions fails the chain test. Lookup capture byte for byte and retrieval eval line for line, both
+unchanged: with no approximate vector index the scan is exact, so a filter that removes nothing can't reorder.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

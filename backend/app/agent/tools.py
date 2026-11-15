@@ -23,6 +23,7 @@ from langgraph.prebuilt import InjectedState
 from app.agent.citations import citation_number_for
 from app.agent.trace import record_tool_step, snippet
 from app.db.connection import get_connection
+from app.editions import SOURCE_IN_FORCE
 from app.retrieval.hybrid_search import (
     RRF_K,
     query_key,
@@ -240,18 +241,21 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
     as a prerequisite but with no course entry) or "not_found"."""
     conn = get_connection()
     code = code.strip().upper()
+    # Only the editions in force (app/editions.py): one active edition holds the course
+    # tables, so a code matches one row at most.
     row = conn.execute(
-        """
+        f"""
         SELECT code, department, title, credits, prerequisites_text, corequisites_text, page,
                source
-        FROM courses WHERE code = %s
+        FROM courses WHERE code = %s AND {SOURCE_IN_FORCE}
         """,
         (code,),
     ).fetchone()
 
     if not row:
         is_referenced = conn.execute(
-            "SELECT 1 FROM course_prerequisites WHERE prerequisite_code = %s LIMIT 1",
+            "SELECT 1 FROM course_prerequisites "
+            f"WHERE prerequisite_code = %s AND {SOURCE_IN_FORCE} LIMIT 1",
             (code,),
         ).fetchone()
         conn.close()
@@ -288,7 +292,7 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
 
     chain_length = None  # not looked up
     if follow_prerequisites:
-        chain = _prerequisite_chain(conn, code_)
+        chain = _prerequisite_chain(conn, code_, source)
         chain_length = len(chain)
         if chain:
             lines.append(
@@ -332,32 +336,35 @@ def _look_up_course(code: str, follow_prerequisites: bool) -> tuple[str, list[di
 # followed, so a cycle in the data can't make the walk loop. The depth cap is
 # only a backstop. A course reachable by several paths is walked once per path,
 # then GROUP BY lists it once, at its shortest distance.
+# Inside one edition (A2.3): every edge and every course row is read from the
+# edition of the course the walk starts from, which the lookup above found among
+# the editions in force, so a chain never mixes two catalogs.
 PREREQUISITE_CHAIN_SQL = """
     WITH RECURSIVE chain AS (
         SELECT prerequisite_code AS code, 1 AS depth,
                ARRAY[course_code, prerequisite_code] AS path
         FROM course_prerequisites
-        WHERE course_code = %(code)s
+        WHERE course_code = %(code)s AND source = %(source)s
         UNION ALL
         SELECT cp.prerequisite_code, chain.depth + 1, chain.path || cp.prerequisite_code
         FROM course_prerequisites cp
-        JOIN chain ON cp.course_code = chain.code
+        JOIN chain ON cp.course_code = chain.code AND cp.source = %(source)s
         WHERE NOT cp.prerequisite_code = ANY(chain.path)
           AND chain.depth < 10
     )
     SELECT chain.code, min(chain.depth) AS depth, c.title, c.prerequisites_text
     FROM chain
-    LEFT JOIN courses c ON c.code = chain.code
+    LEFT JOIN courses c ON c.code = chain.code AND c.source = %(source)s
     GROUP BY chain.code, c.title, c.prerequisites_text
     ORDER BY depth, chain.code
 """
 
 
-def _prerequisite_chain(conn, code: str) -> list[tuple]:
-    """Every course in `code`'s prerequisite chain, once each:
-    (code, depth, title, prerequisites_text). Title is None for a referenced
+def _prerequisite_chain(conn, code: str, source: str) -> list[tuple]:
+    """Every course in `code`'s prerequisite chain within edition `source`, once
+    each: (code, depth, title, prerequisites_text). Title is None for a referenced
     code with no extracted course row (see schema.sql)."""
-    return conn.execute(PREREQUISITE_CHAIN_SQL, {"code": code}).fetchall()
+    return conn.execute(PREREQUISITE_CHAIN_SQL, {"code": code, "source": source}).fetchall()
 
 
 def _chain_line(code: str, depth: int, title: str | None, prereq_text: str | None) -> str:

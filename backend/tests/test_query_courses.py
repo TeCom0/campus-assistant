@@ -121,7 +121,7 @@ def test_cycle_in_the_data_does_not_loop():
                 (course, prereq),
             )
 
-        chain = _prerequisite_chain(conn, "ZZZ 1001")
+        chain = _prerequisite_chain(conn, "ZZZ 1001", "test")
     conn.close()
 
     assert [(code, depth) for code, depth, _, _ in chain] == [("ZZZ 1002", 1), ("ZZZ 1003", 2)]

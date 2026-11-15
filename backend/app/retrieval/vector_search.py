@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pgvector import Vector
 
 from app.db.connection import get_connection
+from app.editions import SOURCE_IN_FORCE
 from app.embeddings import embed_query
 
 
@@ -25,11 +26,14 @@ def search_vector(query: str, top_k: int = 5) -> list[SearchResult]:
     query_vector = Vector(embed_query(query))
 
     conn = get_connection()
+    # Only the editions in force (app/editions.py). With no approximate index the scan is
+    # exact, so the filter removes rows without changing the order of the rest.
     rows = conn.execute(
-        """
+        f"""
         SELECT source, chunk_index, pages, text, embedding <=> %s AS distance, section, level,
                sections
         FROM document_chunks
+        WHERE {SOURCE_IN_FORCE}
         ORDER BY embedding <=> %s
         LIMIT %s
         """,
