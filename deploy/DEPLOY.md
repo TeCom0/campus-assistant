@@ -442,6 +442,69 @@ left no file the commit doesn't hold (`.env` only). No rollback condition met:
 
 The "no deploy from main" rule above ends with this deploy: main is the deployed line again.
 
+## A2.3: per-edition storage, the edition filter, `activate`
+
+Written before the deploy, after sub-steps 0-5 passed locally (CLAUDE.md, "A2.3 rule"). `C` as above. `update.sh`'s
+migrate converts the course tables in place (schema.sql, one transaction) and adds the foreign keys; no content row changes.
+
+**Why the image rollback is enough although the schema stays.** There is no down-migration. Checked 2026-11-15 on the
+local database after its conversion: the code at `8011e99` (the deployed A2.6b) gives every course lookup byte for byte
+(`dump_course_lookups`, sha256 `93d5a841...`) and the retrieval eval line for line as on the old schema. Its request path
+reads `courses` by code and the edges without `source`, which is right while there is one edition.
+
+### Rule, fixed before the numbers
+
+Before the deploy, **stop** if the migration on a copy of production fails any of these. The copy is a scratch Postgres on
+the VM (`-p a23check`, `deploy/backup/drill-compose.yml`), restored from `pg_dump` of the running database piped straight
+into `pg_restore`, so the data never leaves the VM. Not the B2 object: downloading it needs the console login, and the
+content is the same.
+
+- P1. `fingerprint-a2.3-content.sql` gives the same five lines before and after `schema.sql`, and the same as production.
+- P2. `schema.sql` applied twice; the second run changes nothing. The content tables' keys are the six in
+  `tests/test_schema_editions.py` (`AFTER_A2_3`), and every edge's `source` is `academic_catalog_2024_2025`, 526 rows.
+
+`update.sh` stopping before `up` means **stop**. Expected: `UPDATE OK`, 3 documents, 3 editions all active, 1,161 chunks,
+660 courses and 526 prerequisites.
+
+After `up`, **roll back** on any one of these:
+
+1. Production's `fingerprint-a2.3-content.sql` output differs from the one taken just before the deploy.
+2. The running API's prompt or tool schemas differ from `backend/tests/fixtures/agent_text_c907a33.json`.
+3. Every course lookup, run inside the running API container, doesn't hash to `93d5a841...`.
+4. `/api/editions` doesn't serve the 3 editions, with `Academic Catalog 2024–2025` as the one catalog edition.
+5. The CSP check (`deploy/csp-check`) finds any violation in Chrome, Firefox or WebKit (its first screen now also requests
+   `/editions`), or its live question (ACC 2302, the course lookup and chain) isn't answered with sources.
+6. Any permission error in the API's log, or a question's, answer's or exception's text in it.
+7. `activate academic_catalog_2024_2025` on production isn't refused as already active (exit 1, nothing changed).
+
+Item 5 spends one live question per browser, about 25k tokens in all: check the day's usage first.
+
+### Steps
+
+1. **The copy check (P1, P2)** on the VM, from a copy of the commit in `~/a23check` (not `~/campus`).
+2. **A fresh backup, then keep both running images for the rollback**, `campus-api` and `campus-frontend`, as
+   `pre-a23`, and production's content fingerprint. Check the backup's timestamps as in A2.1.
+3. **Copy the commit** as in step 4 above, and compare the VM's files with it.
+4. **Deploy:** `bash deploy/update.sh`.
+5. **Check the rule above.**
+
+### Rollback
+
+`<prev>` is `8011e99`. Copy it as in step 4, then:
+
+    # VM
+    cd ~/campus
+    docker tag campus-api:pre-a23 campus-api:latest
+    docker tag campus-frontend:pre-a23 campus-frontend:latest
+    $C up -d --no-deps --no-build --force-recreate api frontend
+
+The schema stays converted, which the old code reads correctly (above). Don't run the old commit's `update.sh` or
+ingestion against it: its course seeding upserts on `code` alone, which the new key refuses.
+
+**Restore drills after A2.3.** `fingerprint.sql` hashes whole rows, and each `course_prerequisites` row gained `source`, so a
+dump taken before the deploy differs from production on that one line. Compare such a dump with
+`fingerprint-a2.3-content.sql` on both sides instead; from 30 days after the deploy, every retained dump has the column.
+
 ## VM hardening
 
 The key has a passphrase and lives in the Windows ssh-agent, so from this laptop use
