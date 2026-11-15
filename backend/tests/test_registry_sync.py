@@ -33,6 +33,9 @@ needs_db = pytest.mark.skipif(not database_reachable(), reason="Postgres not rea
 def conn():
     connection = get_owner_connection()
     with connection.transaction(force_rollback=True):
+        # Content rows point at their edition (A2.3), so they go first.
+        for table in ("course_prerequisites", "courses", "document_chunks"):
+            connection.execute(f"DELETE FROM {table}")
         connection.execute("DELETE FROM document_editions")
         connection.execute("DELETE FROM documents")
         yield connection

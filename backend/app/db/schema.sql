@@ -50,33 +50,6 @@ CREATE TABLE IF NOT EXISTS question_log (
 );
 CREATE INDEX IF NOT EXISTS question_log_asked_at_idx ON question_log (asked_at);
 
--- Structured course data (code, title, credits, prerequisites), for the
--- query_courses agent tool. Deliberately doesn't store full course
--- descriptions -- that free text is already in document_chunks (Phase 1)
--- and searchable via search_documents; this table is for the structured
--- facts that need real SQL, especially prerequisite chain-following.
--- See app/ingestion/courses.py.
-CREATE TABLE IF NOT EXISTS courses (
-    code TEXT PRIMARY KEY,
-    department TEXT NOT NULL,
-    title TEXT NOT NULL,
-    credits INT NOT NULL,
-    prerequisites_text TEXT,
-    corequisites_text TEXT,
-    page INT,
-    source TEXT NOT NULL
-);
-
--- Normalized prerequisite edges extracted from courses.prerequisites_text,
--- for recursive chain-following. prerequisite_code is deliberately NOT a
--- foreign key: a small number of referenced codes don't resolve to an
--- extracted course row (format variations in the source catalog), and
--- we'd rather keep the real reference than silently drop it.
-CREATE TABLE IF NOT EXISTS course_prerequisites (
-    course_code TEXT NOT NULL REFERENCES courses(code),
-    prerequisite_code TEXT NOT NULL,
-    PRIMARY KEY (course_code, prerequisite_code)
-);
 
 -- The registry (app/registry.py). Descriptive fields are copied from
 -- data/registry.toml by `python -m app.registry sync`; `status` and the activation
@@ -84,6 +57,7 @@ CREATE TABLE IF NOT EXISTS course_prerequisites (
 -- thing ("Academic Catalog"), an edition one version of it.
 -- owning_department is NULL until AUI confirms it: a placeholder string could end up
 -- in a code-written "confirm with [office]" line.
+-- Before the content tables below: their `source` columns point at an edition.
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     domain TEXT NOT NULL,
@@ -120,3 +94,96 @@ CREATE TABLE IF NOT EXISTS document_editions (
 -- index: only active rows take part, so a document can keep any number of others.
 CREATE UNIQUE INDEX IF NOT EXISTS one_active_edition
     ON document_editions (document_id) WHERE status = 'active';
+
+-- Structured course data (code, title, credits, prerequisites), for the
+-- query_courses agent tool. Deliberately doesn't store full course
+-- descriptions -- that free text is already in document_chunks (Phase 1)
+-- and searchable via search_documents; this table is for the structured
+-- facts that need real SQL, especially prerequisite chain-following.
+-- See app/ingestion/courses.py.
+-- Per edition (A2.3): `source` is the edition the course was extracted from, so
+-- two catalog editions can each hold their own ACC 2302. A database made before
+-- A2.3 is converted in place further down; the columns stay in the same order
+-- either way, so a fresh database and a converted one hash the same.
+CREATE TABLE IF NOT EXISTS courses (
+    code TEXT NOT NULL,
+    department TEXT NOT NULL,
+    title TEXT NOT NULL,
+    credits INT NOT NULL,
+    prerequisites_text TEXT,
+    corequisites_text TEXT,
+    page INT,
+    source TEXT NOT NULL,
+    CONSTRAINT courses_pkey PRIMARY KEY (source, code)
+);
+
+-- Normalized prerequisite edges extracted from courses.prerequisites_text,
+-- for recursive chain-following. prerequisite_code is deliberately NOT a
+-- foreign key: a small number of referenced codes don't resolve to an
+-- extracted course row (format variations in the source catalog), and
+-- we'd rather keep the real reference than silently drop it.
+-- `source` is the edition of the course that has the prerequisite, and the
+-- foreign key keeps the edge inside that edition: an edge can't point from one
+-- catalog's course into another's.
+CREATE TABLE IF NOT EXISTS course_prerequisites (
+    course_code TEXT NOT NULL,
+    prerequisite_code TEXT NOT NULL,
+    source TEXT NOT NULL,
+    CONSTRAINT course_prerequisites_pkey PRIMARY KEY (source, course_code, prerequisite_code),
+    CONSTRAINT course_prerequisites_course_fkey
+        FOREIGN KEY (source, course_code) REFERENCES courses (source, code)
+);
+
+-- A2.3, in place, on a database made before it: courses keyed on code alone, and
+-- edges with no source. Guarded by the missing column, so it runs once; init_schema
+-- sends this whole file as one batch, which Postgres runs as one transaction, so a
+-- failure anywhere leaves the old tables as they were. The backfill takes each
+-- edge's source from its course, which the old foreign key guarantees exists, and
+-- SET NOT NULL fails loudly if one didn't.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'course_prerequisites'
+          AND column_name = 'source'
+    ) THEN
+        ALTER TABLE course_prerequisites DROP CONSTRAINT course_prerequisites_course_code_fkey;
+        ALTER TABLE course_prerequisites DROP CONSTRAINT course_prerequisites_pkey;
+        ALTER TABLE course_prerequisites ADD COLUMN source TEXT;
+        UPDATE course_prerequisites cp SET source = c.source
+            FROM courses c WHERE c.code = cp.course_code;
+        ALTER TABLE course_prerequisites ALTER COLUMN source SET NOT NULL;
+        ALTER TABLE courses DROP CONSTRAINT courses_pkey;
+        ALTER TABLE courses ADD CONSTRAINT courses_pkey PRIMARY KEY (source, code);
+        ALTER TABLE course_prerequisites ADD CONSTRAINT course_prerequisites_pkey
+            PRIMARY KEY (source, course_code, prerequisite_code);
+        ALTER TABLE course_prerequisites ADD CONSTRAINT course_prerequisites_course_fkey
+            FOREIGN KEY (source, course_code) REFERENCES courses (source, code);
+    END IF;
+END
+$$;
+
+-- Every content row belongs to an edition the registry knows (A2.3). Added here
+-- rather than in the CREATE TABLEs, so a fresh database and one made before A2.3
+-- end with the same constraint, by name. Adding it checks every existing row, so a
+-- source the registry doesn't have stops the migration. No ON DELETE: an edition
+-- with rows can't be deleted, only marked superseded or withdrawn.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_constraint
+        WHERE conname = 'document_chunks_source_fkey'
+          AND conrelid = 'document_chunks'::regclass
+    ) THEN
+        ALTER TABLE document_chunks ADD CONSTRAINT document_chunks_source_fkey
+            FOREIGN KEY (source) REFERENCES document_editions (id);
+    END IF;
+    IF NOT EXISTS (
+        SELECT FROM pg_constraint
+        WHERE conname = 'courses_source_fkey' AND conrelid = 'courses'::regclass
+    ) THEN
+        ALTER TABLE courses ADD CONSTRAINT courses_source_fkey
+            FOREIGN KEY (source) REFERENCES document_editions (id);
+    END IF;
+END
+$$;

@@ -341,6 +341,19 @@ After A2.3, with the database seeded as today:
 
 If any of these fails: stop and report, don't adjust. 0 LLM tokens.
 
+Sub-step 0 done 2026-11-15 (`5e0d7e0`): the capture, 1,376 lookups, sha256 `93d5a841...`, the same on two runs. Sub-step 1
+done 2026-11-15, the schema: `courses` keyed on `(source, code)`, `course_prerequisites.source` with its key and a foreign key
+into the same edition's course, and foreign keys from chunks and courses to `document_editions`. The local database, holding
+data, was converted in place by `app.db.migrate` (run twice): `deploy/backup/fingerprint-a2.3-content.sql`, which hashes the edges
+on their old columns, gave the same output before, after, and after re-seeding courses; the lookup capture matched byte for byte;
+the retrieval eval matched the A0 baseline line for line; a fresh database and the converted one have the same 68 lines of
+constraints and columns. `tests/test_schema_editions.py` runs the conversion from the old shape inside a rolled-back transaction.
+Two `verify_role` probes needed a real edition (an insert) or `CASCADE` (a truncate), because as the owner the new foreign keys
+refused them before the privilege question was asked; as `campus_api` they are still denied by privilege. `fingerprint.sql`
+orders courses and edges by edition first; its `course_prerequisites` hash changes once, because the row gains `source`, so a
+restore drill of a dump from before A2.3 differs on that one line (noted at the deploy). Item 4 on a copy of the production backup
+is still to do, at the deploy.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

@@ -102,25 +102,26 @@ COURSE_UPSERT_SQL = """
     VALUES
         (%(code)s, %(department)s, %(title)s, %(credits)s, %(prerequisites_text)s,
          %(corequisites_text)s, %(page)s, %(source)s)
-    ON CONFLICT (code) DO UPDATE SET
+    ON CONFLICT (source, code) DO UPDATE SET
         department = EXCLUDED.department,
         title = EXCLUDED.title,
         credits = EXCLUDED.credits,
         prerequisites_text = EXCLUDED.prerequisites_text,
         corequisites_text = EXCLUDED.corequisites_text,
-        page = EXCLUDED.page,
-        source = EXCLUDED.source
+        page = EXCLUDED.page
 """
 
 PREREQ_EDGE_INSERT_SQL = """
-    INSERT INTO course_prerequisites (course_code, prerequisite_code)
-    VALUES (%s, %s)
+    INSERT INTO course_prerequisites (course_code, prerequisite_code, source)
+    VALUES (%s, %s, %s)
 """
 
 
 def seed_courses() -> None:
-    courses = extract_courses(load_registry().course_tables_edition().id)
-    edges = extract_prerequisite_edges(courses)
+    edition_id = load_registry().course_tables_edition().id
+    courses = extract_courses(edition_id)
+    # Each edge belongs to its course's edition (schema.sql, A2.3).
+    edges = [(code, prereq, edition_id) for code, prereq in extract_prerequisite_edges(courses)]
 
     conn = get_owner_connection()
     init_schema(conn)

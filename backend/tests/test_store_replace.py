@@ -8,6 +8,7 @@ too, so the level/section columns exist even on a database loaded before them.
 
 import psycopg
 import pytest
+from edition_rows import add_edition
 
 from app.config import EMBEDDING_DIM
 from app.db.connection import database_reachable, get_owner_connection, init_schema
@@ -41,6 +42,7 @@ def conn():
     connection = get_owner_connection()
     with connection.transaction(force_rollback=True):
         init_schema(connection)
+        add_edition(connection, "test_source")
         with connection.cursor() as cur:
             cur.executemany(
                 UPSERT_SQL,

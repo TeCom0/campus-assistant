@@ -5,6 +5,7 @@ when it isn't reachable, so the rest of the suite still runs without it.
 """
 
 import pytest
+from edition_rows import add_edition
 
 from app.agent.citations import reset_citation_counter
 from app.agent.tools import _prerequisite_chain, query_courses
@@ -100,6 +101,7 @@ def test_cycle_in_the_data_does_not_loop():
     conn = get_owner_connection()
     # force_rollback: the fake courses and the cycle never reach the real data.
     with conn.transaction(force_rollback=True):
+        add_edition(conn, "test")
         for code in ("ZZZ 1001", "ZZZ 1002", "ZZZ 1003"):
             conn.execute(
                 "INSERT INTO courses (code, department, title, credits, source) "
@@ -114,7 +116,8 @@ def test_cycle_in_the_data_does_not_loop():
             ("ZZZ 1003", "ZZZ 1002"),
         ]:
             conn.execute(
-                "INSERT INTO course_prerequisites (course_code, prerequisite_code) VALUES (%s, %s)",
+                "INSERT INTO course_prerequisites (course_code, prerequisite_code, source) "
+                "VALUES (%s, %s, 'test')",
                 (course, prereq),
             )
 

@@ -108,8 +108,10 @@ MUST_BE_DENIED = [
     _statement("truncate document_chunks", "TRUNCATE document_chunks"),
     _statement(
         "insert into courses",
+        # A real edition as source, like the chunk probe above: since A2.3 a made-up
+        # one is refused by the foreign key, which would hide whether the write worked.
         "INSERT INTO courses (code, department, title, credits, source) "
-        "VALUES ('ZZZ 0000', 'ZZZ', 'probe', 0, 'probe')",
+        "SELECT 'ZZZ 0000', 'ZZZ', 'probe', 0, source FROM courses LIMIT 1",
     ),
     _statement(
         "insert into documents",
@@ -133,7 +135,9 @@ MUST_BE_DENIED = [
         "UPDATE document_editions SET status = 'withdrawn' WHERE false",
     ),
     _statement("delete from document_editions", "DELETE FROM document_editions WHERE false"),
-    _statement("truncate document_editions", "TRUNCATE document_editions"),
+    # CASCADE, like documents: since A2.3 the content tables point at editions, and a
+    # plain TRUNCATE fails on that for any role, which would hide whether it was allowed.
+    _statement("truncate document_editions", "TRUNCATE document_editions CASCADE"),
     _statement("update question_log", "UPDATE question_log SET ip_hash = ip_hash WHERE false"),
     _statement("truncate question_log", "TRUNCATE question_log"),
     _statement("create table", "CREATE TABLE verify_role_probe (id int)"),
