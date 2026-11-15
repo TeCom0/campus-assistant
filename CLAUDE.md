@@ -363,6 +363,15 @@ edition isn't searched. Checked by mutation: with the filter replaced by `true` 
 walk's three edition conditions fails the chain test. Lookup capture byte for byte and retrieval eval line for line, both
 unchanged: with no approximate vector index the scan is exact, so a filter that removes nothing can't reorder.
 
+Sub-step 3 done 2026-11-15, ingestion per edition: `store.py --replace` and `--sections-only` touch only the editions in
+`chunks.jsonl` (before, `--replace` deleted every document's chunks of the model), and an empty replace is refused.
+`courses.py` replaces one edition's courses and edges in one transaction with `replace_course_rows` (before: all edges deleted,
+outside a transaction, and a course a new extraction lost stayed answerable). Both print per-edition counts as proof. Tests in
+`test_store_replace.py` and `test_seed_courses.py`, mutation-checked: unscoping each delete, or dropping the course replace's
+transaction, fails them. On the real data, re-seeding and `--sections-only` left the content fingerprint and the lookup capture
+unchanged. Not run on the real data: `--replace` itself, because re-embedding 1,161 chunks may not reproduce the vectors bit for
+bit, which would change the fingerprint for a reason that isn't A2.3; its scope is covered by the tests.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

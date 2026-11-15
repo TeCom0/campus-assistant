@@ -96,19 +96,12 @@ def extract_prerequisite_edges(courses: dict[str, dict]) -> list[tuple[str, str]
     return sorted(edges)
 
 
-COURSE_UPSERT_SQL = """
+COURSE_INSERT_SQL = """
     INSERT INTO courses
         (code, department, title, credits, prerequisites_text, corequisites_text, page, source)
     VALUES
         (%(code)s, %(department)s, %(title)s, %(credits)s, %(prerequisites_text)s,
          %(corequisites_text)s, %(page)s, %(source)s)
-    ON CONFLICT (source, code) DO UPDATE SET
-        department = EXCLUDED.department,
-        title = EXCLUDED.title,
-        credits = EXCLUDED.credits,
-        prerequisites_text = EXCLUDED.prerequisites_text,
-        corequisites_text = EXCLUDED.corequisites_text,
-        page = EXCLUDED.page
 """
 
 PREREQ_EDGE_INSERT_SQL = """
@@ -117,23 +110,58 @@ PREREQ_EDGE_INSERT_SQL = """
 """
 
 
+def replace_course_rows(
+    conn, edition_id: str, courses: dict[str, dict], edges: list[tuple[str, str]]
+) -> tuple[int, int]:
+    """Replace one edition's courses and prerequisite edges, in one transaction;
+    returns how many (courses, edges) were deleted. Other editions are untouched.
+
+    Delete then insert rather than upsert, so a course a new extraction no longer
+    finds doesn't stay answerable (TL-4 within one edition). Edges go first, because
+    their foreign key points at the edition's courses. One transaction: if an insert
+    fails, the deletes are undone and the edition is left as it was.
+    """
+    if not courses:
+        raise ValueError(f"no courses to replace {edition_id!r} with")
+    others = {c["source"] for c in courses.values()} - {edition_id}
+    if others:
+        raise ValueError(f"courses from {sorted(others)} passed as {edition_id!r}")
+    with conn.transaction():
+        deleted_edges = conn.execute(
+            "DELETE FROM course_prerequisites WHERE source = %s", (edition_id,)
+        ).rowcount
+        deleted_courses = conn.execute(
+            "DELETE FROM courses WHERE source = %s", (edition_id,)
+        ).rowcount
+        with conn.cursor() as cur:
+            cur.executemany(COURSE_INSERT_SQL, list(courses.values()))
+            # Each edge belongs to its course's edition (schema.sql, A2.3).
+            cur.executemany(
+                PREREQ_EDGE_INSERT_SQL, [(code, prereq, edition_id) for code, prereq in edges]
+            )
+    return deleted_courses, deleted_edges
+
+
 def seed_courses() -> None:
     edition_id = load_registry().course_tables_edition().id
     courses = extract_courses(edition_id)
-    # Each edge belongs to its course's edition (schema.sql, A2.3).
-    edges = [(code, prereq, edition_id) for code, prereq in extract_prerequisite_edges(courses)]
+    edges = extract_prerequisite_edges(courses)
 
     conn = get_owner_connection()
     init_schema(conn)
-    with conn.cursor() as cur:
-        cur.executemany(COURSE_UPSERT_SQL, list(courses.values()))
-        # Re-derive edges fresh each run rather than upserting, so a changed
-        # extraction never leaves stale edges behind.
-        cur.execute("DELETE FROM course_prerequisites")
-        if edges:
-            cur.executemany(PREREQ_EDGE_INSERT_SQL, edges)
+    deleted_courses, deleted_edges = replace_course_rows(conn, edition_id, courses, edges)
+    print(
+        f"{edition_id}: replaced {deleted_courses} courses and {deleted_edges} prerequisite "
+        f"edges with {len(courses)} and {len(edges)}"
+    )
+    # Proof of what's in the tables now, per edition.
+    for source, n_courses, n_edges in conn.execute(
+        "SELECT c.source, count(*), "
+        "(SELECT count(*) FROM course_prerequisites p WHERE p.source = c.source) "
+        "FROM courses c GROUP BY c.source ORDER BY c.source"
+    ).fetchall():
+        print(f"  {source}: {n_courses} courses, {n_edges} prerequisite edges")
     conn.close()
-    print(f"seeded {len(courses)} courses, {len(edges)} prerequisite edges")
 
 
 if __name__ == "__main__":

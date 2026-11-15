@@ -31,8 +31,17 @@ def load_chunks() -> list[dict]:
         return [json.loads(line) for line in f]
 
 
-DELETE_MODEL_SQL = "DELETE FROM document_chunks WHERE model_name = %s"
-COUNT_MODEL_SQL = "SELECT count(*) FROM document_chunks WHERE model_name = %s"
+# Scoped to the editions being loaded (A2.3): another edition of the same document,
+# kept for a rollback, isn't in chunks.jsonl and must survive a reload.
+DELETE_EDITIONS_SQL = "DELETE FROM document_chunks WHERE model_name = %s AND source = ANY(%s)"
+COUNT_EDITIONS_SQL = (
+    "SELECT count(*) FROM document_chunks WHERE model_name = %s AND source = ANY(%s)"
+)
+
+
+def editions_of(chunks: list[dict]) -> list[str]:
+    """The editions a set of chunks belongs to, sorted."""
+    return sorted({c["source"] for c in chunks})
 
 
 def chunk_row(chunk: dict, vector, model_name: str = EMBEDDING_MODEL_NAME) -> tuple:
@@ -53,16 +62,20 @@ def chunk_row(chunk: dict, vector, model_name: str = EMBEDDING_MODEL_NAME) -> tu
 
 
 def replace_rows(conn, rows: list[tuple], model_name: str) -> int:
-    """Delete every chunk of `model_name` and insert `rows`, in one transaction;
-    returns how many rows were deleted.
+    """Replace the chunks of `model_name` for the editions `rows` belong to, in one
+    transaction; returns how many rows were deleted. Other editions are untouched.
 
     The upsert alone keys on (source, chunk_index, model_name), so after a
     re-chunk that produces fewer chunks, the old extra rows would stay and
     still be searched. One transaction: if an insert fails, the delete is
-    undone too and the table is left as it was.
+    undone too and the table is left as it was. No rows is refused: it would
+    replace nothing, and say nothing about why.
     """
+    if not rows:
+        raise ValueError("no rows to replace with")
+    editions = sorted({row[0] for row in rows})  # row[0] is source, see chunk_row
     with conn.transaction():
-        deleted = conn.execute(DELETE_MODEL_SQL, (model_name,)).rowcount
+        deleted = conn.execute(DELETE_EDITIONS_SQL, (model_name, editions)).rowcount
         with conn.cursor() as cur:
             cur.executemany(UPSERT_SQL, rows)
     return deleted
@@ -76,11 +89,14 @@ def update_sections(conn, chunks: list[dict], model_name: str = EMBEDDING_MODEL_
     loaded with exactly this text: otherwise the metadata would describe text
     that isn't there, and a full --replace is needed instead.
     """
+    # Only the editions in chunks.jsonl: another edition kept for a rollback isn't
+    # in the file and isn't being described.
     loaded = {
         (source, index): text
         for source, index, text in conn.execute(
-            "SELECT source, chunk_index, text FROM document_chunks WHERE model_name = %s",
-            (model_name,),
+            "SELECT source, chunk_index, text FROM document_chunks "
+            "WHERE model_name = %s AND source = ANY(%s)",
+            (model_name, editions_of(chunks)),
         ).fetchall()
     }
     differs = [
@@ -129,12 +145,23 @@ def store_chunks(chunks: list[dict], replace: bool = False) -> None:
                 rows = [chunk_row(c, vector) for c, vector in zip(batch, vectors, strict=True)]
                 cur.executemany(UPSERT_SQL, rows)
                 print(f"stored {min(i + BATCH_SIZE, len(chunks))}/{len(chunks)} chunks")
-        in_table = conn.execute(COUNT_MODEL_SQL, (EMBEDDING_MODEL_NAME,)).fetchone()[0]
+        in_table = conn.execute(
+            COUNT_EDITIONS_SQL, (EMBEDDING_MODEL_NAME, editions_of(chunks))
+        ).fetchone()[0]
         if in_table > len(chunks):
             print(
-                f"WARNING: the table has {in_table} chunks for this model but chunks.jsonl has "
-                f"{len(chunks)}: stale rows from an earlier chunking remain. Re-run with --replace."
+                f"WARNING: the table has {in_table} chunks of these editions for this model but "
+                f"chunks.jsonl has {len(chunks)}: stale rows from an earlier chunking remain. "
+                "Re-run with --replace."
             )
+
+    # Proof of what's in the table now, per edition (CLAUDE.md: a clean exit proves nothing).
+    for source, count in conn.execute(
+        "SELECT source, count(*) FROM document_chunks WHERE model_name = %s "
+        "GROUP BY source ORDER BY source",
+        (EMBEDDING_MODEL_NAME,),
+    ).fetchall():
+        print(f"  {source}: {count} chunks")
 
     conn.close()
 

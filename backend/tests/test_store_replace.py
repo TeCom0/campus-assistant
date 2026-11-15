@@ -90,3 +90,46 @@ def test_update_sections_refuses_when_a_chunk_text_differs(conn):
         "SELECT sections FROM document_chunks WHERE model_name = %s", (MODEL,)
     ).fetchall()
     assert all(s == [] for (s,) in sections)  # nothing written
+
+
+# --- Per edition (A2.3) ---------------------------------------------------------------
+
+
+def _other_edition_chunk(conn, text: str) -> None:
+    """A chunk of another edition, same model: the one kept for a rollback."""
+    add_edition(conn, "test_other_edition")
+    conn.execute(UPSERT_SQL, chunk_row({**_chunk(0, text), "source": "test_other_edition"},
+                                       [0.0] * EMBEDDING_DIM, MODEL))  # fmt: skip
+
+
+def _texts_of(conn, source: str) -> list[str]:
+    rows = conn.execute(
+        "SELECT text FROM document_chunks WHERE model_name = %s AND source = %s "
+        "ORDER BY chunk_index",
+        (MODEL, source),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def test_replace_leaves_another_edition_of_the_same_model_alone(conn):
+    _other_edition_chunk(conn, "kept for a rollback")
+
+    deleted = replace_rows(conn, [_row(0, "new 0", MODEL)], MODEL)
+
+    assert deleted == 2  # test_source's two old chunks, not the other edition's
+    assert _texts_of(conn, "test_source") == ["new 0"]
+    assert _texts_of(conn, "test_other_edition") == ["kept for a rollback"]
+
+
+def test_replace_with_no_rows_is_refused(conn):
+    with pytest.raises(ValueError, match="no rows"):
+        replace_rows(conn, [], MODEL)
+    assert _texts_of(conn, "test_source") == ["old 0", "old 1"]
+
+
+def test_update_sections_ignores_an_edition_that_is_not_being_loaded(conn):
+    # Before A2.3 the other edition's chunk counted as "loaded", so the counts differed
+    # and the update was refused.
+    _other_edition_chunk(conn, "kept for a rollback")
+    loaded = [{**_chunk(0, "old 0"), "sections": ["A"]}, {**_chunk(1, "old 1"), "sections": []}]
+    assert update_sections(conn, loaded, MODEL) == 2
