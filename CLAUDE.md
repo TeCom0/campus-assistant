@@ -308,6 +308,39 @@ Deployed 2026-11-15 (`8011e99`), decided by Claude with Youness's go-ahead to de
 them and passed, the deployed A2.2 already lets uncited answers reach students, and the retry's wrong claims are AG-4, which the
 rule leaves to A2.7/A2.8. No rollback condition in `deploy/DEPLOY.md` (A2.6b) was met.
 
+## A2.3 rule
+
+Set 2026-11-15 by Claude, with Youness's go-ahead to decide, before any A2.3 code, following the rule of recording a decision
+rule before seeing the numbers. A2.3 stores chunks, courses and prerequisites per edition, searches only active public editions,
+and adds an activate/rollback command. With one active edition per document, as today, nothing a student sees may change.
+
+**Design decision, same date:** the edition column stays `source`. It already holds the edition id in all three tables (the
+registry says `id` "equals document_chunks.source", and the local database agrees: 3 editions, 3 sources), so section 3.2's new
+`edition_id` column would be a second copy of it. `source` gets a foreign key to `document_editions(id)` instead, and keys that
+are already `(source, ...)` (citation numbers, the RRF key, the chunk upsert) are already per edition. What does change:
+`courses` keyed on `(source, code)`, `course_prerequisites` gains `source`, the prerequisite walk stays inside one edition, and
+ingestion replaces one edition's rows, not every document's. `docs/architecture.md` section 3.2 is updated to match.
+
+Sub-steps, one per turn: 0. this rule and a "before" capture of every course lookup; 1. the schema (in place, on a database that
+already has data); 2. the shared active-and-public filter in every search and course lookup; 3. ingestion per edition; 4. the
+`activate` command (rollback is the same command the other way) and the two-edition test; 5. how the generated scope text
+follows the edition in force (decided in that turn, before its code); 6. deploy.
+
+After A2.3, with the database seeded as today:
+
+1. `python -m app.evaluation.run_retrieval_eval` matches `eval/results/retrieval/2026-11-05_a0_baseline.txt` line for line, on
+   both the 14- and the 12-question set.
+2. The model's input is unchanged: `tests/test_agent_text_pinned.py` passes against `agent_text_c907a33.json`.
+3. Every course lookup is unchanged: `python -m app.evaluation.dump_course_lookups` (every course code, every referenced code
+   without a course row, and two codes that don't exist, each with and without the prerequisite chain) matches
+   `eval/results/courses/2026-11-15_a2_3_before.txt` byte for byte.
+4. Content is unchanged: 1,161 chunks, 660 courses, 526 prerequisites, chunk texts byte-identical to `chunks.jsonl`, also after
+   the in-place migration of a copy of the production backup.
+5. A test with two editions of one document proves the superseded one never surfaces in search or course lookups, that
+   `activate` flips them in one transaction and records who and when, and that rollback flips them back.
+
+If any of these fails: stop and report, don't adjust. 0 LLM tokens.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

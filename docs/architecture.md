@@ -575,6 +575,14 @@ CREATE UNIQUE INDEX one_active_edition ON document_editions (document_id) WHERE 
 --   FOREIGN KEY (edition_id, course_code) REFERENCES courses.
 ```
 
+**The edition column stays `source`** (changed 2026-11-15, before A2.3's code). Since A2.1, `source` in
+`document_chunks` and `courses` already holds the edition id, so an `edition_id` column would be a second copy of it.
+`source` gets a foreign key to `document_editions(id)` instead: `courses` is keyed on `(source, code)`, and
+`course_prerequisites` gains `source`, with `PRIMARY KEY (source, course_code, prerequisite_code)` and
+`FOREIGN KEY (source, course_code) REFERENCES courses`. Keys already built on `(source, ...)` (citation numbers, the RRF
+key, the chunk upsert) are per edition already, so the list below shrinks to the course lookups, the prerequisite walk and
+ingestion's replace and reset. The rule for A2.3 is in CLAUDE.md.
+
 **`owning_department` is nullable** (changed 2026-11-06). AUI hasn't confirmed the owners (Q4), and a sentinel such as
 "Unconfirmed" is one forgotten check away from appearing in a code-written "confirm with [office]" line (B24). NULL
 forces that code to handle the missing case.
