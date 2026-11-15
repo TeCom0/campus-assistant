@@ -11,6 +11,7 @@ import psycopg
 import pytest
 from edition_rows import add_edition
 
+from app.config import EMBEDDING_DIM
 from app.db.connection import database_reachable, get_owner_connection, init_schema
 
 pytestmark = pytest.mark.skipif(not database_reachable(), reason="Postgres not reachable")
@@ -126,10 +127,12 @@ def test_a_database_made_before_a2_3_is_converted_in_place(conn):
 def test_a_conversion_that_fails_changes_nothing(conn):
     conn.execute(BEFORE_A2_3)
     # A chunk from an edition the registry doesn't know: the new foreign key refuses it.
+    # Its own zero vector, not one borrowed from a real chunk: CI's database has none.
     conn.execute(
         "INSERT INTO document_chunks (source, chunk_index, text, language, model_name, embedding) "
-        "SELECT 'not_in_the_registry', 0, 'x', 'en', 'test-model', embedding "
-        "FROM document_chunks LIMIT 1"
+        "VALUES ('not_in_the_registry', 0, 'x', 'en', 'test-model', "
+        "array_fill(0::real, ARRAY[%s])::vector)",
+        (EMBEDDING_DIM,),
     )
     # conn.transaction() inside is a savepoint, so the outer transaction survives.
     with pytest.raises(psycopg.errors.ForeignKeyViolation), conn.transaction():
