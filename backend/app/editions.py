@@ -22,3 +22,20 @@ IN_FORCE_EDITIONS_SQL = """
 """
 
 SOURCE_IN_FORCE = f"source IN ({IN_FORCE_EDITIONS_SQL})"
+
+
+# What GET /editions serves: the editions in force, by the same rule as the searches, so
+# the interface can't name an edition the searches don't read. `label` as the registry
+# writes it ("2024-2025"); the interface shows it with an en dash, like the generated text.
+EDITIONS_IN_FORCE_SQL = f"""
+    SELECT e.id, e.document_id, e.label, e.card_title, e.course_tables
+    FROM document_editions e
+    WHERE e.id IN ({IN_FORCE_EDITIONS_SQL})
+    ORDER BY e.document_id
+"""
+
+
+def read_editions_in_force(conn) -> list[dict]:
+    """Every edition in force, as GET /editions serves it."""
+    names = ("id", "document_id", "label", "card_title", "course_tables")
+    return [dict(zip(names, row, strict=True)) for row in conn.execute(EDITIONS_IN_FORCE_SQL)]

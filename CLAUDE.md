@@ -382,6 +382,29 @@ lookup, both editions keep their rows, and a failure injected between the two up
 Mutation-checked: without the transaction, that test fails. Run against the real local database, activating the edition already
 in force is refused. No request-path code changed in this step.
 
+Sub-step 5 decision, set 2026-11-15 by Claude with Youness's go-ahead to decide, before its code. Of the generated text, only the
+interface's names the edition (`catalog_label`, `catalog_card_title` and the two sentences built from them: the composer note
+"Answers are based on the Academic Catalog 2024–2025", the first screen, the About page and its limitations line); what the model
+reads names document types, never a year. Status lives in the database, so text that depends on it is read at runtime: a new
+`GET /editions` serves the editions in force (the same `IN_FORCE_EDITIONS_SQL` as the searches), and the interface takes the
+catalog's label and card title from it, falling back to the generated build-time text while it loads or if the API doesn't
+answer, as the About page does with `/limits`. Rejected: naming the edition in force in the registry file (status in the file; a
+rollback would leave the interface claiming the newer year until a redeploy), generating for the newest edition (the same after a
+rollback), and dropping the year (changes what students see today, against this rule). The generator keeps refusing two editions
+of one document: accepting them needs `seed_courses` to take an edition and the one-course-tables-edition rule to become per
+document, which belong to A2.6 with the second catalog. Done in two turns, 5a the endpoint, 5b the interface. Accepted if: with
+one edition, every interface text renders exactly as before, once loaded and on the fallback (vitest); `scope.json` and the
+model's input unchanged; `/editions` serves active public editions only, and in a two-edition test `activate` and its rollback
+change what it serves; it isn't counted against the demo limits and logs nothing; the CSP check's first screen stays at zero
+violations with the new request.
+
+Sub-step 5a done 2026-11-15: `GET /editions` (`app/main.py`, query in `app/editions.py` on `IN_FORCE_EDITIONS_SQL`) serves
+`{"editions": [{id, document_id, label, card_title, course_tables}]}`; a database failure gets a fixed 503 and logs nothing.
+`tests/test_editions_api.py`: with the real data the catalog's card title and label equal `scope.json`'s; with two editions it
+serves the active public one only, and `activate` and its rollback change that; not counted in `question_log`; the failure's text
+reaches neither the response nor the logs. Mutation-checked: without the filter, two tests fail. The interface doesn't read it
+yet (5b).
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

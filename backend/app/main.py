@@ -5,6 +5,7 @@ import unicodedata
 from typing import Literal
 
 import groq
+import psycopg
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,6 +37,7 @@ from app.config import (
     PER_IP_WINDOW_MINUTES,
 )
 from app.db.connection import get_connection
+from app.editions import read_editions_in_force
 from app.limits import Decision, check_and_record, client_ip, hash_ip, message, title
 from app.request_limits import BodySizeLimitMiddleware
 from app.sources import link_target, load_sources, with_display_info
@@ -85,6 +87,23 @@ def open_source(source_id: str, page: int | None = None) -> RedirectResponse | J
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/editions", response_model=None)
+def editions_in_force() -> dict | JSONResponse:
+    """The editions in force (app/editions.py), so the interface names the catalog edition
+    the searches read, including right after an activation or a rollback, instead of the
+    one it was built with. Not a question, so not counted. A database failure gets a fixed
+    503 with nothing logged (CLAUDE.md, logs), and the interface keeps its built-in text."""
+    try:
+        conn = get_connection(register_vector_type=False)
+        try:
+            editions = read_editions_in_force(conn)
+        finally:
+            conn.close()
+    except psycopg.Error:
+        return JSONResponse(status_code=503, content={"message": "Editions unavailable."})
+    return {"editions": editions}
 
 
 @app.get("/limits")
