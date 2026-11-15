@@ -451,6 +451,13 @@ python -m app.ingestion.store     # embed chunks -> document_chunks
 python -m app.ingestion.courses   # catalog -> courses + prerequisites
 ```
 
+**A newer edition of a document** goes into `data/registry.toml` next to the current one, and
+`python -m app.registry sync` adds it as a draft, which nothing searches. Once it's ingested,
+`python -m app.registry activate <edition> --by <name>` puts it in force: the previous edition
+becomes superseded, in one transaction, and the next question and page load use the new one.
+Activating the previous edition again is the rollback; nothing is re-embedded or deleted. Until
+A2.6, the scope generator and the course extraction still take one edition per document.
+
 ### 2a. Run everything in Docker
 
 ```powershell

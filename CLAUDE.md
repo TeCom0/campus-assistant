@@ -467,6 +467,12 @@ known_hosts).
 
 ## Current status (2026-11-15)
 
+- **A2.3 (per-edition storage, the edition filter, `activate`) is accepted and deployed (`dade4da`, 2026-11-15)**, see "A2.3
+  rule" and `deploy/DEPLOY.md` (A2.3). Rule items 1-5 held: retrieval eval and every course lookup unchanged, the model's input
+  unchanged, content unchanged (also after the migration of a VM-local copy of production), and the two-edition tests. A newer
+  edition is added as draft, ingested, then `python -m app.registry activate <edition> --by <who>`; rollback is the same command.
+  The interface reads the catalog edition from `GET /editions`. Still one edition per document in the file until A2.6 (scope
+  generator, course seeding). Next in the A2 order: A2.4.
 - **A2.6b (answer-level gate and its one retry) is accepted and deployed (`8011e99`, 2026-11-15)**, after the retry rule's step 3
   passed (0/24 replaced on 2026-11-14, 0/6 on the follow-ups on 2026-11-15), see "A2.6b rule". Both retried follow-up answers got
   refund/deadline rules wrong (`retry_summer_refund_deadline`), for A2.7/A2.8. Next in the A2 order: A2.3. The gate

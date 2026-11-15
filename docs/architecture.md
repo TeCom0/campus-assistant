@@ -1272,6 +1272,12 @@ and "No course found... in AUI's course catalog", where naming the edition would
 `generation.py`'s only user being gone, `llm.py` was deleted too. A document with two editions stops the generator on purpose:
 A2.3 has to decide how this text follows the edition in force.
 
+**A2.3 is deployed (`dade4da`, 2026-11-15).** The edition column stayed `source` (section 3.2), with foreign keys to
+`document_editions`; searches and course lookups read the active public editions only (`app/editions.py`); ingestion
+replaces one edition at a time; `python -m app.registry activate` switches editions and rolls back in one transaction. The
+text this section left to A2.3: the interface reads the catalog edition from `GET /editions` at runtime, and the text the
+model reads, which names no year, stays generated. Retrieval eval, every course lookup and the model's input unchanged.
+
 **Order, decided 2026-11-06:** A2.1, A2.2, A2.6b, A2.3, A2.4, A2.5, A2.6, A2.7, A2.8. Step numbers don't change. Students
 testing the demo reported that it answered "What is 1 + 1?" and that answers make them read several paragraphs first.
 A2.6b depends only on A2.2, it fixes the off-topic answers sooner, and A2.6 is blocked on AUI (D8).

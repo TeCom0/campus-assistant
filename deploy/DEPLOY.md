@@ -505,6 +505,29 @@ ingestion against it: its course seeding upserts on `code` alone, which the new 
 dump taken before the deploy differs from production on that one line. Compare such a dump with
 `fingerprint-a2.3-content.sql` on both sides instead; from 30 days after the deploy, every retained dump has the column.
 
+### Deployed (2026-11-15)
+
+`dade4da`, plain `update.sh`: `UPDATE OK`, 3 documents, 3 active editions, 1,161 chunks, 660 courses and 526
+prerequisites, source link 302, `verify_role` 9 allowed and 23 denied. Before it: the copy check passed on a VM-local
+copy of production (P1 the content fingerprint identical before, after, and to production; P2 the second run changed
+nothing, the 7 keys as in the tests, 526 edges on `academic_catalog_2024_2025`; scratch project removed), and the backup
+reached `BACKUP OK` and `PING OK` at 20:40:55 UTC, after the 20:40:51 start; `pre-a23` tags on both images. The copy left
+no file the commit doesn't hold (`.env` only). No rollback condition met:
+
+1. Production's content fingerprint is identical to the one taken just before the deploy.
+2. The running API's prompt and tool schemas hash as the fixture (`a02045f1...`, `a95a4760...`).
+3. All 1,376 course lookups, run inside the running API container, hash to `93d5a841...`.
+4. `/api/editions` serves the 3 editions, `Academic Catalog 2024–2025` the one catalog edition.
+5. The CSP check passed in Chrome 157, Firefox 157 and WebKit 27.2: 0 violations, control 2/2, live question answered
+   with sources, no image from the hostile answer. Firefox notes `tab load: Error` on the source link: its tab
+   requested `/api/sources/...?page=222` and was redirected to the PDF, which its viewer doesn't report as loaded. Four
+   live questions in all, not three: the first Chrome run's output was cut by `head`, so it ran again.
+6. The API log holds 0 permission errors and no question, answer or exception text, only access lines.
+7. `activate academic_catalog_2024_2025` on production was refused as already active.
+
+The SSH rule needed the laptop's new address again (`allow-ssh-from-me`). Playwright's Firefox and WebKit builds were
+missing from the laptop's cache and were reinstalled with `npx playwright install firefox webkit`.
+
 ## VM hardening
 
 The key has a passphrase and lives in the Windows ssh-agent, so from this laptop use
