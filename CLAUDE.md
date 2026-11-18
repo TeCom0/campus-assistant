@@ -528,7 +528,14 @@ hidden HTML elements (`clean` prints both counts: 0 and 0 on today's files); `We
 Markdown block, header row first (the `<thead>` row, else the first row), rows padded, `|` escaped, a caption above it; the
 chunker joins a Markdown table into one unit (`join_tables`), so it is never split, and never carries it over as overlap. A
 table over the token limit becomes one oversized chunk, which the dry run's token check refuses (step 5). Real data
-byte-identical again; 20 mutations caught (two first broke syntax and were re-run as valid code).
+byte-identical again; 20 mutations caught (two first broke syntax and were re-run as valid code). Sub-step 4, code done
+2026-11-18: `app/ingestion/scan.py` with the rule's patterns and `data/review/<edition>.toml` decisions (allow, redact, refuse;
+`value` is an fnmatch pattern; refused kinds can't be decided; unused decisions are reported); `python -m app.ingestion.scan
+--all` changes nothing. 14 mutations caught. First run on today's files, read-only: catalog 86 holds (67 honorific + name, 40
+distinct: president, trustees, deans, program leads; 14 emails, 11 distinct, all `@aui.ma`, one a named person's; 5 phones, one a
+false positive on the IELTS/TOEFL score table, p. 39, kept as a hold, pattern unchanged), no ID, instruction, student or bank
+number; `graduate_scholarships` refused for its "Lorem Ipsum" only (rule item 5 holds); `prestigious_scholarships` 0 hits.
+Decisions wait for Youness.
 
 ## A2.2 rule
 
