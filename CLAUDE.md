@@ -443,6 +443,79 @@ ignores the answer fails the newer-edition test. In the local app in Chrome (0 t
 CORS header and the page read as today; a newer edition served in the browser changed all four places; a 503 kept the built-in
 text. The CSP check of the first screen with the new request runs at the deploy (sub-step 6).
 
+## A2.4 rule
+
+Set 2026-11-18 by Claude, with Youness's go-ahead ("go with your recommendations"), before any A2.4 code, following the rule
+of recording a decision rule before seeing the numbers. A2.4 makes ingestion per edition and driven by the registry: one loader
+interface (`PdfLoader`, `WebLoader`), sanitising, scans with recorded decisions, a dry run that runs every check and reports a
+verdict, and ingest that writes only draft editions. With today's three editions nothing a student sees may change. 0 LLM tokens.
+
+**Decisions, same date:** (1) a table too big for one chunk is refused by the dry run; section 4.2's parent-child retrieval waits
+for B1/B3. (2) A non-English edition is refused until B3, which owns per-row French search: the `english` full-text configuration
+would stem French silently wrong. (3) Ingest writes only draft editions; an active edition's rows are never replaced in place,
+so A2.5's lorem ipsum fix is a new edition plus `activate`. (4) An optional edition field `layout = "aui_catalog"` switches on the
+catalog-only rules (`LEVEL_HEADINGS`, `PAGE_HEADER_LINES`); other documents get plain chunking. Ingestion-only, not synced.
+(5) PDF hidden text (tiny or background-coloured fonts) stays in B1, whose row already holds the hidden-text scan.
+
+**Check methods, written before any is computed.** Values come from today's files once, in the sub-step that builds the check.
+
+- Size: refuse a PDF over 20 MB or 1,000 pages, an HTML file over 2 MB (largest today 2.8 MB, 435 pages).
+- Scanned or image-only: a page is near-empty when it holds fewer than 50 non-whitespace characters after its page-header lines
+  are removed (`PAGE_HEADER_LINES` for `aui_catalog`; otherwise lines repeated on more than half the pages). Refuse when the
+  share of near-empty pages is above the larger of 5% and twice the 2024-2025 catalog's share.
+- Encoding: refuse above 1 per 10,000 characters of U+FFFD plus mojibake sequences (`Ã`, `â€`). Seen before this rule while
+  checking the raw text on 2026-11-18: 0 U+FFFD in all three files; mojibake not yet counted.
+- Headings: refuse below 80% of the previous edition's count for the same document; with no previous edition, report only.
+- Courses (the `course_tables` edition): refuse below the previous edition's count, and list codes found in text but not
+  extracted; with no previous edition, report only.
+- Chunks over 512 tokens: refuse (the existing check).
+- Table-like PDF pages (D6): a page is table-like when at least 10 of its non-empty lines have 3 words or fewer and they are at
+  least 60% of its lines. Refuse when the share is above 1.25 times the 2024-2025 catalog's. Reported for every PDF.
+- Sanitising, removed and counted: zero-width, bidi-control and BOM characters; HTML elements with `hidden`,
+  `aria-hidden="true"`, or an inline style with `display:none`, `visibility:hidden` or `font-size:0`. Today's files hold none
+  of either (checked 2026-11-18), so sanitising them changes nothing.
+- Scans. **Refuse:** a Moroccan national ID (one or two capital letters then 5 or 6 digits, as one token); boilerplate (`lorem
+  ipsum`, `dolor sit amet`). **Hold for a decision:** phone numbers (`+212` or a 0 then 5, 6 or 7, then 8 digits, separators
+  allowed); email addresses; "student ID/number/no." followed by 4 or more digits; IBAN (`MA` + 26 digits) or a 24-digit RIB;
+  an honorific (Mr, Mrs, Ms, Dr, Prof) followed by a capitalised word; instructions to a model in EN or FR ("ignore/disregard
+  ... previous/prior/above instructions", "ignorez/oubliez ... instructions", "you are now", "system prompt"), role markers at a
+  line start (`system:`, `assistant:`, `user:`) and chat tokens (`<|im_start|>`, `[INST]`, `<<SYS>>`). A hold needs a decision
+  (allow, redact, refuse) in a committed `data/review/<edition>.toml`; a hold without one refuses. A pattern changed after
+  seeing hits is changed in the open, with the reason.
+
+**Sub-steps, one per turn:** 0. this rule, the fixtures and their questions; 1. loaders; 2. registry-driven ingest with its gates
+(hash, size, visibility, language, format, no folder scans, `layout`); 3. sanitising and HTML tables; 4. scans and decisions;
+5. the dry-run report, `parser_version`, `quality_report`, draft-only ingest; 6. download hardening (host allow-list from the
+registry, no off-host redirects, timeout, size cap, hash printed); 7. the fixture check. Deployed with A2.5, since nothing
+changes for students.
+
+After A2.4, with today's three editions:
+
+1. The dry run's chunks are byte-identical to `chunks.jsonl` (1,161), with identical metadata (pages, level, section, sections,
+   language).
+2. `python -m app.evaluation.run_retrieval_eval` matches `eval/results/retrieval/2026-11-05_a0_baseline.txt` line for line, on
+   both the 14- and the 12-question set.
+3. The model's input is unchanged: `tests/test_agent_text_pinned.py` passes against `agent_text_c907a33.json`.
+4. Every course lookup matches `eval/results/courses/2026-11-15_a2_3_before.txt` byte for byte.
+5. The only refusal on today's files is the lorem ipsum in `graduate_scholarships` (A2.5's). Holds get recorded decisions, listed
+   in the commit.
+
+On a scratch database (`campus_scratch` on the local container; the real editions' rows copied, not re-embedded; never the dev
+database or the VM), with the three fixture documents in `backend/tests/fixtures/ingestion/` (dining, finance, a second
+academic source; invented, and their questions and anchors written in sub-step 0, before any search ran on them):
+
+6. Attribution: every fixture question's anchor is in the top 5, from its fixture's edition, with that edition's card title.
+7. Coexistence: with the fixtures active, no question of the real 14- or 12-question set that was hit is lost; rank changes are
+   reported.
+8. Withdrawal: for each fixture in turn, ingested last, activated and then withdrawn, every search (fixture and real questions)
+   returns exactly what it returned before that fixture was ingested (source, chunk index, score), and every other edition's
+   chunk count is unchanged. With all three withdrawn, the real eval matches the A0 baseline line for line.
+9. Refusals, each with a test, mutation-checked: unknown format, hash mismatch, non-public, non-English, encrypted PDF,
+   near-empty (scanned) PDF, oversized file, national ID, instruction, boilerplate, off-host redirect, a table too big for one
+   chunk, and no chunk holding part of a table without its header row.
+
+If any of these fails: stop and report, don't adjust.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

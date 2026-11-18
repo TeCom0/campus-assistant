@@ -1,0 +1,113 @@
+[
+  {
+    "id": "fixture_dining_meal_plan_en",
+    "question": "Do I need a meal plan if I live in a residence hall?",
+    "language": "en",
+    "topic": "dining",
+    "expected": [
+      {
+        "source": "fixture_dining_guide",
+        "anchor": "Every student living in a residence hall must hold a meal plan for the whole semester"
+      }
+    ]
+  },
+  {
+    "id": "fixture_dining_brunch_fr",
+    "question": "À quelle heure est le brunch du week-end au restaurant universitaire ?",
+    "question_en": "What time is weekend brunch at the dining hall?",
+    "language": "fr",
+    "topic": "dining, a table cell",
+    "expected": [
+      {
+        "source": "fixture_dining_guide",
+        "anchor": "Weekend brunch 10:30 to 13:00"
+      }
+    ]
+  },
+  {
+    "id": "fixture_dining_guests_en",
+    "question": "How many guests can I bring to the dining hall?",
+    "language": "en",
+    "topic": "dining",
+    "expected": [
+      {
+        "source": "fixture_dining_guide",
+        "anchor": "A student may bring up to two guests per week"
+      }
+    ]
+  },
+  {
+    "id": "fixture_finance_late_fee_en",
+    "question": "What is the late payment fee if I don't pay tuition on time?",
+    "language": "en",
+    "topic": "finance, page 1",
+    "expected": [
+      {
+        "source": "fixture_finance_fees",
+        "anchor": "A late payment fee of 500 MAD is charged once per semester"
+      }
+    ]
+  },
+  {
+    "id": "fixture_finance_refund_fr",
+    "question": "Suis-je remboursé si je me retire de l'université avant le début des cours ?",
+    "question_en": "Do I get a refund if I withdraw from the university before classes start?",
+    "language": "fr",
+    "topic": "finance, page 2, overlaps the catalog's refund rules",
+    "expected": [
+      {
+        "source": "fixture_finance_fees",
+        "anchor": "receives a full refund of tuition, minus a processing fee of 1,000 MAD"
+      }
+    ]
+  },
+  {
+    "id": "fixture_finance_installments_en",
+    "question": "Can I pay my tuition in installments?",
+    "language": "en",
+    "topic": "finance",
+    "expected": [
+      {
+        "source": "fixture_finance_fees",
+        "anchor": "Students may split tuition into three equal installments per semester"
+      }
+    ]
+  },
+  {
+    "id": "fixture_engineering_drop_advisor_en",
+    "question": "Do engineering students need their advisor's approval to drop a course?",
+    "language": "en",
+    "topic": "academic, overlaps the catalog's add/drop rules",
+    "expected": [
+      {
+        "source": "fixture_engineering_handbook",
+        "anchor": "need written approval from their academic advisor before adding or dropping any course"
+      }
+    ]
+  },
+  {
+    "id": "fixture_engineering_safety_fr",
+    "question": "Combien de temps la formation de sécurité en laboratoire reste-t-elle valable ?",
+    "question_en": "How long is the laboratory safety training valid?",
+    "language": "fr",
+    "topic": "academic",
+    "expected": [
+      {
+        "source": "fixture_engineering_handbook",
+        "anchor": "The training certificate is valid for two academic years"
+      }
+    ]
+  },
+  {
+    "id": "fixture_engineering_internship_en",
+    "question": "How long does the engineering internship have to be?",
+    "language": "en",
+    "topic": "academic, overlaps the catalog's internship rules",
+    "expected": [
+      {
+        "source": "fixture_engineering_handbook",
+        "anchor": "complete an internship of at least eight weeks before their final year"
+      }
+    ]
+  }
+]

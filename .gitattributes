@@ -6,3 +6,8 @@ deploy/vm/* text eol=lf
 
 # Compared byte for byte with a fresh capture (written with LF) by the A2.3 rule.
 eval/results/courses/*.txt text eol=lf
+
+# Ingestion fixtures are checked against the sha256 in fixture_registry.toml, so their
+# bytes must be the same on every checkout: no line-ending conversion.
+backend/tests/fixtures/ingestion/*.html -text
+backend/tests/fixtures/ingestion/*.pdf binary

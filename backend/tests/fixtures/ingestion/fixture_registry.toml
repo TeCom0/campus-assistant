@@ -1,0 +1,69 @@
+# TEST FIXTURES: three invented documents for A2.4's scratch-database check (CLAUDE.md,
+# "A2.4 rule", items 6-8). None of them is a university document, and they never go into
+# data/registry.toml, the dev database or the VM.
+#
+# Same shape as data/registry.toml, so the real loader validates it, with two known gaps
+# that later sub-steps close: the URLs use the reserved .invalid domain (sub-step 2 makes
+# the allowed host a parameter), and no edition has course_tables (sub-step 7 loads this
+# file together with the real registry, which has the one).
+#
+# Each file is <edition id>.<format> in this folder. .gitattributes turns off line-ending
+# conversion here, so the sha256 values hold on every checkout. After rebuilding the PDF
+# with make_fixture_pdf.py, update its sha256.
+
+[[document]]
+id = "fixture_dining"
+title = { en = "Campus Dining Guide (fixture)", fr = "Guide de la restauration (fixture)" }
+domain = "dining"
+owning_department = "Fixture Dining Services"
+audience = "all"
+visibility = "public"
+time_sensitive = false
+
+  [[document.edition]]
+  id = "fixture_dining_guide"
+  label = "fixture"
+  card_title = "Campus Dining Guide (test fixture)"
+  retrieved_at = "2026-11-18"
+  language = "en"
+  format = "html"
+  source_url = "https://fixtures.invalid/dining"
+  sha256 = "b1fef91fbf9df32c0b39f80b4594a671503e92fb36e02c28a5149d6575e28e5e"
+
+[[document]]
+id = "fixture_finance"
+title = { en = "Student Fees and Payments (fixture)", fr = "Frais et paiements (fixture)" }
+domain = "finance"
+owning_department = "Fixture Finance Office"
+audience = "all"
+visibility = "public"
+time_sensitive = true
+
+  [[document.edition]]
+  id = "fixture_finance_fees"
+  label = "fixture"
+  card_title = "Student Fees and Payments (test fixture)"
+  retrieved_at = "2026-11-18"
+  language = "en"
+  format = "pdf"
+  source_url = "https://fixtures.invalid/finance.pdf"
+  sha256 = "0609044f538348e4c391684a595311b461361a7c33cdd7279ef927505390537d"
+
+[[document]]
+id = "fixture_engineering"
+title = { en = "School of Engineering Handbook (fixture)", fr = "Guide de l'école d'ingénierie (fixture)" }
+domain = "academic"
+owning_department = "Fixture School of Engineering"
+audience = "undergraduate"
+visibility = "public"
+time_sensitive = true
+
+  [[document.edition]]
+  id = "fixture_engineering_handbook"
+  label = "fixture"
+  card_title = "School of Engineering Handbook (test fixture)"
+  retrieved_at = "2026-11-18"
+  language = "en"
+  format = "html"
+  source_url = "https://fixtures.invalid/engineering-handbook"
+  sha256 = "ce9f9c92a2b8ccd455f2b3f12e8ed9ddc2b06388078d5fa1bb8a4c600c9627b4"
