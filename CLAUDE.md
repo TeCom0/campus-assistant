@@ -523,7 +523,12 @@ any, and reports other files in `data/raw` as ignored; `chunk.py` takes `ChunkSe
 language, starting level) instead of catalog constants and a hardcoded `en`; the registry gained `layout` and
 `read_documents(path, allowed_host)` + `registry_of`, so the fixture file reads on `fixtures.invalid` and joins the real
 registry. On the real data `clean` and `chunk` rewrote the three texts and `chunks.jsonl` byte-identical. 23 mutations, all
-caught.
+caught. Sub-step 3 done 2026-11-18: `app/ingestion/sanitise.py` removes and counts the rule's 17 invisible code points and
+hidden HTML elements (`clean` prints both counts: 0 and 0 on today's files); `WebLoader` turns each outermost HTML table into one
+Markdown block, header row first (the `<thead>` row, else the first row), rows padded, `|` escaped, a caption above it; the
+chunker joins a Markdown table into one unit (`join_tables`), so it is never split, and never carries it over as overlap. A
+table over the token limit becomes one oversized chunk, which the dry run's token check refuses (step 5). Real data
+byte-identical again; 20 mutations caught (two first broke syntax and were re-run as valid code).
 
 ## A2.2 rule
 

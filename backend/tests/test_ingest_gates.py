@@ -22,7 +22,7 @@ from app.ingestion.chunk import (
     settings_for,
 )
 from app.ingestion.clean import clean_all, main
-from app.ingestion.gates import IngestRefused, check_edition, ignored_files, load_edition_text
+from app.ingestion.gates import IngestRefused, check_edition, extract_edition, ignored_files
 from app.registry import LAYOUTS, RegistryError, load_registry, read_documents, registry_of
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ingestion"
@@ -93,7 +93,7 @@ def test_every_layout_name_has_chunking_rules():
     "edition_id", ["fixture_dining_guide", "fixture_finance_fees", "fixture_engineering_handbook"]
 )
 def test_each_fixture_passes_every_gate(edition_id):
-    text = load_edition_text(_fixture_registry(), edition_id, FIXTURES)
+    text = extract_edition(_fixture_registry(), edition_id, FIXTURES).text
     assert "TEST FIXTURE" in text
 
 

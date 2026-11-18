@@ -706,6 +706,10 @@ table without its header row.**
 | Bigger, up to a character budget | Whole table returned to the model when any of its rows match; embedded as row groups, each repeating the header ("parent-child" retrieval) |
 | Bigger than that budget | Dry run stops and asks: split by a real column, or exclude. UNSURE of the budget until real department tables exist |
 
+**As built in A2.4 step 3:** an HTML table becomes one Markdown block, header row first, and the chunker packs it as one unit,
+never split and never carried over as overlap. Of the size cases above, only "fits within the chunk limit" is built (decision 1
+of the A2.4 rule): a table too big for one chunk is refused by the dry run, and parent-child retrieval waits for B1/B3.
+
 **Tier split (D6).** HTML tables are straightforward and are done in A2.4. PDF tables need a change of
 extractor, because pypdf returns flat text with no table structure [C]. `pdfplumber` is the first
 candidate (MIT licence [K]; avoid PyMuPDF's AGPL in this setup [K]); UNSURE until compared on real pages.

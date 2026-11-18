@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from app.ingestion.chunk import chunk_text, settings_for
-from app.ingestion.gates import load_edition_text
+from app.ingestion.gates import extract_edition
 from app.ingestion.loaders import (
     Block,
     Loader,
@@ -49,7 +49,7 @@ def test_unknown_format_is_refused_naming_the_file(format):
 
 
 def test_pdf_gives_one_block_per_page_with_its_number():
-    blocks = PdfLoader().load(FIXTURES / "fixture_finance_fees.pdf")
+    blocks = PdfLoader().load(FIXTURES / "fixture_finance_fees.pdf").blocks
     assert [(b.kind, b.page) for b in blocks] == [("text", 1), ("text", 2)]
     assert blocks[0].text.startswith("Student Fees and Payments\n")
     assert blocks[1].text.startswith("Refunds\n")
@@ -64,7 +64,7 @@ def test_an_empty_pdf_page_keeps_its_block_and_number(tmp_path):
     path = tmp_path / "gap.pdf"
     path.write_bytes(generator.build_pdf([["first page"], [], ["third page"]]))
 
-    blocks = PdfLoader().load(path)
+    blocks = PdfLoader().load(path).blocks
     assert [(b.page, b.text) for b in blocks] == [(1, "first page"), (2, ""), (3, "third page")]
     assert to_chunker_text(blocks) == (
         "--- page 1 ---\nfirst page\n\n--- page 2 ---\n\n\n--- page 3 ---\nthird page"
@@ -72,11 +72,12 @@ def test_an_empty_pdf_page_keeps_its_block_and_number(tmp_path):
 
 
 def test_web_page_drops_the_noise_tags():
-    [block] = WebLoader().load(FIXTURES / "fixture_dining_guide.html")
-    assert block.page is None
-    assert "Campus Dining Guide" in block.text
+    blocks = WebLoader().load(FIXTURES / "fixture_dining_guide.html").blocks
+    text = to_chunker_text(blocks)
+    assert all(block.page is None for block in blocks)
+    assert "Campus Dining Guide" in text
     for noise in ("should be stripped", "font-weight", "Site header", "Home", "Footer"):
-        assert noise not in block.text
+        assert noise not in text
 
 
 def test_paged_text_has_a_marker_per_page():
@@ -117,7 +118,7 @@ needs_raw = pytest.mark.skipif(
 def loaded_texts() -> dict[str, str]:
     # Through the registry and every gate (A2.4 step 2), as clean.py reads them.
     registry = load_registry()
-    return {e.id: load_edition_text(registry, e.id, DATA / "raw") for e in registry.editions}
+    return {e.id: extract_edition(registry, e.id, DATA / "raw").text for e in registry.editions}
 
 
 @needs_raw

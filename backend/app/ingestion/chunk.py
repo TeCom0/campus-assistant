@@ -137,6 +137,38 @@ def _split_into_pages(text: str) -> list[tuple[int | None, str]]:
     return pages
 
 
+MARKDOWN_ROW_RE = re.compile(r"^\|.*\|$")
+MARKDOWN_SEPARATOR_RE = re.compile(r"^\|( *:?-{3,}:? *\|)+$")
+
+
+def join_tables(lines: list[tuple[int | None, str]]) -> list[tuple[int | None, str]]:
+    """Each Markdown table (a row, the separator line, then rows) becomes one unit.
+
+    Chunks are packed from units, so a table is never split between two chunks: the
+    text the model reads never holds part of a table without its header row
+    (docs/architecture.md, 4.2). A table longer than a chunk becomes a chunk of its own;
+    over the embedding model's token limit, the dry run refuses it (step 5). Only
+    loaders.table_to_markdown writes these lines; no line of today's documents matches.
+    """
+    units, i = [], 0
+    while i < len(lines):
+        page, line = lines[i]
+        if (
+            MARKDOWN_ROW_RE.match(line)
+            and i + 1 < len(lines)
+            and MARKDOWN_SEPARATOR_RE.match(lines[i + 1][1])
+        ):
+            end = i + 2
+            while end < len(lines) and MARKDOWN_ROW_RE.match(lines[end][1]):
+                end += 1
+            units.append((page, "\n".join(row for _, row in lines[i:end])))
+            i = end
+        else:
+            units.append((page, line))
+            i += 1
+    return units
+
+
 def _split_into_lines(text: str) -> list[str]:
     # Neither pypdf's nor BeautifulSoup's text extraction reliably produces
     # blank-line-separated paragraphs (both emit a single "\n" between lines),
@@ -282,7 +314,10 @@ def chunk_text(
     for page_number, page_text in _split_into_pages(text):
         for line in _split_into_lines(page_text):
             lines.append((page_number, line))
+    lines = join_tables(lines)
     texts = [line for _, line in lines]
+    # Units holding a whole table: the only ones with a line break inside.
+    table_units = {n for n, line in enumerate(texts) if "\n" in line}
     # Over the whole document, not per page: a heading's next line can be on
     # the next page.
     settings = settings_from_registry(source) if settings is None else settings
@@ -366,6 +401,12 @@ def chunk_text(
                 start += 1
             if start == len(emitted) and not emitted[-1][2].endswith(SENTENCE_END):
                 start = _line_overlap_start(emitted)  # no sentence end: a table, a list
+        # A table is never carried over: whole, it would repeat in every chunk while it
+        # is the last unit; in part, it would lose its header.
+        after_table = max(
+            (j + 1 for j, (n, _, _) in enumerate(emitted) if n in table_units), default=0
+        )
+        start = max(start, after_table)
         current = emitted[start:] + unfinished
         current_len = sum(len(line) for _, _, line in current)
 

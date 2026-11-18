@@ -23,7 +23,7 @@ from pathlib import Path
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
 
-from app.ingestion.loaders import UnsupportedFormat, load_text, loader_for
+from app.ingestion.loaders import Extracted, UnsupportedFormat, extract, loader_for
 from app.registry import Document, Edition, Registry
 
 MEGABYTE = 1024 * 1024
@@ -77,12 +77,13 @@ def check_edition(document: Document, edition: Edition, path: Path) -> None:
             raise IngestRefused(f"{where}: {pages} pages, over the {MAX_PDF_PAGES}-page limit")
 
 
-def load_edition_text(registry: Registry, edition_id: str, raw_dir: Path) -> str:
-    """One registered edition's text, after its checks: data/raw/<id>.<format> only."""
+def extract_edition(registry: Registry, edition_id: str, raw_dir: Path) -> Extracted:
+    """One registered edition's sanitised text, after its checks: data/raw/<id>.<format>
+    only."""
     edition = registry.edition(edition_id)
     path = raw_dir / edition.filename
     check_edition(registry.document_of(edition_id), edition, path)
-    return load_text(path, edition.format)
+    return extract(path, edition.format)
 
 
 def ignored_files(registry: Registry, raw_dir: Path) -> list[str]:
