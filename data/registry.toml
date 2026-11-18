@@ -7,6 +7,8 @@
 # section 3.1).
 #
 # An edition's id equals document_chunks.source, and data/raw/<id>.<format> is its file.
+# Ingestion reads only the files of editions listed here: anything else in data/raw is
+# reported as ignored, never read.
 
 [[document]]
 id = "academic_catalog"
@@ -32,6 +34,9 @@ time_sensitive = true
   fallback_url = "https://aui.ma/academic-catalogs"
   sha256 = "cfebcd24750f8a0418c5b7103f2ff5112a83fda71ff6b3a7c1dcff991ae830fa"
   course_tables = true
+  # The catalog's part headings and page header lines (app/ingestion/chunk.py). Left out,
+  # an edition is chunked plainly.
+  layout = "aui_catalog"
 
 [[document]]
 id = "graduate_scholarships"

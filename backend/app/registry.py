@@ -42,6 +42,11 @@ DOMAINS = {"academic", "scholarships", "finance", "housing", "dining", "student_
 AUDIENCES = {"all", "undergraduate", "graduate", "staff"}
 LANGUAGES = {"en", "fr"}
 FORMATS = {"pdf", "html"}
+# How a document is chunked (app/ingestion/chunk.py, LAYOUT_RULES). "aui_catalog" turns on the
+# catalog's part headings and page header lines; anything else is chunked plainly.
+LAYOUTS = {"aui_catalog", "plain"}
+# Where a registered document may come from. A parameter of read_documents, so the test
+# fixtures can use the reserved .invalid domain instead of made-up aui.ma addresses.
 ALLOWED_HOST = "aui.ma"
 
 # An id becomes a file name and part of a URL path.
@@ -67,6 +72,7 @@ _EDITION_OPTIONAL_KEYS = {
     "last_updated",
     "fallback_url",
     "course_tables",
+    "layout",
 }
 
 
@@ -90,6 +96,7 @@ class Edition:
     last_updated: date | None
     fallback_url: str | None
     course_tables: bool
+    layout: str  # read by ingestion only; not synced to the database
 
     @property
     def filename(self) -> str:
@@ -122,6 +129,12 @@ class Registry:
         for document in self.documents:
             if any(edition.id == edition_id for edition in document.editions):
                 return document
+        raise RegistryError(f"no edition {edition_id!r} in the registry")
+
+    def edition(self, edition_id: str) -> Edition:
+        for edition in self.editions:
+            if edition.id == edition_id:
+                return edition
         raise RegistryError(f"no edition {edition_id!r} in the registry")
 
     def course_tables_edition(self) -> Edition:
@@ -186,19 +199,19 @@ def _optional_date(table: dict, key: str, where: str) -> date | None:
     return _date(table, key, where) if key in table else None
 
 
-def _url(value: str, key: str, where: str) -> str:
-    """An https URL on the university's own host, and nothing that could disguise one."""
+def _url(value: str, key: str, where: str, allowed_host: str) -> str:
+    """An https URL on the allowed host, and nothing that could disguise one."""
     # Python and a browser can disagree on where the host of these ends.
     if "\\" in value or "@" in value or any(c.isspace() for c in value):
         raise RegistryError(f"{where}: {key} {value!r} holds a character a URL must not")
     parts = urlsplit(value)
     host = parts.hostname or ""
-    if parts.scheme != "https" or not (host == ALLOWED_HOST or host.endswith(f".{ALLOWED_HOST}")):
-        raise RegistryError(f"{where}: {key} {value!r} must be https on {ALLOWED_HOST}")
+    if parts.scheme != "https" or not (host == allowed_host or host.endswith(f".{allowed_host}")):
+        raise RegistryError(f"{where}: {key} {value!r} must be https on {allowed_host}")
     return value
 
 
-def _edition(table: object, document_id: str, position: int) -> Edition:
+def _edition(table: object, document_id: str, position: int, allowed_host: str) -> Edition:
     where = f"document {document_id!r}, edition {position}"
     if not isinstance(table, dict):
         raise RegistryError(f"{where}: must be a table")
@@ -217,19 +230,22 @@ def _edition(table: object, document_id: str, position: int) -> Edition:
         retrieved_at=_date(table, "retrieved_at", where),
         language=_choice(table, "language", LANGUAGES, where),
         format=_choice(table, "format", FORMATS, where),
-        source_url=_url(_text(table, "source_url", where), "source_url", where),
+        source_url=_url(_text(table, "source_url", where), "source_url", where, allowed_host),
         sha256=sha256,
         effective_from=_optional_date(table, "effective_from", where),
         review_by=_optional_date(table, "review_by", where),
         last_updated=_optional_date(table, "last_updated", where),
-        fallback_url=_url(fallback_url, "fallback_url", where) if fallback_url else None,
+        fallback_url=(
+            _url(fallback_url, "fallback_url", where, allowed_host) if fallback_url else None
+        ),
         course_tables=_boolean(table, "course_tables", where)
         if "course_tables" in table
         else False,
+        layout=_choice(table, "layout", LAYOUTS, where) if "layout" in table else "plain",
     )
 
 
-def _document(table: object, position: int) -> Document:
+def _document(table: object, position: int, allowed_host: str) -> Document:
     where = f"document {position}"
     if not isinstance(table, dict):
         raise RegistryError(f"{where}: must be a table")
@@ -260,7 +276,8 @@ def _document(table: object, position: int) -> Document:
         visibility=visibility,
         time_sensitive=_boolean(table, "time_sensitive", where),
         editions=tuple(
-            _edition(edition, document_id, n) for n, edition in enumerate(tables, start=1)
+            _edition(edition, document_id, n, allowed_host)
+            for n, edition in enumerate(tables, start=1)
         ),
     )
 
@@ -281,9 +298,13 @@ def _check_whole_registry(documents: tuple[Document, ...]) -> None:
         )
 
 
-def load_registry(path: Path | None = None) -> Registry:
-    """Read and validate the registry file. Raises RegistryError on any problem."""
-    path = REGISTRY_PATH if path is None else path
+def read_documents(path: Path, allowed_host: str = ALLOWED_HOST) -> tuple[Document, ...]:
+    """Read and validate the documents of one registry file, each on its own.
+
+    Rules across documents (unique ids, the one course-tables edition) are
+    registry_of's, so a file of extra documents (the A2.4 test fixtures) can be read
+    here and checked together with the real registry.
+    """
     try:
         with open(path, "rb") as f:
             data = tomllib.load(f)
@@ -295,9 +316,20 @@ def load_registry(path: Path | None = None) -> Registry:
     if set(data) != {"document"} or not isinstance(data["document"], list) or not data["document"]:
         raise RegistryError(f"{path} must hold [[document]] entries and nothing else")
 
-    documents = tuple(_document(table, n) for n, table in enumerate(data["document"], start=1))
+    return tuple(
+        _document(table, n, allowed_host) for n, table in enumerate(data["document"], start=1)
+    )
+
+
+def registry_of(documents: tuple[Document, ...]) -> Registry:
+    """A registry of these documents, once the rules across documents hold."""
     _check_whole_registry(documents)
     return Registry(documents)
+
+
+def load_registry(path: Path | None = None) -> Registry:
+    """Read and validate the registry file. Raises RegistryError on any problem."""
+    return registry_of(read_documents(REGISTRY_PATH if path is None else path))
 
 
 # --- The synced tables: what the API reads -------------------------------------

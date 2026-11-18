@@ -544,6 +544,7 @@ time_sensitive = true          # answers must name the edition
 | `source_url`, `fallback_url`, `format` | Where a source card's link goes; the API needs them, and the file isn't in its image, so they are synced to the table |
 | `retrieved_at`, `last_updated` | When we downloaded it, and the revision date the publisher states. A PDF's metadata date is not a stated revision, so it isn't used: "modified 2025-08-31" on a 2024-2025 catalog is a date a student would misread |
 | `course_tables` | Which edition `app/ingestion/courses.py` extracts from |
+| `layout` (A2.4) | Which chunking rules apply: `aui_catalog` (the catalog's part headings and page header lines) or, when left out, plain. Read by ingestion only, not synced |
 
 **Who reads what.** The API image holds only `backend/app`, so the file isn't in it: the API reads the synced
 tables, and only the CLI and ingestion read the file. Sync runs as the owner in a one-shot Compose service with one

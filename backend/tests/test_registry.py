@@ -89,6 +89,13 @@ def test_the_valid_fixture_loads_so_the_failures_below_mean_something(tmp_path):
     assert page.editions[0].fallback_url is None
     assert page.editions[0].last_updated is None
     assert page.editions[0].course_tables is False
+    assert page.editions[0].layout == "plain"
+    assert first.layout == "plain"
+
+
+def test_the_catalog_layout_is_read(tmp_path):
+    text = _mutated("course_tables = true", 'course_tables = true\n  layout = "aui_catalog"')
+    assert load_registry(_write(tmp_path, text)).editions[0].layout == "aui_catalog"
 
 
 BAD_FILES = [
@@ -150,6 +157,13 @@ BAD_FILES = [
         'format = "html"\n  course_tables = true',
         "course_tables",
     ),
+    (
+        "unknown layout",
+        "course_tables = true",
+        'course_tables = true\n  layout = "magazine"',
+        "layout",
+    ),
+    ("layout not text", "course_tables = true", "course_tables = true\n  layout = 1", "layout"),
     ("broken TOML", 'domain = "academic"', 'domain = "academic', "valid TOML"),
     ("stray top-level key", "[[document]]", "stray = 1\n[[document]]", "nothing else"),
 ]

@@ -12,11 +12,12 @@ a chunk doesn't say what it is about or whom it applies to.
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from app.embeddings import count_tokens, get_model
-from app.registry import load_registry
+from app.registry import Document, Edition, Registry, load_registry
 
 PROCESSED_DIR = Path(__file__).resolve().parents[3] / "data" / "processed"
 CHUNKS_PATH = PROCESSED_DIR / "chunks.jsonl"
@@ -54,13 +55,60 @@ SMALL_WORDS = {
 }  # fmt: skip
 
 
+@dataclass(frozen=True)
+class LayoutRules:
+    """Lines that mean something only in one kind of document."""
+
+    level_headings: Mapping[str, str]  # a part heading -> the level it starts
+    page_header_lines: frozenset[str]  # repeated on every page; never a heading
+
+
+# Chosen by an edition's `layout` in the registry (registry.LAYOUTS lists the names).
+# Only the catalog has part headings and a page header; any other document, a web page
+# or another department's PDF, is chunked without them.
+CATALOG_RULES = LayoutRules(LEVEL_HEADINGS, frozenset(PAGE_HEADER_LINES))
+PLAIN_RULES = LayoutRules({}, frozenset())
+LAYOUT_RULES = {"aui_catalog": CATALOG_RULES, "plain": PLAIN_RULES}
+
+
+@dataclass(frozen=True)
+class ChunkSettings:
+    """What chunking needs to know about one edition, all of it from the registry."""
+
+    starting_level: str
+    language: str
+    rules: LayoutRules
+
+
+def settings_for(document: Document, edition: Edition) -> ChunkSettings:
+    """An edition's chunk settings. Its level starts at the document's audience, when
+    that is one of the levels: a web page for one audience has no part headings, so
+    that holds throughout."""
+    audience = document.audience
+    return ChunkSettings(
+        starting_level=audience if audience in LEVEL_LABELS else DEFAULT_LEVEL,
+        language=edition.language,
+        rules=LAYOUT_RULES[edition.layout],
+    )
+
+
+def settings_from_registry(source: str, registry: Registry | None = None) -> ChunkSettings:
+    """settings_for an edition looked up by id, in the real registry by default.
+
+    Read here, not at import: the API imports this module, and the file isn't in its
+    image.
+    """
+    registry = load_registry() if registry is None else registry
+    return settings_for(registry.document_of(source), registry.edition(source))
+
+
 @dataclass
 class Chunk:
     source: str
     chunk_index: int
     text: str
     pages: list[int] = field(default_factory=list)  # empty for non-paginated (HTML) sources
-    language: str = "en"  # TODO: derive per-source once non-English sources are added
+    language: str = "en"  # set from the registry by chunk_text
     level: str = DEFAULT_LEVEL  # "general", "undergraduate" or "graduate"
     section: str | None = None  # nearest heading above the chunk's first line
     # Every heading the chunk spans: `section`, then each heading that starts
@@ -98,16 +146,17 @@ def _split_into_lines(text: str) -> list[str]:
     return [line for line in lines if line]
 
 
-def looks_like_heading(line: str) -> bool:
+def looks_like_heading(line: str, rules: LayoutRules = CATALOG_RULES) -> bool:
     """A heading's shape: 1-8 words, title or upper case, no digits or punctuation.
 
     PDF extraction loses fonts, so shape and context (is_heading) are all there
     is. Excludes the page header, table header rows ("Course Code Course Name")
     and the abbreviation table ("Finance FIN"); names ("Hazzaz, Safia") and
-    titles ("Mr. ...") are excluded by the punctuation rule.
+    titles ("Mr. ...") are excluded by the punctuation rule. The heading helpers
+    default to the catalog's rules, the ones their tests were written against.
     """
     words = line.split()
-    if not 1 <= len(words) <= 8 or line in PAGE_HEADER_LINES:
+    if not 1 <= len(words) <= 8 or line in rules.page_header_lines:
         return False
     if re.search(r"[\d.,;:!?]", line) or not line[0].isupper() or "Course Code" in line:
         return False
@@ -116,18 +165,20 @@ def looks_like_heading(line: str) -> bool:
     return all(w[0].isupper() or w.lower() in SMALL_WORDS or not w[0].isalpha() for w in words)
 
 
-def _ends_sentence(line: str) -> bool:
+def _ends_sentence(line: str, rules: LayoutRules = CATALOG_RULES) -> bool:
     # Not ")": the probation table's "(may appeal)" cell precedes its "Not
     # Allowed" cell, which would then pass as the heading of the undergraduate
     # repeat rules printed after the table.
-    return line[-1] in ".:;!?" or line in PAGE_HEADER_LINES or line.isdigit()
+    return line[-1] in ".:;!?" or line in rules.page_header_lines or line.isdigit()
 
 
 def _starts_text(line: str) -> bool:
     return len(line.split()) >= 6 or line.startswith("•")
 
 
-def is_heading(previous: str, line: str, following: str) -> bool:
+def is_heading(
+    previous: str, line: str, following: str, rules: LayoutRules = CATALOG_RULES
+) -> bool:
     """A heading-shaped line between the end of a sentence (or another heading)
     and the start of real text.
 
@@ -136,32 +187,28 @@ def is_heading(previous: str, line: str, following: str) -> bool:
     headings, about 1 in 20 wrong in samples (mostly table header rows).
     """
     return (
-        looks_like_heading(line)
-        and (_ends_sentence(previous) or looks_like_heading(previous))
+        looks_like_heading(line, rules)
+        and (_ends_sentence(previous, rules) or looks_like_heading(previous, rules))
         and _starts_text(following)
     )
 
 
-def _starting_level(source: str) -> str:
-    """The level a document starts at: its audience, when that is one of the levels.
+def assign_sections(
+    source: str, lines: list[str], settings: ChunkSettings | None = None
+) -> list[tuple[str, str | None]]:
+    """(level, section) in effect at each line of one document.
 
-    A web page for one audience has no part headings, so this holds throughout.
-    Read here, not at import: the API imports this module, and the file isn't in
-    its image.
+    Without settings, they come from the real registry (settings_from_registry).
     """
-    audience = load_registry().document_of(source).audience
-    return audience if audience in LEVEL_LABELS else DEFAULT_LEVEL
-
-
-def assign_sections(source: str, lines: list[str]) -> list[tuple[str, str | None]]:
-    """(level, section) in effect at each line of one document."""
-    level = _starting_level(source)
+    settings = settings_from_registry(source) if settings is None else settings
+    rules = settings.rules
+    level = settings.starting_level
     section = None
     sections = []
     for i, line in enumerate(lines):
-        if line in LEVEL_HEADINGS:
-            level, section = LEVEL_HEADINGS[line], None
-        elif 0 < i < len(lines) - 1 and is_heading(lines[i - 1], line, lines[i + 1]):
+        if line in rules.level_headings:
+            level, section = rules.level_headings[line], None
+        elif 0 < i < len(lines) - 1 and is_heading(lines[i - 1], line, lines[i + 1], rules):
             section = line
         sections.append((level, section))
     return sections
@@ -197,7 +244,9 @@ def _line_overlap_start(emitted: list) -> int:
     return start
 
 
-def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]:
+def chunk_text(
+    source: str, text: str, boundaries: str = "lines", settings: ChunkSettings | None = None
+) -> list[Chunk]:
     """Chunk one document's text into overlapping, line-aligned windows.
 
     `boundaries` says where a full chunk (MAX_CHUNK_CHARS) ends:
@@ -223,6 +272,9 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
     one passing both targeted checks (undergraduate repeat rule ranked first;
     the nine-semesters sentence whole), but the decision rule fixed beforehand
     was the eval. The other two modes stay as the measured alternatives.
+
+    `settings` (layout rules, starting level, language) come from the registry:
+    passed in by ingestion, or looked up in the real registry when left out.
     """
     if boundaries not in BOUNDARY_MODES:
         raise ValueError(f"boundaries must be one of {BOUNDARY_MODES}, not {boundaries!r}")
@@ -233,13 +285,15 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
     texts = [line for _, line in lines]
     # Over the whole document, not per page: a heading's next line can be on
     # the next page.
-    sections = assign_sections(source, texts)
+    settings = settings_from_registry(source) if settings is None else settings
+    rules = settings.rules
+    sections = assign_sections(source, texts, settings)
     # Lines where a new section starts: a part heading or a heading.
     section_starts = {
         i
         for i in range(1, len(texts))
-        if texts[i] in LEVEL_HEADINGS
-        or (i < len(texts) - 1 and is_heading(texts[i - 1], texts[i], texts[i + 1]))
+        if texts[i] in rules.level_headings
+        or (i < len(texts) - 1 and is_heading(texts[i - 1], texts[i], texts[i + 1], rules))
     }
 
     chunks: list[Chunk] = []
@@ -277,7 +331,7 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
         level, section = sections[emitted[0][0]]
         spanned = [section] if section else []
         for n, _, line in emitted[1:]:
-            if n in section_starts and line not in LEVEL_HEADINGS and line not in spanned:
+            if n in section_starts and line not in rules.level_headings and line not in spanned:
                 spanned.append(line)
         prefix = section_line(level, section, emitted[0][2])
         if prefix:
@@ -288,6 +342,7 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
                 chunk_index=len(chunks),
                 text=chunk_str,
                 pages=pages,
+                language=settings.language,
                 level=level,
                 section=section,
                 sections=spanned,
@@ -324,12 +379,18 @@ def chunk_text(source: str, text: str, boundaries: str = "lines") -> list[Chunk]
     return chunks
 
 
-def chunk_all(boundaries: str = "lines") -> list[Chunk]:
+def chunk_all(boundaries: str = "lines", registry: Registry | None = None) -> list[Chunk]:
+    """Chunk every registered edition's processed text, in edition id order.
+
+    Only registered editions: a stray .txt in data/processed is never read.
+    """
+    registry = load_registry() if registry is None else registry
     all_chunks: list[Chunk] = []
-    for processed_file in sorted(PROCESSED_DIR.glob("*.txt")):
+    for edition in sorted(registry.editions, key=lambda e: e.id):
+        processed_file = PROCESSED_DIR / f"{edition.id}.txt"
         text = processed_file.read_text(encoding="utf-8")
-        source = processed_file.stem
-        chunks = chunk_text(source, text, boundaries)
+        settings = settings_for(registry.document_of(edition.id), edition)
+        chunks = chunk_text(edition.id, text, boundaries, settings)
         all_chunks.extend(chunks)
         print(f"chunked: {processed_file.name} -> {len(chunks)} chunks")
     return all_chunks

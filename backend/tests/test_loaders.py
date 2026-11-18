@@ -2,7 +2,8 @@
 
 The last two tests are the step's proof on the real files: the loaders rebuild every
 registered edition's processed text, and from it every chunk in chunks.jsonl, byte for
-byte. They need data/raw, which is gitignored, so they skip where it isn't (CI).
+byte. Since step 2 they read through the registry and its gates, with each edition's
+chunk settings. They need data/raw, which is gitignored, so they skip where it isn't (CI).
 """
 
 import importlib.util
@@ -12,14 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from app.ingestion.chunk import chunk_text
+from app.ingestion.chunk import chunk_text, settings_for
+from app.ingestion.gates import load_edition_text
 from app.ingestion.loaders import (
     Block,
     Loader,
     PdfLoader,
     UnsupportedFormat,
     WebLoader,
-    load_text,
     loader_for,
     to_chunker_text,
 )
@@ -114,7 +115,9 @@ needs_raw = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def loaded_texts() -> dict[str, str]:
-    return {e.id: load_text(path, e.format) for e, path in _registered_files()}
+    # Through the registry and every gate (A2.4 step 2), as clean.py reads them.
+    registry = load_registry()
+    return {e.id: load_edition_text(registry, e.id, DATA / "raw") for e in registry.editions}
 
 
 @needs_raw
@@ -128,10 +131,15 @@ def test_loaders_rebuild_the_processed_text_byte_for_byte(loaded_texts):
 def test_loaded_text_chunks_to_chunks_jsonl_exactly(loaded_texts):
     lines = (DATA / "processed" / "chunks.jsonl").read_text(encoding="utf-8").splitlines()
     saved = [json.loads(line) for line in lines]
+    registry = load_registry()
     rebuilt = [
         asdict(chunk)
         for edition_id in sorted(loaded_texts)
-        for chunk in chunk_text(edition_id, loaded_texts[edition_id])
+        for chunk in chunk_text(
+            edition_id,
+            loaded_texts[edition_id],
+            settings=settings_for(registry.document_of(edition_id), registry.edition(edition_id)),
+        )
     ]
     assert len(rebuilt) == 1161
     assert rebuilt == saved

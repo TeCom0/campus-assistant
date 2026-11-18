@@ -516,6 +516,15 @@ academic source; invented, and their questions and anchors written in sub-step 0
 
 If any of these fails: stop and report, don't adjust.
 
+Sub-step 0 done 2026-11-18 (`ec3e7b2`): the fixtures and their questions. Sub-step 1 done 2026-11-18 (`f8596d8`):
+`app/ingestion/loaders.py`. Sub-step 2 done 2026-11-18: `clean.py` reads only registered editions, each through
+`app/ingestion/gates.py` (visibility, language, format, file present, size, sha256, PDF pages), checks all before writing
+any, and reports other files in `data/raw` as ignored; `chunk.py` takes `ChunkSettings` from the edition (`layout`,
+language, starting level) instead of catalog constants and a hardcoded `en`; the registry gained `layout` and
+`read_documents(path, allowed_host)` + `registry_of`, so the fixture file reads on `fixtures.invalid` and joins the real
+registry. On the real data `clean` and `chunk` rewrote the three texts and `chunks.jsonl` byte-identical. 23 mutations, all
+caught.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
