@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from app.evaluation.run_retrieval_eval import normalize_text
-from app.ingestion.clean import extract_html_text, extract_pdf_text
+from app.ingestion.loaders import load_text
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ingestion"
 
@@ -31,8 +31,7 @@ def _questions() -> list[dict]:
 
 
 def _text(edition: dict) -> str:
-    path = FIXTURES / f"{edition['id']}.{edition['format']}"
-    return extract_pdf_text(path) if edition["format"] == "pdf" else extract_html_text(path)
+    return load_text(FIXTURES / f"{edition['id']}.{edition['format']}", edition["format"])
 
 
 def test_three_fixture_documents_one_per_domain():

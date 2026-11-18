@@ -677,12 +677,16 @@ against: A01, LLM02, LLM08 [R].
 class Block:                      # the smallest unit a loader produces
     kind: Literal["text", "heading", "table"]
     text: str                     # for a table: Markdown, header row included
-    locator: Locator              # page=117 | anchor="#renewal" | section="Repeat Policy"
+    page: int | None = None       # 1-based PDF page; None for a web page
 
 class Loader(Protocol):
     formats: tuple[str, ...]
-    def load(self, path: Path, edition: Edition) -> list[Block]: ...
+    def load(self, path: Path) -> list[Block]: ...
 ```
+
+As built in A2.4 step 1 (`app/ingestion/loaders.py`), two things differ from the first sketch. The locator is only a page
+number, because that is the only locator anything reads today; an anchor or section can be added when a citation needs one.
+`load` takes no edition: nothing in loading depends on it, and the catalog-only rules (`layout`) apply in chunking.
 
 The pipeline is: **register -> load -> sanitise -> chunk -> scan -> dry-run report -> embed -> draft ->
 evaluate -> activate**. Only `PdfLoader` and `WebLoader` are implemented now. Any other format raises

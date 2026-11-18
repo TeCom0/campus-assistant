@@ -1,33 +1,16 @@
-"""Extract plain text from raw downloaded documents (data/raw/) into data/processed/."""
+"""Extract plain text from raw downloaded documents (data/raw/) into data/processed/.
+
+The extraction itself is in loaders.py (one loader per format). This step still scans
+the folder and skips unknown files, as before; A2.4 step 2 replaces the scan with the
+registry, so only registered editions are read.
+"""
 
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-from pypdf import PdfReader
+from app.ingestion.loaders import UnsupportedFormat, load_text
 
 RAW_DIR = Path(__file__).resolve().parents[3] / "data" / "raw"
 PROCESSED_DIR = Path(__file__).resolve().parents[3] / "data" / "processed"
-
-
-def extract_pdf_text(path: Path) -> str:
-    """Extract text page by page, keeping page markers for later citation metadata."""
-    reader = PdfReader(path)
-    pages = []
-    for page_number, page in enumerate(reader.pages, start=1):
-        text = page.extract_text() or ""
-        pages.append(f"--- page {page_number} ---\n{text}")
-    return "\n\n".join(pages)
-
-
-def extract_html_text(path: Path) -> str:
-    """Strip script/style/nav/header/footer noise and return the remaining visible text."""
-    html = path.read_text(encoding="utf-8")
-    soup = BeautifulSoup(html, "html.parser")
-
-    for tag in soup(["script", "style", "nav", "header", "footer", "noscript"]):
-        tag.decompose()
-
-    return soup.get_text(separator="\n", strip=True)
 
 
 def clean_all() -> None:
@@ -37,11 +20,9 @@ def clean_all() -> None:
         if raw_file.name == ".gitkeep":
             continue
 
-        if raw_file.suffix == ".pdf":
-            text = extract_pdf_text(raw_file)
-        elif raw_file.suffix == ".html":
-            text = extract_html_text(raw_file)
-        else:
+        try:
+            text = load_text(raw_file, raw_file.suffix.removeprefix("."))
+        except UnsupportedFormat:
             print(f"skip (unknown type): {raw_file.name}")
             continue
 
