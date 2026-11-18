@@ -535,7 +535,10 @@ byte-identical again; 20 mutations caught (two first broke syntax and were re-ru
 distinct: president, trustees, deans, program leads; 14 emails, 11 distinct, all `@aui.ma`, one a named person's; 5 phones, one a
 false positive on the IELTS/TOEFL score table, p. 39, kept as a hold, pattern unchanged), no ID, instruction, student or bank
 number; `graduate_scholarships` refused for its "Lorem Ipsum" only (rule item 5 holds); `prestigious_scholarships` 0 hits.
-Decisions wait for Youness.
+Decided by Youness after reading every hit, 2026-11-18, `data/review/academic_catalog_2024_2025.toml`: allow all (`*@aui.ma`,
+the five phone hits each with its reason, every honorific + name), so nothing a student sees changes. Re-scan: the catalog passes,
+no unused decision, nothing redacted; `tests/test_scan.py` pins that where `data/raw` exists, and checks in CI that every
+committed decisions file loads for a registered edition.
 
 ## A2.2 rule
 

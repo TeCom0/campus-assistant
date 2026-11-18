@@ -1,0 +1,55 @@
+# Review decisions for academic_catalog_2024_2025 (A2.4 step 4; docs/architecture.md, 4.4).
+#
+# python -m app.ingestion.scan academic_catalog_2024_2025 lists what the scan holds; each
+# held hit needs a decision here: allow, redact (replaced in the text) or refuse (the whole
+# edition). `value` is an fnmatch pattern; the first decision that matches a hit decides it.
+# Decided 2026-11-18 by Youness, after reading every hit of the first scan.
+
+[[decision]]
+kind = "email"
+value = "*@aui.ma"
+action = "allow"
+reason = "University addresses the catalog publishes for students to use: ten office addresses and one counselor's appointment address (p. 87)"
+by = "Youness"
+
+[[decision]]
+kind = "phone"
+value = "+212-535 86 20 75"
+action = "allow"
+reason = "University switchboard (p. 27)"
+by = "Youness"
+
+[[decision]]
+kind = "phone"
+value = "+212-535 86 21 77"
+action = "allow"
+reason = "University fax (p. 27)"
+by = "Youness"
+
+[[decision]]
+kind = "phone"
+value = "0535-86-2020"
+action = "allow"
+reason = "Campus store (p. 87)"
+by = "Youness"
+
+[[decision]]
+kind = "phone"
+value = "0661515125"
+action = "allow"
+reason = "ITS service desk line the catalog publishes (p. 90)"
+by = "Youness"
+
+[[decision]]
+kind = "phone"
+value = "0-5.5 0-447 0-77"
+action = "allow"
+reason = "Not a phone number: an IELTS/TOEFL score range in the English placement table (p. 39)"
+by = "Youness"
+
+[[decision]]
+kind = "honorific_name"
+value = "*"
+action = "allow"
+reason = "University officials named in their published roles: the President, the Board of Trustees, deans, program leads, the Language Center director"
+by = "Youness"

@@ -7,16 +7,20 @@ from pathlib import Path
 
 import pytest
 
+from app.ingestion.clean import RAW_DIR
+from app.ingestion.gates import extract_edition
 from app.ingestion.loaders import load_text
 from app.ingestion.scan import (
     HOLD_KINDS,
     PATTERNS,
+    REVIEW_DIR,
     Decision,
     DecisionsError,
     load_decisions,
     review,
     scan_text,
 )
+from app.registry import load_registry
 
 FIXTURES = Path(__file__).parent / "fixtures" / "ingestion"
 
@@ -237,3 +241,27 @@ def test_a_bad_file_is_refused(tmp_path, old, new, message):
 def test_every_held_kind_can_be_decided():
     assert {"phone", "email", "student_number", "iban", "rib", "honorific_name"} < HOLD_KINDS
     assert "instruction" in HOLD_KINDS
+
+
+# --- The committed decisions -------------------------------------------------------
+
+REVIEW_FILES = sorted(REVIEW_DIR.glob("*.toml"))
+
+
+@pytest.mark.parametrize("path", REVIEW_FILES, ids=lambda p: p.name)
+def test_each_committed_decisions_file_loads_for_a_registered_edition(path):
+    assert path.stem in {edition.id for edition in load_registry().editions}
+    assert load_decisions(path)
+
+
+@pytest.mark.parametrize("path", REVIEW_FILES, ids=lambda p: p.name)
+def test_each_committed_decisions_file_decides_every_hold_and_nothing_else(path):
+    # data/raw is gitignored, so this runs where the files are, not in CI.
+    if not (RAW_DIR / load_registry().edition(path.stem).filename).exists():
+        pytest.skip("data/raw not present")
+    text = extract_edition(load_registry(), path.stem, RAW_DIR).text
+    result = review(text, load_decisions(path))
+    assert result.passed, (result.refusals, result.undecided[:3])
+    assert result.unused == []
+    # Allow only, so far: nothing a student sees changes (A2.4 rule item 1).
+    assert result.redacted == 0 and result.text == text
