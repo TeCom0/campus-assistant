@@ -123,5 +123,53 @@
       }
     ],
     "use": "A2.7/A2.8: the retry can't search and rewrites the first answer's facts under a note that asks for markers; here it got the refund and deadline rules wrong while citing real passages. A2.8's hand check reads retried answers specifically. The rejected first answers aren't recorded, so whether they held the same errors isn't known."
+  },
+  {
+    "id": "retry_repeat_third_attempt",
+    "found": "2026-11-14",
+    "checked_by_hand": "2026-11-18",
+    "source_run": "eval/results/gate/2026-11-14_step3_sample.jsonl",
+    "question": "I'm an undergraduate and got a C- in a course. Can I retake it, and which grade counts in my GPA?",
+    "language": "en",
+    "finding": "AG-4",
+    "touches": "eligibility: who may ask for a third attempt at a course",
+    "pilot_threshold": "D3 item 2: a failing claim that would change an eligibility outcome (the mildest found so far; Claude's reading, for Youness to confirm)",
+    "gate": "passed after the retry (round 2): the first answer cited nothing, and the retried answer's one marker [1] is real, so the gate can't judge what it's cited for",
+    "claims": [
+      {
+        "claim": "Round 2, retried: 'A repeat is normally allowed only once, unless you seek special permission for a third attempt [1].'",
+        "cited": [1],
+        "verdict": "unsupported",
+        "evidence": "Catalog 2024-2025 p. 121: 'Normally a student is allowed to repeat a course only once. If a required course is failed a second time, a student may, after consulting with the advisor and the school coordinator, appeal to the school dean for permission to take the course a third time.' The answer drops the condition (a required course, failed a second time)."
+      },
+      {
+        "claim": "Round 2, retried: all five sentences cite [1] (C- or lower may be repeated; once, unless a third attempt; highest grade counts; the earlier grade leaves the GPA; counted once for credit).",
+        "cited": [1],
+        "verdict": "no single passage holds them",
+        "evidence": "The record keeps marker numbers only. Local searches rebuilt from the question plus three plausible agent queries put chunk 253, 282 or 786 first. 253 (letter grades) holds none of the repeat rules; 282 (undergraduate repeat policy) stops at 'appeal to the', before the third attempt; 786 (graduate repeat policy) says 'B- or lower', which contradicts 'C- or lower' for an undergraduate."
+      }
+    ],
+    "use": "A2.8: under the retry risk rule (CLAUDE.md, A2.6b rule), a retried answer failing D3 item 2 in run 4 removes the retry. Here it's recorded evidence, not a run 4 result. The rejected first answer isn't recorded."
+  },
+  {
+    "id": "repeat_course_new_grade_replaces",
+    "found": "2026-11-14",
+    "checked_by_hand": "2026-11-18",
+    "source_run": "eval/results/gate/2026-11-14_step3_sample.jsonl",
+    "question": "I'm an undergraduate and got a C- in a course. Can I retake it, and which grade counts in my GPA?",
+    "language": "en",
+    "finding": "AG-4",
+    "touches": "GPA: which grade counts after a repeat",
+    "pilot_threshold": "D3 item 2 if it changes an eligibility outcome (a GPA a student relies on, e.g. for probation); for Youness to confirm",
+    "gate": "passed, not retried (round 1): the first answer cited [2], and the wrong sentence carries no marker",
+    "claims": [
+      {
+        "claim": "Round 1: 'So, after you retake the class, the new grade (whatever it turns out to be) will replace the C- in your GPA calculation, and only that grade will contribute to your cumulative GPA.'",
+        "cited": [],
+        "verdict": "contradicted",
+        "evidence": "Catalog 2024-2025 p. 121: 'If a course is repeated, the highest grade earned is the grade used to compute the cumulative grade point average (CGPA) for all purposes.' The same answer's cited paragraph states the highest-grade rule correctly [2]."
+      }
+    ],
+    "use": "A2.7: an uncited summary sentence after a correct cited one, the kind the bottom-line-first prompt should prevent. A2.8 re-asks it."
   }
 ]

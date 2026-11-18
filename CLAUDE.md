@@ -308,6 +308,34 @@ Deployed 2026-11-15 (`8011e99`), decided by Claude with Youness's go-ahead to de
 them and passed, the deployed A2.2 already lets uncited answers reach students, and the retry's wrong claims are AG-4, which the
 rule leaves to A2.7/A2.8. No rollback condition in `deploy/DEPLOY.md` (A2.6b) was met.
 
+Retry risk rule, set 2026-11-18 by Youness after reading `1ea8e68` to `240fe46`, before anything was measured, following
+the rule of recording a decision rule before seeing the numbers. The retry turns uncited answers into cited ones, and a wrong
+answer with real markers looks more trustworthy to a student than an uncited one, and the gate can't tell them apart. A
+template (a false refusal) is the safer failure: it costs against item 3's 2/30, while a wrong deadline breaks item 2 outright.
+
+- **A2.8 (run 4):** every answer that went through the retry is listed separately and checked by hand against its passages.
+  If any retried answer fails D3 item 2 (a deadline, amount, credit count or eligibility outcome), the retry is removed: a
+  `no_citation` answer gets the not-found template directly. Then the false refusals are re-counted against item 3. One
+  decision, not a new round of tuning.
+- **A2.7 reports the retry rate:** how often the retry fires, per question and overall, in its measurement. If A2.7's prompt
+  makes first answers cite, the retry should rarely fire.
+
+Hand check of `repeat_course_en`'s retried answer (step 3 sample, round 2), 2026-11-18, 0 LLM tokens, by Claude: **fails, AG-4,
+and D3 item 2 on an eligibility outcome**, in `eval/known_failures.json` (`retry_repeat_third_attempt`). Every sentence cites
+[1]. The record keeps marker numbers, not passages, so which passage [1] was isn't known; local searches rebuilt from the
+question plus three plausible agent queries put chunk 253 (letter grades), 282 (undergraduate repeat policy) or 786 (graduate
+repeat policy) first. None of them holds every claim: 253 holds none of the repeat rules, 282 stops at "appeal to the" before
+the third attempt, and 786 is the graduate rule (B- or lower), which contradicts "C- or lower" for this undergraduate. On
+content, four claims match the catalog (p. 121: C- or lower may be repeated, highest grade counts in the CGPA, counted once for
+credit). The fifth, "a repeat is normally allowed only once, unless you seek special permission for a third attempt", drops the
+condition: the catalog allows an appeal to the dean only "if a required course is failed a second time". Of the four checked
+problems it's the mildest, and a judgment call for Youness to confirm, as with `followup_fr`. Seen, not retried, so outside
+the rule: round 1's first answer ends, uncited, "the new grade (whatever it turns out to be) will replace the C-", which
+contradicts the highest-grade rule its own cited paragraph states (`repeat_course_new_grade_replaces`). Tally of hand-checked
+retries: on `transfer_credits_en`, the question the note was tuned on, the new note 9/9 correct and the previous note 2 wrong
+(`retry_no_graduate_limit`); on every other question, 3/3 wrong (`followup_summer` twice, `repeat_course_en`). The A2.8 rule
+applies at run 4, so nothing changes now.
+
 ## A2.3 rule
 
 Set 2026-11-15 by Claude, with Youness's go-ahead to decide, before any A2.3 code, following the rule of recording a decision

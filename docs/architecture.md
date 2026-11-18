@@ -478,6 +478,7 @@ All student-facing text exists in English and French. Logs hold no question text
 | Step limit or 60 s deadline | Graph, timer | SSE `error` | "Took too long", retry | Type only |
 | Truncated output | `finish_reason` | Template | Not-found template, more specific | `truncated=1` |
 | Gate rejects | Gate | Template | As in 2.4 | `gate=<reason>` |
+| Sources fail to load after the gate passed (seen 2026-11-14) | Exception in `load_sources()` | Today: answer sent, then SSE `error` | Today: a marker with no source card, then an error. To decide in B24: answer and cards together, or neither | Type only |
 | Client disconnects | Starlette | Run cancelled | Nothing | `cancelled=1` |
 | Trace can't be built | `try` [C] | Answer still sent | No panel | Type only |
 | `/sources` target down | HEAD check [C] | 302 to fallback page | Landing page | None |
@@ -1294,7 +1295,13 @@ stays at B3 (section 5.4). There is no LLM-based scope classifier: the gate is s
 - **A2.4.** Scratch-database fixture documents (one dining, one finance, a second academic) prove that they coexist, that
   attribution stays correct, and that withdrawing one leaves the other documents' chunk counts and retrieval ranks
   unchanged. Embeddings only, 0 LLM tokens.
-- **A2.7.** Full detail is kept when the student explicitly asks for it.
+- **A2.7.** Full detail is kept when the student explicitly asks for it. Added 2026-11-18, before A2.7's code: its
+  measurement reports how often the citation retry fires, per question and overall. If the prompt makes first answers cite,
+  the retry should rarely fire.
+- **A2.8.** Added 2026-11-18, before run 4 (CLAUDE.md, A2.6b rule, retry risk rule): every answer that went through the
+  retry is listed separately and checked by hand against its passages. If any fails D3 item 2, the retry is removed (a
+  `no_citation` answer gets the not-found template directly) and the false refusals are re-counted against item 3. One
+  decision, not a new round of tuning.
 
 **Findings from the audit of 2026-11-06, carried into later steps** (line numbers here and in the table above are at
 commit `c1571e7`):
@@ -1306,6 +1313,10 @@ commit `c1571e7`):
 - **A2.7.** The forced-answer rule must say "answer the student's question", not "the last message": the forced
   conversation ends with the search results, not the question (`graph.py:172`). Leave the fallback's wording alone, because
   `history.py:38` matches it by prefix. Regenerated examples change the first screen's proof card (`answerFormat.ts:27-30`).
+- **B24** (added 2026-11-18, seen in A2.6b's step 3 on 2026-11-14, `eval/results/gate/2026-11-14_step3_sample_errors.jsonl`).
+  Sources fail to load after the gate has passed: the gate passed `scholarship_work_hours_fr` with a real [11], `/chat` sent
+  the answer, then `load_sources()` timed out on the database. A student would see a marker with no source card, then an
+  error. A failure mode for section 2.6: the answer and its source cards should succeed or fail together.
 
 Effort is re-estimated from the original tier A figures and carries the same plus or minus 50%.
 
