@@ -742,6 +742,17 @@ about 85 of its 435 pages have a course-table header [M].
 Thresholds are set from the catalog, then reviewed after the first new document type. They are
 starting values, not established facts.
 
+**As built in A2.4 step 5a** (`app/ingestion/ingest.py`, `app/ingestion/quality.py`): the check methods are the A2.4 rule's,
+with values measured once on 2026-11-19 from the 2024-2025 catalog: 9/435 near-empty pages (limit 5%), 11/435 table-like
+pages (limit 3.2%), 0 encoding errors in all three files (limit 1 per 10,000 characters), 533 headings, longest chunk 398
+tokens counted as embedded (with the `passage: ` prefix the model reads). "Previous edition" is the document's edition in force
+in the database, read in a read-only transaction; its headings and courses are measured again on its own file with today's
+code, not read from a stored report. Every check runs even after one refuses, except a gate refusal, which stops that edition's
+report. Two refusals beyond the table above: an edition with no chunks, and an encrypted PDF even when it opens without a
+password (in `gates.py`). Not built: the anchors row (the retrieval eval checks anchors, and A2.6 runs it on the new catalog) and a separate page-header warning (the
+near-empty check reports the header lines it removed). Today: the catalog and the prestigious page pass, `graduate_scholarships`
+is refused for its Lorem Ipsum only.
+
 Web loader rules: host allow-list from the registry, redirects only to allowed hosts, timeout, size limit,
 keep the raw file with its hash, strip `script`, `style`, `nav` and elements hidden by CSS or attributes.
 

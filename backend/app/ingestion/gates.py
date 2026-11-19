@@ -12,9 +12,11 @@ in this order, or is refused with a message that says why:
 4. the file exists, and isn't over the size limit, checked before it is read.
 5. its sha256 is the registry's: it is the file that was registered, not a re-download
    that changed or another file under the same name.
-6. a PDF's page count is under the limit (reading the page tree, not the text).
+6. a PDF isn't encrypted, and its page count is under the limit (reading the page tree,
+   not the text).
 
-Encrypted and scanned (near-empty) PDFs are checked by the dry run (step 5).
+Scanned (near-empty) PDFs, and every other measured check, are in the dry run
+(quality.py, ingest.py; step 5).
 """
 
 import hashlib
@@ -70,7 +72,12 @@ def check_edition(document: Document, edition: Edition, path: Path) -> None:
 
     if edition.format == "pdf":
         try:
-            pages = len(PdfReader(path).pages)
+            reader = PdfReader(path)
+            # Even one that opens with an empty password: its owner restricted it, and
+            # pypdf would otherwise decrypt it silently on the first page read.
+            if reader.is_encrypted:
+                raise IngestRefused(f"{where}: the PDF is encrypted")
+            pages = len(reader.pages)
         except PdfReadError as e:
             raise IngestRefused(f"{where}: can't be read as a PDF ({type(e).__name__})") from None
         if pages > MAX_PDF_PAGES:

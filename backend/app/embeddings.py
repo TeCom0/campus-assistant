@@ -18,10 +18,17 @@ def get_model() -> SentenceTransformer:
     return SentenceTransformer(EMBEDDING_MODEL_NAME)
 
 
+def passage_text(text: str) -> str:
+    """What the model reads for a document chunk. e5 models expect a "passage: " prefix on
+    document-side text. The dry run counts tokens on this, not the bare chunk: the prefix
+    is what the model's limit applies to."""
+    return f"passage: {text}"
+
+
 def embed_passages(texts: list[str]) -> list[list[float]]:
-    """Embed document chunks. e5 models expect a "passage: " prefix on document-side text."""
+    """Embed document chunks, prefixed by passage_text."""
     model = get_model()
-    prefixed = [f"passage: {t}" for t in texts]
+    prefixed = [passage_text(t) for t in texts]
     embeddings = model.encode(prefixed, normalize_embeddings=True, show_progress_bar=False)
     return embeddings.tolist()
 

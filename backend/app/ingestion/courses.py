@@ -34,7 +34,15 @@ COURSE_CODE_RE = re.compile(r"\b([A-Z]{3}) ?(\d{4})\b")
 
 
 def extract_courses(edition_id: str) -> dict[str, dict]:
-    lines = (PROCESSED_DIR / f"{edition_id}.txt").read_text(encoding="utf-8").split("\n")
+    """The courses in an edition's processed text file (data/processed/<id>.txt)."""
+    text = (PROCESSED_DIR / f"{edition_id}.txt").read_text(encoding="utf-8")
+    return extract_courses_from_text(edition_id, text)
+
+
+def extract_courses_from_text(edition_id: str, text: str) -> dict[str, dict]:
+    """The courses in an edition's text, as the chunker reads it. The dry run calls this
+    on text in memory, so nothing is written to data/processed first."""
+    lines = text.split("\n")
 
     page_of_line = []
     current_page = None

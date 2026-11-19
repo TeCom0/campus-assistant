@@ -540,6 +540,20 @@ the five phone hits each with its reason, every honorific + name), so nothing a 
 no unused decision, nothing redacted; `tests/test_scan.py` pins that where `data/raw` exists, and checks in CI that every
 committed decisions file loads for a registered edition.
 
+Sub-step 5 is done in two turns: 5a the dry run, 5b `parser_version`, `quality_report` and draft-only ingest. 5a done
+2026-11-19: `python -m app.ingestion.ingest <edition>|--all --dry-run` (`app/ingestion/ingest.py`, the measurements in
+`app/ingestion/quality.py`). Order: gates, sanitising, scan with decisions (redactions reach the chunks), near-empty and
+table-like pages (PDF), encoding, chunks, tokens, headings, courses; every check runs after a refusal except a gate's. Values
+measured once from today's files, as the rule says: catalog 9/435 near-empty (limit max(5%, 4.1%) = 5%), 11/435 table-like
+(limit 3.2%), 0 encoding errors in all three files. Tokens are counted with the `passage: ` prefix the model reads (398 max,
+396 without it): stricter than the old check, chosen with nothing near the limit. The previous edition is the document's edition
+in force in the database, read in a read-only transaction (psycopg ignores `read_only` in autocommit: checked), and measured
+again on its own file. Added in the open, beyond the rule's list: an edition with no chunks is refused, and `gates.py` refuses an
+encrypted PDF even when it opens without a password. Today: catalog pass (533 headings and 660 courses reported, 148 codes in the
+text not extracted), `prestigious_scholarships` pass, `graduate_scholarships` refused for its Lorem Ipsum only (rule item 5);
+`tests/test_dry_run.py` checks rule item 1 where `data/raw` exists (1,161 chunks byte-identical to `chunks.jsonl`, metadata
+included) and item 5. 25 mutations caught (one first missed its pattern after `ruff format` and was re-run on the new line).
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
