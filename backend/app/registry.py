@@ -401,7 +401,8 @@ UPSERT_EDITION_SQL = """
         sha256 = EXCLUDED.sha256
 """
 
-# Until A2.4's loaders produce real values (docs/architecture.md, section 3.2).
+# A synced edition's values until `python -m app.ingestion.ingest` writes it as a draft
+# (A2.4 step 5b; docs/architecture.md, section 3.2).
 UNVERSIONED_PARSER = "unversioned"
 INITIAL_ACTIVATOR = "registry sync --initial"
 

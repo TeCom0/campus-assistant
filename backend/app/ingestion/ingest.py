@@ -19,25 +19,54 @@ For each edition, in the order the pipeline will write it:
 
 Every check runs even after one refuses, so one run shows everything to fix. The verdict
 is "refused" if any check refused, "held" if a scan hit has no decision, else "pass".
-Nothing is written, and the exit code is 0 only if every edition passed.
+With --dry-run nothing is written, and the exit code is 0 only if every edition passed.
+
+    python -m app.ingestion.ingest <edition id> [<edition id> ...]
+
+Without --dry-run, an edition that passes is written as a draft (write_draft): its
+chunks, embedded; its courses and prerequisite edges if it is the course-tables edition;
+its parser_version and quality_report. One transaction, and only while the edition is a
+draft in document_editions with the registry's sha256: an edition in force is never
+replaced in place (A2.4 rule, decision 3). Students see it only after
+`python -m app.registry activate`.
 """
 
 import argparse
 import sys
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+import bs4
+import pypdf
+from psycopg.types.json import Jsonb
 
 from app.ingestion import quality
 from app.ingestion.chunk import Chunk, chunk_text, settings_for
 from app.ingestion.clean import RAW_DIR
-from app.ingestion.courses import extract_courses_from_text
+from app.ingestion.courses import (
+    extract_courses_from_text,
+    extract_prerequisite_edges,
+    replace_course_rows,
+)
 from app.ingestion.gates import IngestRefused, extract_edition
 from app.ingestion.scan import REVIEW_DIR, DecisionsError, load_decisions, review
+from app.ingestion.store import chunk_row, replace_rows
 from app.registry import Registry, load_registry
 
 OUTCOMES = ("pass", "reported", "held", "refused")
+
+# Bump when a change to loading, sanitising, scanning or chunking changes what an
+# edition's chunks are. tests/test_ingest_write.py pins the fixtures' chunks to this
+# number, so a change that forgets the bump fails there.
+PARSER_REVISION = 1
+
+
+def parser_version() -> str:
+    """What produced an edition's rows: this code's revision and the extractors' versions
+    (a pypdf upgrade can change the text of a PDF without any change here)."""
+    return f"ingest-{PARSER_REVISION} pypdf-{pypdf.__version__} bs4-{bs4.__version__}"
 
 
 @dataclass(frozen=True)
@@ -63,6 +92,9 @@ class DryRun:
     previous: str | None
     checks: list[Check]
     chunks: list[Chunk]
+    # The course-tables edition's courses, from the same text as the chunks (after
+    # redaction), so what is written is what was checked.
+    courses: dict[str, dict] = field(default_factory=dict)
 
     @property
     def verdict(self) -> str:
@@ -241,7 +273,7 @@ def dry_run(
         )
     )
     if edition.course_tables:
-        courses = extract_courses_from_text(edition_id, text)
+        courses = run.courses = extract_courses_from_text(edition_id, text)
         missing = sorted(quality.codes_in_text(text) - set(courses))
         check = _compared(
             "courses",
@@ -285,6 +317,92 @@ def previous_edition(conn, document_id: str, edition_id: str) -> str | None:
     return row[0] if row else None
 
 
+EDITION_ROW_SQL = "SELECT status, sha256 FROM document_editions WHERE id = %s"
+
+
+class WriteRefused(Exception):
+    """An edition that may not be written; nothing was changed."""
+
+
+def quality_report(run: DryRun) -> dict:
+    """The dry run as stored with the edition: what was checked, and against what."""
+    return {
+        "parser_version": parser_version(),
+        "verdict": run.verdict,
+        "previous_edition": run.previous,
+        "chunks": len(run.chunks),
+        "checks": [asdict(check) for check in run.checks],
+    }
+
+
+def refusal_before_writing(status: str | None, sha256: str | None, registry_sha256: str) -> str:
+    """Why an edition's row forbids writing it, or "" if it is a draft of the registered
+    file. Checked before embedding (to fail fast) and again under the row lock."""
+    if status is None:
+        return "it isn't in document_editions: run `python -m app.registry sync` first"
+    if status != "draft":
+        return (
+            f"it is {status}, and only a draft is written: a new file is a new edition "
+            "(A2.4 rule, decision 3)"
+        )
+    if sha256 != registry_sha256:
+        return "its sha256 in document_editions isn't the registry's: run sync first"
+    return ""
+
+
+def write_draft(conn, registry: Registry, run: DryRun, vectors: list, model_name: str) -> None:
+    """Write a passing dry run's edition as a draft: chunks with their vectors, courses and
+    edges for the course-tables edition, parser_version and quality_report.
+
+    One transaction, after locking the edition's row: `activate` can't put it in force
+    halfway through, and if any write fails, every one is undone. The draft's earlier rows,
+    if it was ingested before, are replaced. Raises WriteRefused, changing nothing.
+    """
+    edition = registry.edition(run.edition_id)
+    if run.verdict != "pass":
+        raise WriteRefused(f"{run.edition_id}: the dry run's verdict is {run.verdict}")
+    if edition.course_tables and not run.courses:
+        raise WriteRefused(f"{run.edition_id}: the course-tables edition has no courses")
+    courses = run.courses if edition.course_tables else {}
+    edges = extract_prerequisite_edges(courses)
+    rows = [
+        chunk_row(asdict(chunk), vector, model_name)
+        for chunk, vector in zip(run.chunks, vectors, strict=True)
+    ]
+    with conn.transaction():
+        row = conn.execute(EDITION_ROW_SQL + " FOR UPDATE", (run.edition_id,)).fetchone()
+        refusal = refusal_before_writing(*(row or (None, None)), edition.sha256)
+        if refusal:
+            raise WriteRefused(f"{run.edition_id}: {refusal}")
+        replace_rows(conn, rows, model_name)
+        if courses:
+            replace_course_rows(conn, run.edition_id, courses, edges)
+        conn.execute(
+            "UPDATE document_editions SET parser_version = %s, quality_report = %s WHERE id = %s",
+            (parser_version(), Jsonb(quality_report(run)), run.edition_id),
+        )
+
+
+WRITTEN_SQL = """
+    SELECT e.status, e.parser_version, e.quality_report ->> 'verdict',
+           (SELECT count(*) FROM document_chunks c WHERE c.source = e.id AND c.model_name = %s),
+           (SELECT count(*) FROM courses c WHERE c.source = e.id),
+           (SELECT count(*) FROM course_prerequisites p WHERE p.source = e.id)
+    FROM document_editions e WHERE e.id = %s
+"""
+
+
+def print_written(conn, edition_id: str, model_name: str) -> None:
+    """Proof, read back from the tables (CLAUDE.md: a clean exit proves nothing)."""
+    status, version, verdict, chunks, courses, edges = conn.execute(
+        WRITTEN_SQL, (model_name, edition_id)
+    ).fetchone()
+    print(
+        f"  written: {edition_id} is {status}, {chunks} chunks, {courses} courses, {edges} "
+        f"prerequisite edges; parser {version}; stored verdict {verdict}"
+    )
+
+
 def print_report(run: DryRun) -> None:
     against = run.previous or "none in force"
     print(f"== {run.edition_id} (previous edition: {against})")
@@ -293,29 +411,34 @@ def print_report(run: DryRun) -> None:
     print(f"  verdict: {run.verdict}")
 
 
+def _embed(chunks: list[Chunk]) -> list:
+    from app.embeddings import embed_passages
+
+    return embed_passages([chunk.text for chunk in chunks])
+
+
 def main(argv: list[str] | None = None) -> int:
+    from app.config import EMBEDDING_MODEL_NAME
     from app.db.connection import get_owner_connection
 
-    parser = argparse.ArgumentParser(description="Check editions before ingesting them.")
+    parser = argparse.ArgumentParser(description="Check editions, and write those that pass.")
     parser.add_argument("editions", nargs="*")
     parser.add_argument("--all", action="store_true", help="every edition in the registry")
     parser.add_argument("--dry-run", action="store_true", help="check and report; write nothing")
     args = parser.parse_args(argv)
-    if not args.dry_run:
-        parser.error("only --dry-run exists so far (writing a draft edition comes next)")
     registry = load_registry()
     edition_ids = [e.id for e in registry.editions] if args.all else args.editions
     if not edition_ids:
         parser.error("name an edition, or --all")
 
     conn = get_owner_connection()
-    # The dry run only reads statuses: in a read-only transaction Postgres refuses any
-    # write. Not in autocommit, where psycopg doesn't apply read_only (checked: a CREATE
-    # went through).
+    # Statuses are read in a read-only transaction, where Postgres refuses any write. Not
+    # in autocommit, where psycopg doesn't apply read_only (checked: a CREATE went through).
     conn.autocommit = False
     conn.read_only = True
     try:
         previous = {e: previous_edition(conn, registry.document_of(e).id, e) for e in edition_ids}
+        rows = {e: conn.execute(EDITION_ROW_SQL, (e,)).fetchone() for e in edition_ids}
     finally:
         conn.close()
 
@@ -326,8 +449,28 @@ def main(argv: list[str] | None = None) -> int:
         baseline = measure_baseline(registry, before) if before else None
         run = dry_run(registry, edition_id, previous=baseline, token_counter=counter)
         print_report(run)
-        all_passed = all_passed and run.verdict == "pass"
-    print("Nothing changed.")
+        if args.dry_run or run.verdict != "pass":
+            all_passed = all_passed and run.verdict == "pass"
+            continue
+        refusal = refusal_before_writing(
+            *(rows[edition_id] or (None, None)), registry.edition(edition_id).sha256
+        )
+        if refusal:  # checked again under the lock; here so as not to embed for nothing
+            print(f"  not written: {refusal}")
+            all_passed = False
+            continue
+        vectors = _embed(run.chunks)
+        conn = get_owner_connection(register_vector_type=True)
+        try:
+            write_draft(conn, registry, run, vectors, EMBEDDING_MODEL_NAME)
+            print_written(conn, edition_id, EMBEDDING_MODEL_NAME)
+        except WriteRefused as e:
+            print(f"  not written: {e}")
+            all_passed = False
+        finally:
+            conn.close()
+    if args.dry_run:
+        print("Nothing changed.")
     return 0 if all_passed else 1
 
 

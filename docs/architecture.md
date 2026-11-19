@@ -590,6 +590,11 @@ ingestion's replace and reset. The rule for A2.3 is in CLAUDE.md.
 forces that code to handle the missing case.
 
 **`parser_version` and `quality_report`** are `'unversioned'` and `{}` until A2.4 produces real values.
+As built in A2.4 step 5b: `python -m app.ingestion.ingest <edition>` (without `--dry-run`) writes an edition that passes its
+dry run, and only a `draft` whose row holds the registry's sha256, in one transaction after locking that row: chunks,
+courses and edges for the course-tables edition, `parser_version` (`ingest-<revision> pypdf-<v> bs4-<v>`) and
+`quality_report` (verdict, previous edition, chunk count, every check with its numbers). An edition in force is never
+rewritten. The three editions synced before A2.4 keep `'unversioned'` and `{}`: they were never ingested this way.
 
 Things A2.3's per-edition columns break, to change in the same step (line numbers at commit `c1571e7`): citation
 numbering keys (`(source, chunk_index)`, `tools.py:136`, and `tools.py:264`), the RRF key (`hybrid_search.py:112`), the

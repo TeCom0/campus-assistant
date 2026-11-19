@@ -553,6 +553,16 @@ encrypted PDF even when it opens without a password. Today: catalog pass (533 he
 text not extracted), `prestigious_scholarships` pass, `graduate_scholarships` refused for its Lorem Ipsum only (rule item 5);
 `tests/test_dry_run.py` checks rule item 1 where `data/raw` exists (1,161 chunks byte-identical to `chunks.jsonl`, metadata
 included) and item 5. 25 mutations caught (one first missed its pattern after `ruff format` and was re-run on the new line).
+5b done 2026-11-19: `python -m app.ingestion.ingest <edition>` without `--dry-run` writes an edition that passes as a draft
+(`write_draft`): chunks, courses and edges for the course-tables edition (from the dry run's own text), `parser_version`
+and `quality_report`, in one transaction after `SELECT ... FOR UPDATE` on its row. Refused, changing nothing: a verdict
+other than pass, a row missing (sync first), not `draft`, a sha256 other than the registry's, a course-tables edition with
+no courses. Status is checked before embedding too, so a refusal embeds nothing. `parser_version` is
+`ingest-<PARSER_REVISION> pypdf-<v> bs4-<v>`; `tests/test_ingest_write.py` pins the fixtures' chunks to the revision, so
+changed output without a bump fails (pypdf and bs4 are unpinned, B21: a release that changes extraction fails it in CI).
+12 mutations caught; removing `FOR UPDATE` isn't caught (no concurrency test). On the real database `--all` exits 1:
+the catalog and the prestigious page pass and are refused as active, `graduate_scholarships` by its verdict; every
+status, `parser_version`, `quality_report` and row count unchanged.
 
 ## A2.2 rule
 

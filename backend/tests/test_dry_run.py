@@ -343,7 +343,8 @@ def test_the_command_reads_statuses_in_a_read_only_transaction(monkeypatch):
     seen = []
 
     def spy(conn, document_id, edition_id):
-        with pytest.raises(psycopg.errors.ReadOnlySqlTransaction):
+        # In a savepoint, so the refusal doesn't abort the reads that follow it.
+        with pytest.raises(psycopg.errors.ReadOnlySqlTransaction), conn.transaction():
             conn.execute("CREATE TEMP TABLE should_not_exist (x int)")
         seen.append(edition_id)
 
@@ -352,11 +353,6 @@ def test_the_command_reads_statuses_in_a_read_only_transaction(monkeypatch):
     monkeypatch.setattr(ingest, "_model_token_counter", lambda: COUNTER)
     assert ingest.main(["prestigious_scholarships", "--dry-run"]) == 0
     assert seen == ["prestigious_scholarships"]
-
-
-def test_the_command_refuses_to_run_without_dry_run():
-    with pytest.raises(SystemExit):
-        ingest.main(["prestigious_scholarships"])
 
 
 # --- Today's editions (rule items 1 and 5) -------------------------------------------------
