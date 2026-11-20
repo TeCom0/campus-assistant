@@ -1379,7 +1379,7 @@ Triggers matter: some are due **before the first department document**, even dur
 | --- | --- | --- | --- | --- |
 | B1 | Table-aware PDF: eval questions on tables first, extractor comparison, parent-child retrieval, hidden-text scan | IN-1, wrong table answers | **Before first table-heavy PDF.** A2.4 | 2-3 |
 | B2 | AUI SSO; per-user limits; per-user locks; retire codes | AP-3, AP-7 | AUI IT (Q9). B25 | 2-4 |
-| B3 | First department document: domain filter, conflict prompts and tests, per-row French search, French eval, DOCX or XLSX loader if needed | Section 5, AG-4 | **First department document.** Q2, Q4 | 3-5 |
+| B3 | First department document: domain filter, conflict prompts and tests, per-row French search, French eval, DOCX or XLSX loader if needed. Starts from A2.4's known miss: `fixture_finance_refund_fr`, a one-chunk finance PDF whose refund rule the catalog's refund chunks outrank (not in the top 20) | Section 5, AG-4 | **First department document.** Q2, Q4 | 3-5 |
 | B4 | Key Vault and managed identity; Compose secrets | VM-8 | Hosting decided | 0.5-1 |
 | B5 | Availability decision: managed Postgres and/or second API, TLS to DB, Bastion. From the pilot's record | VM-7, DB-6 | Pilot data | 2-5 |
 | B6 | Connection pool, tool-only DB role, embedding cache, separate embedding service if needed, optional answer cache | TL-3, section 7 | B29 | 2-3 |

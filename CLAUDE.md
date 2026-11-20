@@ -617,6 +617,15 @@ finance PDF's two pages are one chunk, so the refund sentence shares its embeddi
 "Withdrawing from the University" and "Refund Table" chunks rank first. The question was written to overlap the catalog's
 refund rules: the cross-document competition that section 9 leaves to B3. Waits on Youness.
 
+Decided 2026-11-20 by Youness ("go with your recommendation"), after the numbers and in the open, before anything was changed or
+re-run: `fixture_finance_refund_fr` is accepted as a known retrieval miss for B3 (cross-document competition, not ingestion: the
+edition was ingested, searched and attributed correctly when found, and nothing was misattributed). It is written into the
+harness as the one known miss: item 6 passes if the other 8 pass, and the known miss is still reported, as a failure of the
+check if it ever turns into a misattribution (a top-5 result holding its anchor from another edition). Item 8's count
+comparison is fixed to the method's wording: every other edition's chunk count just before the withdrawal against just after.
+Its search comparison is unchanged. Then the whole check is re-run once from a fresh `setup`, then the A0 comparison on
+`campus_scratch`, then items 1-5 on the dev database. If any of these fails: stop and report, don't adjust.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
