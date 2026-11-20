@@ -601,6 +601,22 @@ after engineering, each with every edition's chunk count.
 
 If any fails: stop and report, don't adjust. 0 LLM tokens.
 
+Result, 2026-11-20, 0 LLM tokens, `eval/results/ingestion/2026-11-20_a2_4_fixture_check.txt`
+(`app.evaluation.run_fixture_check`): **item 6 not passed, so the check stopped there: A2.4 isn't accepted.** Setup: `campus_scratch`
+created, migrated and copied, content fingerprint equal to the dev database's on all five tables. Each fixture passed its dry
+run and was written and activated (dining 2 chunks, finance 1, engineering 2). Item 6: **8/9**; `fixture_finance_refund_fr`
+has no result holding its anchor in the top 5. The other 8 rank 1 or 2, each with its edition's card title. Item 7: 0 hits
+lost and 0 rank changes on the 14 real questions. Item 8: after each withdrawal every search was identical to the snapshot
+before that fixture was ingested (3/3). The harness reported two chunk-count differences, both a bug in its comparison, not in
+the system: it compares with the snapshot before ingestion, where a fixture ingested later (and withdrawn, its rows kept by
+design) can't be. Every edition present in that snapshot kept its exact count, as the printed counts show. Not run, because
+the check stopped: the A0 comparison of the real eval on `campus_scratch`, and items 1-5 on the dev database.
+Seen, not counted (diagnosis on `campus_scratch` only, the edition reactivated by hand and withdrawn again): the anchor isn't in
+the top 20 of hybrid + English; vector ranks it 31 (French) and 20 (English); keyword search returns nothing for either. The
+finance PDF's two pages are one chunk, so the refund sentence shares its embedding with the fee rules, and the catalog's own
+"Withdrawing from the University" and "Refund Table" chunks rank first. The question was written to overlap the catalog's
+refund rules: the cross-document competition that section 9 leaves to B3. Waits on Youness.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

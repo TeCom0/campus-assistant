@@ -1,0 +1,56 @@
+S0: 92 searches, chunk counts {'academic_catalog_2024_2025': 1141, 'graduate_scholarships': 16, 'prestigious_scholarships': 4}
+== ingest fixture_dining_guide
+  gates: pass: fixture_dining_guide.html is the registered file
+  sanitise: reported: removed 0 invisible characters, 0 hidden elements
+  scan: pass: 0 hits, 0 redacted
+  encoding: pass: 0 replacement or mojibake sequences in 1,026 characters (0.00 per 10,000, limit 1)
+  chunks: pass: 2 chunks
+  tokens: pass: longest 252 of 512
+  headings: reported: 1 headings (no previous edition)
+  written and activated: 2 chunks
+S1: chunk counts {'academic_catalog_2024_2025': 1141, 'fixture_dining_guide': 2, 'graduate_scholarships': 16, 'prestigious_scholarships': 4}
+== ingest fixture_finance_fees
+  gates: pass: fixture_finance_fees.pdf is the registered file
+  sanitise: reported: removed 0 invisible characters, 0 hidden elements
+  scan: pass: 0 hits, 0 redacted
+  near-empty pages: pass: 0/2 (0.0%), limit 5.0%
+  table-like pages: pass: 0/2 (0.0%), limit 3.2%
+  encoding: pass: 0 replacement or mojibake sequences in 961 characters (0.00 per 10,000, limit 1)
+  chunks: pass: 1 chunks
+  tokens: pass: longest 206 of 512
+  headings: reported: 2 headings (no previous edition)
+  written and activated: 1 chunks
+S2: chunk counts {'academic_catalog_2024_2025': 1141, 'fixture_dining_guide': 2, 'fixture_finance_fees': 1, 'graduate_scholarships': 16, 'prestigious_scholarships': 4}
+== ingest fixture_engineering_handbook
+  gates: pass: fixture_engineering_handbook.html is the registered file
+  sanitise: reported: removed 0 invisible characters, 0 hidden elements
+  scan: pass: 0 hits, 0 redacted
+  encoding: pass: 0 replacement or mojibake sequences in 1,052 characters (0.00 per 10,000, limit 1)
+  chunks: pass: 2 chunks
+  tokens: pass: longest 199 of 512
+  headings: reported: 1 headings (no previous edition)
+  written and activated: 2 chunks
+S3: chunk counts {'academic_catalog_2024_2025': 1141, 'fixture_dining_guide': 2, 'fixture_engineering_handbook': 2, 'fixture_finance_fees': 1, 'graduate_scholarships': 16, 'prestigious_scholarships': 4}
+
+== item 6, attribution at S3 (hybrid + English, top 5)
+  pass fixture_dining_meal_plan_en            rank 1 fixture_dining_guide | Campus Dining Guide (test fixture)
+  pass fixture_dining_brunch_fr               rank 1 fixture_dining_guide | Campus Dining Guide (test fixture)
+  pass fixture_dining_guests_en               rank 2 fixture_dining_guide | Campus Dining Guide (test fixture)
+  pass fixture_finance_late_fee_en            rank 2 fixture_finance_fees | Student Fees and Payments (test fixture)
+  FAIL fixture_finance_refund_fr              rank - None | None
+  pass fixture_finance_installments_en        rank 2 fixture_finance_fees | Student Fees and Payments (test fixture)
+  pass fixture_engineering_drop_advisor_en    rank 1 fixture_engineering_handbook | School of Engineering Handbook (test fixture)
+  pass fixture_engineering_safety_fr          rank 2 fixture_engineering_handbook | School of Engineering Handbook (test fixture)
+  pass fixture_engineering_internship_en      rank 1 fixture_engineering_handbook | School of Engineering Handbook (test fixture)
+
+== item 7, coexistence: S3 against S0, the 14 real questions
+  0 hits lost, 0 rank changes
+
+== item 8, withdrawal in reverse order
+  withdrew fixture_engineering_handbook: against S2, every search and chunk count identical
+  withdrew fixture_finance_fees: against S1, 1 differ
+    chunk counts: {'academic_catalog_2024_2025': 1141, 'fixture_dining_guide': 2, 'graduate_scholarships': 16, 'prestigious_scholarships': 4} -> {'academic_catalog_2024_2025': 1141, 'fixture_dining_guide': 2, 'fixture_engineering_handbook': 2, 'graduate_scholarships': 16, 'prestigious_scholarships': 4}
+  withdrew fixture_dining_guide: against S0, 1 differ
+    chunk counts: {'academic_catalog_2024_2025': 1141, 'graduate_scholarships': 16, 'prestigious_scholarships': 4} -> {'academic_catalog_2024_2025': 1141, 'fixture_engineering_handbook': 2, 'fixture_finance_fees': 1, 'graduate_scholarships': 16, 'prestigious_scholarships': 4}
+
+item 6 FAILED, item 7 passed, item 8 FAILED (the A0 baseline comparison runs separately)
