@@ -577,6 +577,30 @@ identical (template only, Lorem Ipsum still there); the prestigious page's diffe
 every edition before writing any, since step 2) stops on the missing pages. New editions of both pages belong to A2.5, and the
 graduate page's live version would still be refused for its Lorem Ipsum. README "Running it" says so.
 
+Sub-step 7 method, set 2026-11-20 by Claude with Youness's go-ahead, before the harness was written or run, following the rule of
+recording a decision rule before seeing the numbers. `campus_scratch` is created fresh on the local container (refused under any
+other name), migrated, and given the dev database's five content tables copied row for row (no re-embedding); the content
+fingerprint (`deploy/backup/fingerprint.sql`) must match the dev database's. The fixtures are synced as drafts, dry-run, written
+by `write_draft` with real embeddings, and activated, in the order dining, finance, engineering. "A search" is each of the eval's
+four methods (vector, keyword, hybrid, hybrid + English) at top 10, for the 14 real and 9 fixture questions; its result is the
+list of (source, chunk index, score), compared exactly. Snapshots: S0 before any fixture, S1 after dining, S2 after finance, S3
+after engineering, each with every edition's chunk count.
+
+- Item 6, at S3: for each fixture question, hybrid + English (the question and its `question_en`, as the agent's first turn)
+  has a result in its top 5 from the expected fixture edition holding the anchor, and that edition's card title, read through
+  `sources_from_rows` as the API does, is the fixture registry's.
+- Item 7, S3 against S0: on the 14 real questions (so the 12 too), no question that is a hit at 3 or at 5 under any method in S0
+  is a miss at the same k in S3. Every rank change is reported, not judged.
+- Item 8: withdrawn in reverse order, so each fixture is the last one ingested of those in force: engineering, then S3's
+  searches must equal S2's exactly; finance, S1's; dining, S0's. Each time every other edition's chunk count is unchanged.
+  Withdrawal is one guarded `UPDATE` in the harness (active to withdrawn, exactly one row): the withdraw command belongs to A2.5.
+  Then `python -m app.evaluation.run_retrieval_eval` on `campus_scratch` matches the A0 baseline line for line.
+- Item 9 is an audit: each of the 13 refusals named with its test; their mutation checks are recorded in their sub-steps.
+- Items 1-5, on the dev database: item 1 and 5 by `test_dry_run.py`; item 2 the retrieval eval line for line; item 3
+  `test_agent_text_pinned.py`; item 4 `dump_course_lookups` byte for byte.
+
+If any fails: stop and report, don't adjust. 0 LLM tokens.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
