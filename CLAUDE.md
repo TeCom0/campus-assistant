@@ -647,6 +647,59 @@ header (`test_sanitise_and_tables.py::test_every_chunk_with_a_table_row_has_the_
 Not deployed: nothing changes for students, so A2.4 deploys with A2.5, as the rule says. `campus_scratch` stays on the local
 container, with the fixtures withdrawn.
 
+## A2.5 rule
+
+Set 2026-11-20 by Claude, with Youness's go-ahead ("go ahead"), before any A2.5 code, following the rule of recording a
+decision rule before seeing the numbers. A2.5 drops the prestigious scholarships page (D5, AG-11: it names individuals),
+removes "Lorem Ipsum" from the graduate scholarships page through the A2.4 pipeline, updates the eval sets, and deploys
+together with A2.4. 0 LLM tokens.
+
+**Facts, read before the rule (2026-11-20):** the live graduate page still holds "Lorem Ipsum" (A2.4 step 6), so a fresh
+download is refused by the boilerplate scan, as it should be. It is the `<h2>` of a HubSpot template block
+(`div.section-heading`), whose subheading "A place where inspiration finds you" is template filler too; it reaches 2 of the
+page's 16 chunks, and chunk 1's `Section:` line reads "Graduate Studies > Lorem Ipsum". The prestigious page is 4 chunks, the
+catalog 1,141. `scope.json` is generated from the registry file, so dropping a page changes the model's input ("scholarship
+pages" becomes "scholarship page"). The scope generator and `sync --initial` both refuse two editions of one document.
+
+**Decisions, same date:**
+
+1. The Lorem Ipsum goes by a new optional, ingestion-only edition field, `remove_elements` (CSS selectors; today
+   `["div.section-heading"]`): the web loader deletes the matching elements while sanitising, and the dry run counts them and
+   prints their text. The boilerplate refusal is unchanged. Rejected: a `redact` decision for boilerplate (loosens a hard
+   refusal and leaves a "[redacted]" heading), and waiting for AUI to fix the page (blocks A2.5).
+2. The registry file lists what a fresh install builds: the new graduate edition replaces the old one in the file, and the
+   prestigious document leaves it. The old editions stay in the database (superseded and withdrawn; `activate` reads only the
+   database, so rollback still works) and in git history. Keeping both graduate editions in the file needs the multi-edition
+   support A2.3 left to A2.6.
+3. `python -m app.registry withdraw <edition> --by <who>`: one transaction, recorded in new `withdrawn_by` and `withdrawn_at`
+   columns. Refuses an unknown or draft edition, one already withdrawn, an empty `--by`, and the active course-tables edition;
+   each refusal says "Nothing changed" and exits 1. A document left with no edition in force is said so loudly. Rows are kept;
+   section 3.4's deletion of withdrawn editions isn't part of A2.5.
+4. `rhodes_scholarship_en` and `mccall_macbain_en` leave the retrieval eval set, so the 12-question set becomes the set
+   (`docs/architecture.md` section 4.5).
+
+**Sub-steps, one per turn:** 0. this rule; 1. the `withdraw` command, its migration and tests; 2. the prestigious document out
+of the file, the scope text regenerated, a new pinned agent-text fixture, interface counts and README; 3. `remove_elements` in
+the web loader and the dry run; 4. on the dev database: download, dry run, draft and activate the new graduate edition,
+withdraw the prestigious one, update the eval sets, measure; 5. deploy A2.4 and A2.5.
+
+After A2.5, on the dev database:
+
+1. Retrieval: on the 12-question set, no question that is a hit at 3 or at 5 under any method in
+   `eval/results/retrieval/2026-11-05_a0_baseline.txt` is a miss at the same k. Every rank change is reported, not judged.
+   (Line for line can't hold: 4 chunks leave the search and 16 are re-embedded, which can reorder the fusion.)
+2. The model's input differs from `backend/tests/fixtures/agent_text_c907a33.json` only in the generated document words; the
+   diff is listed in the commit, and a new fixture is pinned.
+3. Every course lookup matches `eval/results/courses/2026-11-15_a2_3_before.txt` byte for byte.
+4. Content: the catalog's 1,141 chunks byte-identical to `chunks.jsonl`, 660 courses and 526 prerequisites. The new graduate
+   edition's chunks differ from the old ones only by the removed block's text and the `Section:` lines that named it, hold no
+   "lorem", and every anchor of the 12 questions is still found verbatim.
+5. Withdraw: tests prove a withdrawn edition never surfaces in search, course lookups, `/editions` or a source link, that the
+   change is one transaction recording who and when, and that every refusal changes nothing. Mutation-checked.
+6. Dry runs: the old graduate edition is still refused for its Lorem Ipsum; the new one passes.
+
+If any of these fails: stop and report, don't adjust.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
