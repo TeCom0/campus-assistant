@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from app.ingestion import courses, load
+from app.ingestion import courses
 from app.ingestion.chunk import assign_sections
 from app.ingestion.courses import extract_courses
 from app.registry import REGISTRY_PATH, RegistryError, load_registry
@@ -186,39 +186,3 @@ def test_seeding_reads_the_edition_from_the_registry(monkeypatch):
     with pytest.raises(RuntimeError, match="stop before the database"):
         courses.seed_courses()
     assert asked_for == [load_registry().course_tables_edition().id]
-
-
-class _FakeResponse:
-    def raise_for_status(self):
-        pass
-
-    def iter_content(self, chunk_size):
-        return [b"content"]
-
-
-def test_the_download_list_is_the_registry(monkeypatch, tmp_path):
-    requested = []
-
-    def fake_get(url, **kwargs):
-        requested.append(url)
-        return _FakeResponse()
-
-    monkeypatch.setattr(load.requests, "get", fake_get)
-    monkeypatch.setattr(load, "DATA_RAW_DIR", tmp_path)
-    load.download_sources()
-    editions = load_registry().editions
-    assert requested == [edition.source_url for edition in editions]
-    assert sorted(path.name for path in tmp_path.iterdir()) == sorted(
-        edition.filename for edition in editions
-    )
-
-
-def test_a_file_already_downloaded_is_skipped(monkeypatch, tmp_path):
-    def no_network(url, **kwargs):
-        raise AssertionError("must not download a file it already has")
-
-    for edition in load_registry().editions:
-        (tmp_path / edition.filename).write_bytes(b"already here")
-    monkeypatch.setattr(load.requests, "get", no_network)
-    monkeypatch.setattr(load, "DATA_RAW_DIR", tmp_path)
-    load.download_sources()

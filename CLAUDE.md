@@ -564,6 +564,19 @@ changed output without a bump fails (pypdf and bs4 are unpinned, B21: a release 
 the catalog and the prestigious page pass and are refused as active, `graduate_scholarships` by its verdict; every
 status, `parser_version`, `quality_report` and row count unchanged.
 
+Sub-step 6 done 2026-11-20, download hardening, `app/ingestion/load.py` (same command): hosts exactly those of the registry's
+URLs, redirects by hand (at most 5, each URL checked before it is requested: https, allowed host, no `@`, no port), 10 s/30 s
+timeouts and a 300 s deadline, `gates.py`'s size cap from `Content-Length` and while reading, a `.part` file renamed into place
+only with the registry's sha256, an existing file with another hash refused and not overwritten, every hash printed.
+`tests/test_download.py`, no network; 22 mutations caught. Two first survived (separate username and password checks, each
+hiding the other's removal) and were replaced by one `@` check, then caught. On the real data: `data/raw` kept 3/3 with no
+request. A real download into a scratch folder: none of the URLs redirects, the catalog is byte-identical, and **both
+scholarship pages are refused**: aui.ma changed them since registration (stable over two fetches). The graduate page's text is
+identical (template only, Lorem Ipsum still there); the prestigious page's differs in one line ("Tuition and Fees" became
+"Admissions & Aid"). Not changed, since that's what the rule says: a fresh clone gets the catalog only, and `clean` (which checks
+every edition before writing any, since step 2) stops on the missing pages. New editions of both pages belong to A2.5, and the
+graduate page's live version would still be refused for its Lorem Ipsum. README "Running it" says so.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule

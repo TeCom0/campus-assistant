@@ -761,6 +761,16 @@ is refused for its Lorem Ipsum only.
 Web loader rules: host allow-list from the registry, redirects only to allowed hosts, timeout, size limit,
 keep the raw file with its hash, strip `script`, `style`, `nav` and elements hidden by CSS or attributes.
 
+**As built in A2.4 step 6** (`app/ingestion/load.py`): the allowed hosts are exactly those the registry's URLs name (today
+`aui.ma`; no subdomain implied). Redirects are followed by hand, at most 5, and each URL is checked before it is requested:
+https, an allowed host, no user info, no port. A 10 s connect and 30 s read timeout per request, a 300 s deadline per download,
+the size cap of `gates.py` for the format (from `Content-Length` and while reading). The body goes to a `.part` file, renamed
+into `data/raw` only if its sha256 is the registry's; a file already there with another hash is refused, never overwritten.
+Every hash is printed, a refused one's too. Measured 2026-11-20: none of the three URLs redirects; the catalog downloads
+byte-identical; both scholarship pages changed on aui.ma since they were registered (same bytes on two fetches, so not
+per-request noise): the graduate page's extracted text is identical (template only, Lorem Ipsum still there), the prestigious
+page's differs in one line ("Tuition and Fees" became "Admissions & Aid"). So the hash check refuses them, as the rule says.
+
 ### 4.4 Scanning before activation
 
 | Scan | Action |

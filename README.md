@@ -451,6 +451,12 @@ python -m app.ingestion.store     # embed chunks -> document_chunks
 python -m app.ingestion.courses   # catalog -> courses + prerequisites
 ```
 
+`load` keeps a file only if its sha256 is the one in the registry, and follows redirects only to
+the registry's own hosts. On 2026-11-20 the catalog PDF still downloads byte-identical, but aui.ma
+has since changed both scholarship pages (their template, and one breadcrumb line of text), so a
+fresh clone gets the catalog only, and `clean`, which checks every edition before writing any,
+stops on the two missing pages. Registering the pages as they are now means new editions (A2.5).
+
 **A newer edition of a document** goes into `data/registry.toml` next to the current one, and
 `python -m app.registry sync` adds it as a draft, which nothing searches. Once it's ingested,
 `python -m app.registry activate <edition> --by <name>` puts it in force: the previous edition
