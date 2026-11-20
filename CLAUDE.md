@@ -626,6 +626,27 @@ comparison is fixed to the method's wording: every other edition's chunk count j
 Its search comparison is unchanged. Then the whole check is re-run once from a fresh `setup`, then the A0 comparison on
 `campus_scratch`, then items 1-5 on the dev database. If any of these fails: stop and report, don't adjust.
 
+Re-run, 2026-11-20, 0 LLM tokens, `eval/results/ingestion/2026-11-20_a2_4_fixture_check_rerun.txt`: **every item passed, so A2.4
+is accepted.** Fresh `setup`, fingerprint equal again. Item 6: the same 8 pass (rank 1 or 2, right card title), `fixture_finance_refund_fr`
+reported as the known miss, nothing misattributed. Item 7: 0 hits lost, 0 rank changes. Item 8: after each withdrawal every
+search and every other edition's chunk count identical (3/3); then the real eval on `campus_scratch` matches the A0 baseline
+line for line (`eval/results/retrieval/2026-11-20_a2_4_scratch_withdrawn.txt`, 91 lines). Items 1-5 on the dev database: 1 and
+5 by `test_dry_run.py`'s real-data test (ran, not skipped); 2, the retrieval eval line for line
+(`eval/results/retrieval/2026-11-20_a2_4.txt`); 3, `test_agent_text_pinned.py`; 4, 1,376 lookups byte for byte, sha256
+`93d5a841...` as on 2026-11-15 (the new dump, identical, not committed). Item 9, the refusals and their tests: unknown format
+(`test_ingest_gates.py::test_an_unknown_format_is_refused`, `test_loaders.py::test_unknown_format_is_refused_naming_the_file`),
+hash mismatch (`test_a_file_that_is_not_the_registered_one_is_refused`; at download, `test_download.py`), non-public
+(`test_a_non_public_document_is_refused`), non-English (`test_a_french_edition_is_refused_until_b3`), encrypted PDF and
+near-empty PDF (`test_dry_run.py::test_an_encrypted_pdf_is_refused`, `test_a_scanned_pdf_is_refused`), oversized file
+(`test_a_file_over_the_size_limit_is_refused`, `test_a_pdf_over_the_page_limit_is_refused`), national ID and boilerplate
+(`test_scan.py::test_each_pattern_finds_its_kind`, `test_every_kind_is_refused_or_held`), instruction (the same two, held without
+a decision: `test_without_decisions_every_hold_is_undecided`), off-host redirect
+(`test_download.py::test_an_off_host_redirect_is_refused_and_never_requested`), a table too big for one chunk
+(`test_dry_run.py::test_a_table_too_big_for_one_chunk_is_refused_and_named`), and no chunk with part of a table without its
+header (`test_sanitise_and_tables.py::test_every_chunk_with_a_table_row_has_the_header`), each mutation-checked in its sub-step.
+Not deployed: nothing changes for students, so A2.4 deploys with A2.5, as the rule says. `campus_scratch` stays on the local
+container, with the fixtures withdrawn.
+
 ## A2.2 rule
 
 Set 2026-11-06 by Claude, with Youness's go-ahead on A2.2, before any A2.2 code, following the rule of recording a decision rule
@@ -676,8 +697,13 @@ Deployment (Azure VM, Docker Compose + Caddy): `deploy/DEPLOY.md`. Updates are a
 copy of HEAD to the VM, then `bash deploy/update.sh`; SSH by the DNS name (that's the host key in
 known_hosts).
 
-## Current status (2026-11-15)
+## Current status (2026-11-20)
 
+- **A2.4 (registry-driven ingestion, dry run, scans, draft-only ingest, download hardening) is accepted (2026-11-20), not yet
+  deployed: it deploys with A2.5**, see "A2.4 rule". `python -m app.ingestion.ingest <edition> --dry-run` checks an edition
+  and gives a verdict; without `--dry-run` it writes a passing draft. One known retrieval miss is left to B3
+  (`fixture_finance_refund_fr`). aui.ma changed both scholarship pages since registration, so a fresh clone gets the catalog
+  only until A2.5 registers new editions. Next in the A2 order: A2.5.
 - **A2.3 (per-edition storage, the edition filter, `activate`) is accepted and deployed (`dade4da`, 2026-11-15)**, see "A2.3
   rule" and `deploy/DEPLOY.md` (A2.3). Rule items 1-5 held: retrieval eval and every course lookup unchanged, the model's input
   unchanged, content unchanged (also after the migration of a VM-local copy of production), and the two-edition tests. A newer

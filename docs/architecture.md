@@ -771,6 +771,12 @@ byte-identical; both scholarship pages changed on aui.ma since they were registe
 per-request noise): the graduate page's extracted text is identical (template only, Lorem Ipsum still there), the prestigious
 page's differs in one line ("Tuition and Fees" became "Admissions & Aid"). So the hash check refuses them, as the rule says.
 
+**Accepted 2026-11-20 (A2.4 step 7):** on a scratch database holding a copy of the real rows, the three fixture documents were
+ingested, activated and withdrawn (`app/evaluation/run_fixture_check.py`). 8 of 9 fixture questions find their passage at rank
+1 or 2 with the right card title; the real questions lose no hit and change no rank; each withdrawal restores every search
+exactly, and with all three withdrawn the retrieval eval matches the A0 baseline line for line. The ninth, a French refund
+question, is outranked by the catalog's own refund passages: a known miss left to B3.
+
 ### 4.4 Scanning before activation
 
 | Scan | Action |

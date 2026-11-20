@@ -26,7 +26,12 @@ from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 from app import config
-from app.evaluation.run_retrieval_eval import contains_anchor, load_eval_set, rank_of_first_match
+from app.evaluation.run_retrieval_eval import (
+    contains_anchor,
+    load_eval_set,
+    normalize_text,
+    rank_of_first_match,
+)
 from app.retrieval.hybrid_search import search_hybrid, search_hybrid_multi
 from app.retrieval.keyword_search import search_keyword
 from app.retrieval.vector_search import search_vector
@@ -51,6 +56,12 @@ CONTENT_TABLES = (
 )
 TOP_K = 10
 ACTIVATED_BY = "A2.4 step 7 fixture check (scratch database)"
+# Item 6's one accepted miss (CLAUDE.md, A2.4 rule, decided 2026-11-20 after the first run):
+# still reported every run, and a failure if it ever becomes a misattribution.
+KNOWN_MISSES = {
+    "fixture_finance_refund_fr": "B3: the one-chunk finance PDF's refund rule is outranked by "
+    "the catalog's refund chunks",
+}
 
 METHODS = {
     "vector": lambda q, k: search_vector(q["question"], k),
@@ -163,12 +174,15 @@ def snapshot(questions: list[dict], conn: psycopg.Connection) -> dict:
                 "results": [(r.source, r.chunk_index, repr(_score(r))) for r in results],
                 "rank": rank_of_first_match(results, q["expected"]),
             }
-    counts = dict(
+    return {"searches": searches, "chunk_counts": snapshot_counts(conn)}
+
+
+def snapshot_counts(conn: psycopg.Connection) -> dict[str, int]:
+    return dict(
         conn.execute(
             "SELECT source, count(*) FROM document_chunks GROUP BY source ORDER BY source"
         ).fetchall()
     )
-    return {"searches": searches, "chunk_counts": counts}
 
 
 def fixture_registry():
@@ -216,12 +230,22 @@ def attribution(questions: list[dict], card_titles: dict[str, str], registry) ->
         hit = results[rank - 1] if rank else None
         expected_source = q["expected"][0]["source"]
         title = card_titles.get(hit.source) if hit else None
+        anchors = [normalize_text(e["anchor"]) for e in q["expected"]]
+        elsewhere = sorted(
+            {
+                r.source
+                for r in results
+                if r.source != expected_source and any(a in normalize_text(r.text) for a in anchors)
+            }
+        )
         rows.append(
             {
                 "id": q["id"],
                 "rank": rank,
                 "source": hit.source if hit else None,
                 "card_title": title,
+                "known_miss": q["id"] in KNOWN_MISSES,
+                "misattributed": elsewhere,  # its anchor, in a top-5 result of another edition
                 "passed": bool(
                     hit
                     and hit.source == expected_source
@@ -248,14 +272,23 @@ def coexistence(real: list[dict], s0: dict, s3: dict) -> tuple[list[str], list[s
     return lost, changed
 
 
-def differences(before: dict, after: dict, withdrawn: str) -> list[str]:
-    """Item 8: what differs from the snapshot before `withdrawn` was ingested."""
+def item6_passed(rows: list[dict]) -> bool:
+    """Every question passes, but a known miss may miss; nothing is ever misattributed."""
+    return all(not row["misattributed"] and (row["passed"] or row["known_miss"]) for row in rows)
+
+
+def differences(
+    before: dict, after: dict, counts_just_before: dict[str, int], withdrawn: str
+) -> list[str]:
+    """Item 8: searches that differ from the snapshot before `withdrawn` was ingested, and any
+    other edition whose chunk count the withdrawal changed, just before against just after:
+    an edition ingested later than `before`, and withdrawn already, keeps its rows."""
     found = [
         key
         for key in before["searches"]
         if before["searches"][key]["results"] != after["searches"][key]["results"]
     ]
-    counts_before = {s: n for s, n in before["chunk_counts"].items() if s != withdrawn}
+    counts_before = {s: n for s, n in counts_just_before.items() if s != withdrawn}
     counts_after = {s: n for s, n in after["chunk_counts"].items() if s != withdrawn}
     if counts_before != counts_after:
         found.append(f"chunk counts: {counts_before} -> {counts_after}")
@@ -300,11 +333,15 @@ def run(out: Path) -> int:
     say("\n== item 6, attribution at S3 (hybrid + English, top 5)")
     rows = attribution(fixture_questions, card_titles, registry)
     for row in rows:
+        label = "pass" if row["passed"] else "known miss" if row["known_miss"] else "FAIL"
+        if row["misattributed"]:
+            label = f"FAIL, misattributed to {', '.join(row['misattributed'])}"
+        note = f" ({KNOWN_MISSES[row['id']]})" if row["known_miss"] and not row["passed"] else ""
         say(
-            f"  {'pass' if row['passed'] else 'FAIL'} {row['id']:<38} rank {row['rank'] or '-'} "
-            f"{row['source']} | {row['card_title']}"
+            f"  {label}: {row['id']} rank {row['rank'] or '-'} "
+            f"{row['source']} | {row['card_title']}{note}"
         )
-    item6 = all(row["passed"] for row in rows)
+    item6 = item6_passed(rows)
 
     say("\n== item 7, coexistence: S3 against S0, the 14 real questions")
     lost, changed = coexistence(real, snapshots[0], snapshots[3])
@@ -319,8 +356,11 @@ def run(out: Path) -> int:
     item8 = True
     for n in range(len(FIXTURE_EDITIONS), 0, -1):
         edition_id = FIXTURE_EDITIONS[n - 1]
+        counts_just_before = snapshot_counts(conn)
         withdraw(conn, edition_id)
-        diffs = differences(snapshots[n - 1], snapshot(questions, conn), edition_id)
+        diffs = differences(
+            snapshots[n - 1], snapshot(questions, conn), counts_just_before, edition_id
+        )
         item8 = item8 and not diffs
         say(
             f"  withdrew {edition_id}: against S{n - 1}, "

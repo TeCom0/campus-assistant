@@ -52,9 +52,33 @@ def test_a_better_rank_is_reported_but_loses_nothing():
 
 def test_withdrawal_differences_compare_results_exactly_and_other_editions_counts():
     before = _snapshot({"a": 1}, {"a": [("x", 0, "0.5")]}, {"x": 3})
+    just_before = {"x": 3, "fixture": 2}
     same = _snapshot({"a": 1}, {"a": [("x", 0, "0.5")]}, {"x": 3, "fixture": 2})
-    assert check.differences(before, same, "fixture") == []
-    score = _snapshot({"a": 1}, {"a": [("x", 0, "0.50000001")]}, {"x": 3})
-    assert check.differences(before, score, "fixture") == ["a"]
-    count = _snapshot({"a": 1}, {"a": [("x", 0, "0.5")]}, {"x": 4})
-    assert check.differences(before, count, "fixture") == ["chunk counts: {'x': 3} -> {'x': 4}"]
+    assert check.differences(before, same, just_before, "fixture") == []
+    score = _snapshot({"a": 1}, {"a": [("x", 0, "0.50000001")]}, {"x": 3, "fixture": 2})
+    assert check.differences(before, score, just_before, "fixture") == ["a"]
+    count = _snapshot({"a": 1}, {"a": [("x", 0, "0.5")]}, {"x": 4, "fixture": 2})
+    assert check.differences(before, count, just_before, "fixture") == [
+        "chunk counts: {'x': 3} -> {'x': 4}"
+    ]
+
+
+def test_an_edition_ingested_later_and_withdrawn_earlier_is_not_a_difference():
+    # The first run's bug: "later" isn't in the snapshot from before "fixture" was ingested,
+    # but its rows stay after its own withdrawal, so counts compare just before and after.
+    before = _snapshot({"a": 1}, {"a": [("x", 0, "0.5")]}, {"x": 3})
+    after = _snapshot({"a": 1}, {"a": [("x", 0, "0.5")]}, {"x": 3, "later": 2, "fixture": 1})
+    just_before = {"x": 3, "later": 2, "fixture": 1}
+    assert check.differences(before, after, just_before, "fixture") == []
+
+
+def _row(passed=True, known=False, elsewhere=()):
+    return {"passed": passed, "known_miss": known, "misattributed": list(elsewhere)}
+
+
+def test_item6_allows_only_the_known_miss_and_never_a_misattribution():
+    assert check.item6_passed([_row(), _row(passed=False, known=True)])
+    assert not check.item6_passed([_row(), _row(passed=False)])
+    assert not check.item6_passed([_row(passed=False, known=True, elsewhere=["catalog"])])
+    assert not check.item6_passed([_row(elsewhere=["catalog"])])
+    assert set(check.KNOWN_MISSES) == {"fixture_finance_refund_fr"}
